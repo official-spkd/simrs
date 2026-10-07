@@ -335,10 +335,18 @@ describe('izin klinis (fase 3, rencana §3.0a)', () => {
 
   it('pendaftaran: bed lingkup all; RM/koder baca klinis all; manajemen baca bed; auditor mutu baca order', () => {
     expect(grantOf(DEFAULT_ROLE_GRANTS.petugas_pendaftaran, 'bed', 'write')).toBe('all');
-    // Papan IGD + triase loket IGD: baca klinis dan triase lingkup unit, tanpa menulis catatan klinis.
-    expect(grantOf(DEFAULT_ROLE_GRANTS.petugas_pendaftaran, 'clinical', 'read')).toBe('unit');
-    expect(grantOf(DEFAULT_ROLE_GRANTS.petugas_pendaftaran, 'triage', 'write')).toBe('unit');
-    expect(grantOf(DEFAULT_ROLE_GRANTS.petugas_pendaftaran, 'clinical', 'write')).toBeNull();
+    // ADR-0109: pendaftaran tanpa isi klinis sama sekali; papan IGD administratif lewat `encounter.read`.
+    for (const [resource, action] of [
+      ['clinical', 'read'],
+      ['clinical', 'write'],
+      ['triage', 'write'],
+    ] as const) {
+      expect(
+        grantOf(DEFAULT_ROLE_GRANTS.petugas_pendaftaran, resource, action),
+        `${resource}.${action}`,
+      ).toBeNull();
+    }
+    expect(grantOf(DEFAULT_ROLE_GRANTS.petugas_pendaftaran, 'encounter', 'read')).toBe('all');
     // Perawat/bidan menyiapkan draf persetujuan, menjadi saksi, memandu tablet; tanda tangan hanya dokter.
     for (const role of ['perawat', 'bidan'] as const) {
       expect(grantOf(DEFAULT_ROLE_GRANTS[role], 'consent', 'write'), role).toBe('unit');
@@ -353,19 +361,21 @@ describe('izin klinis (fase 3, rencana §3.0a)', () => {
     expect(grantOf(DEFAULT_ROLE_GRANTS.auditor_mutu, 'order', 'read')).toBe('all');
   });
 
+  it('ADR-0109: cari konsultan hanya dokter/residen; penetapan DPJP utama manajemen medis tanpa bawaan', () => {
+    expect(PERMISSION_CATALOG.consult.actions).toEqual(['request']);
+    expect(PERMISSION_CATALOG.care_team.actions).toEqual(['assign']);
+    expect(holders('consult', 'request')).toEqual(['dokter', 'dokter_residen']);
+    // Komite medik/kepala SMF ditetapkan RS (peran sendiri): tidak ada pemegang bawaan.
+    expect(holders('care_team', 'assign')).toEqual([]);
+  });
+
   it('hak minimum: pemberian obat, co-sign, TTE, dan kelola order set/CDS', () => {
     expect(holders('medication', 'administer')).toEqual(['bidan', 'perawat']);
     expect(holders('clinical', 'cosign')).toEqual(['dokter']);
     expect(holders('clinical', 'sign')).toEqual(['dokter']);
     // Order set institusi dan basis CDS dikelola komite farmasi/PFT yang ditetapkan RS (keputusan 10): tanpa bawaan.
     expect(holders('order', 'manage')).toEqual([]);
-    expect(holders('triage', 'write')).toEqual([
-      'bidan',
-      'dokter',
-      'dokter_residen',
-      'perawat',
-      'petugas_pendaftaran',
-    ]);
+    expect(holders('triage', 'write')).toEqual(['bidan', 'dokter', 'dokter_residen', 'perawat']);
   });
 
   it('hak ubah klinis selalu disertai hak baca dengan lingkup tidak lebih sempit', () => {

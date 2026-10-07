@@ -7,13 +7,14 @@ import { IgdLive, type IgdPermissions } from './igd-live';
 
 /**
  * K03 · IGD mode api (layar W3): papan IGD dari API (unit penugasan; potret per pasien diaudit API), real-time lewat
- * SSE (`./events`). Aksi mengikuti izin sesi (pendaftaran IGD `encounter.write`, triase/status `triage.write`,
+ * SSE (`./events`; loket pendaftaran tanpa `clinical.read` memakai papan administratif tanpa triase dan
+ * `./events/admisi`, ADR-0109). Aksi mengikuti izin sesi (pendaftaran IGD `encounter.write`, triase/status `triage.write`,
  * permintaan bed `bed.write`, SEP `coverage.write`); semuanya ditegakkan ulang API. `?pilih=` = pasien terpilih.
  */
 export async function ApiIgd({ session, pilih }: { session: SessionView; pilih: string | null }) {
   let board;
   try {
-    board = await getEdBoardLive();
+    board = await getEdBoardLive(session);
   } catch (err) {
     if (err instanceof ApiError && (err.status === 403 || err.status === 404)) {
       return (

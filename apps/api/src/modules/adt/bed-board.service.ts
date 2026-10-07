@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { readTenantSetting } from '@simrs/db';
 import { AppError, type BedBoardApi, type BedStatus } from '@simrs/shared';
 import { TenantDb } from '../../infra/tenant-db';
+import { patientAccessSql } from '../authz/patient-access.service';
 import { minutesSince, patientInitials } from './adt-helpers';
 
 type RequestStatus = BedBoardApi['requests'][number]['status'];
@@ -21,7 +22,9 @@ export function aplicareState(r: {
 /**
  * K05 · Potret papan bed (bangsal rawat inap + bed IGD): status bertulisan + versi (dasar `baseVersion`), label pasien
  * HANYA inisial, permintaan bed terbuka dengan penanda boarding (> `bed.boarding_alert_hours`), status kirim Aplicare
- * per ruang (bangsal × kelas). Lingkup `unit`: unit penugasan saja.
+ * per ruang (bangsal × kelas). Lingkup `unit`: unit penugasan saja. ADR-0109: lingkup `relationship` hanya melihat
+ * penghuni/permintaan pasien berelasi (bed lain tetap tampil statusnya, tanpa kunjungan); catatan bebas permintaan bed
+ * hanya untuk peminta dan pelaku berelasi dengan pasien (relasi aktif atau akses darurat), bukan papan umum.
  */
 @Injectable()
 export class BedBoardService {
@@ -61,7 +64,7 @@ export class BedBoardService {
     const encounterIds = locations.flatMap((l) =>
       l.bedStatus?.encounterId ? [l.bedStatus.encounterId] : [],
     );
-    const requests = await tx.bedRequest.findMany({
+    const allRequests = await tx.bedRequest.findMany({
       where: {
         status: { in: ['menunggu', 'dialokasi'] },
         ...(unitFilter
@@ -70,7 +73,19 @@ export class BedBoardService {
       },
       orderBy: { requestedAt: 'asc' },
     });
-    const names = await this.patientNames([...encounterIds, ...requests.map((r) => r.encounterId)]);
+    const patients = await this.encounterPatients([
+      ...encounterIds,
+      ...allRequests.map((r) => r.encounterId),
+    ]);
+    const related = await this.relatedPatients(
+      [...new Set([...patients.values()].map((p) => p.patientId))],
+      now,
+    );
+    const me = this.db.actorUserId();
+    const visible = (encounterId: string) =>
+      scope !== 'relationship' || related.has(patients.get(encounterId)?.patientId ?? '');
+    const requests = allRequests.filter((r) => visible(r.encounterId));
+    const names = new Map([...patients].map(([id, p]) => [id, p.name]));
     const requestEncounters = await this.requestEncounters(requests.map((r) => r.encounterId));
     const rooms = await tx.aplicareRoom.findMany({
       where: { unitId: { in: unitIds } },
@@ -98,7 +113,8 @@ export class BedBoardService {
           .filter((l) => l.unitId === u.id && l.bedStatus)
           .map((l) => {
             const s = l.bedStatus as NonNullable<typeof l.bedStatus>;
-            const name = s.encounterId ? names.get(s.encounterId) : undefined;
+            const shown = s.encounterId && visible(s.encounterId) ? s.encounterId : null;
+            const name = shown ? names.get(shown) : undefined;
             return {
               bedId: l.id,
               code: l.code,
@@ -106,7 +122,7 @@ export class BedBoardService {
               careClass: l.careClass,
               status: s.status as BedStatus,
               version: s.version,
-              encounterId: s.encounterId,
+              encounterId: shown,
               patientLabel: name ? patientInitials(name) : null,
               since: s.changedAt.toISOString(),
             };
@@ -130,7 +146,7 @@ export class BedBoardService {
           waitMinutes: wait,
           boarding: r.origin === 'igd' && wait >= boardingAlertHours * 60,
           allocatedBedId: r.allocatedLocationId,
-          note: r.note,
+          note: (me !== null && r.requestedBy === me) || related.has(r.patientId) ? r.note : null,
         };
       }),
     };
@@ -172,12 +188,24 @@ export class BedBoardService {
     );
   }
 
-  private async patientNames(encounterIds: string[]): Promise<Map<string, string>> {
+  private async encounterPatients(
+    encounterIds: string[],
+  ): Promise<Map<string, { patientId: string; name: string }>> {
     if (encounterIds.length === 0) return new Map();
     const rows = await this.db.tx().encounter.findMany({
       where: { id: { in: [...new Set(encounterIds)] } },
-      select: { id: true, patient: { select: { name: true } } },
+      select: { id: true, patientId: true, patient: { select: { name: true } } },
     });
-    return new Map(rows.map((r) => [r.id, r.patient.name]));
+    return new Map(rows.map((r) => [r.id, { patientId: r.patientId, name: r.patient.name }]));
+  }
+
+  /** Pasien yang berelasi dengan pelaku (relasi aktif atau akses darurat; tanpa dasar unit/peran). */
+  private async relatedPatients(patientIds: string[], now: Date): Promise<Set<string>> {
+    const userId = this.db.actorUserId();
+    if (!userId || patientIds.length === 0) return new Set();
+    const rows = await this.db.tx().$queryRaw<Array<{ id: string }>>`
+      SELECT p.id::text FROM patients p
+      WHERE p.id = ANY(${patientIds}::uuid[]) AND ${patientAccessSql({ userId, unitId: null }, now)}`;
+    return new Set(rows.map((r) => r.id));
   }
 }

@@ -254,7 +254,8 @@ test.describe('smoke', () => {
     expect((await page.goto(`/klinis/resume/${ENCOUNTER_ID.hartono}`))?.status()).toBe(200);
     await expect(page.getByText('Kunjungan tidak ditemukan')).toBeVisible();
 
-    // Petugas pendaftaran (admisi IGD): papan IGD terbuka (`clinical.read`), Pemeriksaan poli tidak.
+    // Petugas pendaftaran (admisi IGD, tanpa izin klinis): papan IGD administratif terbuka (`encounter.write`,
+    // ADR-0109), Pemeriksaan poli tidak.
     await page.context().clearCookies();
     const admisi = await createAccount({ roles: ['petugas_pendaftaran'] });
     await loginAs(page, admisi);

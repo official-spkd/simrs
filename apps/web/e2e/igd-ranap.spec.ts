@@ -149,9 +149,12 @@ test.describe('IGD → rawat inap (layar W3, mode api)', () => {
     await save.click();
     await expect(panel2.getByText('Triase 3 tersimpan.')).toBeVisible();
 
-    // Jendela 1 menampilkan level triase tanpa muat ulang.
+    // Jendela 2 (klinis) menampilkan level triase; jendela 1 (loket pendaftaran, papan administratif ADR-0109) tidak
+    // menerima isi triase sama sekali.
+    await expect(row2).toContainText('3 · Urgen', { timeout: 15_000 });
     const row1 = igd1.getByRole('button', { name: new RegExp(name) });
-    await expect(row1).toContainText('3 · Urgen', { timeout: 15_000 });
+    await expect(row1).toContainText('Triase klinis');
+    await expect(row1).not.toContainText('Urgen');
 
     // 2b · Dokter jaga IGD "Ambil pasien" → penanggung jawab tampil di papan jendela 1 tanpa muat ulang.
     const jaga = await igdAccount('dokter', 'dr. Jaga IGD E2E Fiktif');
@@ -204,7 +207,15 @@ test.describe('IGD → rawat inap (layar W3, mode api)', () => {
     await tile.click();
     const bedPanel = bed.getByRole('region', { name: `Bed ${bedCode}` });
     await bedPanel.getByRole('link', { name: 'Gelang identitas pasien' }).click();
-    await expect(bed.getByRole('article', { name: 'Gelang identitas pasien' })).toContainText(name);
+    const sheet = bed.getByRole('article', { name: 'Gelang identitas pasien' });
+    await expect(sheet).toContainText(name);
+    // ADR-0109: kode gelang tidak termuat saat halaman dibuka; keluar lewat aksi cetak (diaudit `print`).
+    await expect(sheet.getByLabel('Kode gelang')).toHaveCount(0);
+    await bed.evaluate(() => {
+      window.print = () => undefined;
+    });
+    await bed.getByRole('button', { name: 'Cetak gelang' }).click();
+    await expect(sheet.getByLabel('Kode gelang')).toHaveText(/^GL[A-Z2-9]{10}$/);
     await bed.goBack();
 
     // 6 · Pulang lewat `DischargeGate` (3.6): tanpa resume final syaratnya tampil beralasan; resume final ber-TTE

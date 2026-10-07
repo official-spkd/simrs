@@ -139,7 +139,7 @@ export function EdBoardTable({
                     </span>
                   </span>
                   <span className="px-3 py-2.5">
-                    <TriageBadge level={p.triageLevel} />
+                    <TriageBadge level={p.triageLevel} hidden={p.triageHidden} />
                   </span>
                   <span className="col-span-2 px-3 pb-2 text-small @4xl:col-span-1 @4xl:py-2.5">
                     {p.chiefComplaint}

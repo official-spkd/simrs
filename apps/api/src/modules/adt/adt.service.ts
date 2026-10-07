@@ -15,6 +15,7 @@ import {
   newId,
   type TransferInput,
   type WristbandPrint,
+  type WristbandStatus,
 } from '@simrs/shared';
 import { CareTeamService } from '../../infra/clinical/care-team.service';
 import { BillableRecorder, SatusehatRecorder } from '../../infra/clinical/staging';
@@ -240,7 +241,7 @@ export class AdtService {
       { placedAt: input.locationId },
       now,
     );
-    const wristbandCode = await this.issueWristband(enc.id, enc.patientId, null);
+    await this.issueWristband(enc.id, enc.patientId, null);
 
     // DPJP admisi masuk tim perawatan (relasi akses, ADR-0031).
     if (enc.practitionerId) {
@@ -314,7 +315,7 @@ export class AdtService {
       patientId: enc.patientId,
       details: { bed: input.locationId, sep: sepId !== null },
     });
-    return { encounterId: enc.id, bedId: input.locationId, wristbandCode, sepId };
+    return { encounterId: enc.id, bedId: input.locationId, sepId };
   }
 
   async transfer(input: TransferInput) {
@@ -444,20 +445,53 @@ export class AdtService {
   // Gelang
   // ----------------------------------------------------------------------------------------------------------
 
-  async wristband(encounterId: string): Promise<WristbandPrint> {
-    const tx = this.db.tx();
-    const band = await tx.patientWristband.findFirst({
-      where: { encounterId, voidedAt: null },
-      include: { patient: { select: { id: true, name: true, mrn: true, birthDate: true, sex: true } } },
+  /** Gelang aktif TANPA kode (ADR-0109): identitas pada gelang + waktu terbit, diaudit `read`. */
+  async wristband(encounterId: string): Promise<WristbandStatus> {
+    const band = await this.activeBand(encounterId);
+    this.db.audit({
+      action: 'read',
+      resourceType: 'wristband',
+      resourceId: band.id,
+      patientId: band.patientId,
     });
-    if (!band) throw new AppError('NOT_FOUND', 'Gelang aktif tidak ditemukan', 404);
-    await this.access.assert(band.patientId);
+    const { code: _code, ...status } = this.bandView(encounterId, band);
+    return status;
+  }
+
+  /**
+   * Aksi cetak gelang (ADR-0109): satu-satunya jalan kode aktif keluar selain cetak ulang; diaudit `print`. eMAR tidak
+   * memakai jalur ini: pindaian dicocokkan dengan kode tersimpan di server (`POST /nursing/wristband-scans`).
+   */
+  async printWristband(encounterId: string): Promise<WristbandPrint> {
+    const band = await this.activeBand(encounterId);
     this.db.audit({
       action: 'print',
       resourceType: 'wristband',
       resourceId: band.id,
       patientId: band.patientId,
     });
+    return this.bandView(encounterId, band);
+  }
+
+  /** Cetak ulang beralasan: gelang lama batal (tutup-sekali), kode baru terbit dan langsung dicetak. */
+  async reprintWristband(encounterId: string, reason: string): Promise<WristbandPrint> {
+    const enc = await this.activeEncounter(encounterId);
+    await this.access.assert(enc.patientId);
+    await this.issueWristband(enc.id, enc.patientId, reason);
+    return this.printWristband(enc.id);
+  }
+
+  private async activeBand(encounterId: string) {
+    const band = await this.db.tx().patientWristband.findFirst({
+      where: { encounterId, voidedAt: null },
+      include: { patient: { select: { id: true, name: true, mrn: true, birthDate: true, sex: true } } },
+    });
+    if (!band) throw new AppError('NOT_FOUND', 'Gelang aktif tidak ditemukan', 404);
+    await this.access.assert(band.patientId);
+    return band;
+  }
+
+  private bandView(encounterId: string, band: Awaited<ReturnType<AdtService['activeBand']>>): WristbandPrint {
     return {
       encounterId,
       code: band.code,
@@ -467,14 +501,6 @@ export class AdtService {
       sex: band.patient.sex,
       issuedAt: band.issuedAt.toISOString(),
     };
-  }
-
-  /** Cetak ulang beralasan: gelang lama batal (tutup-sekali), kode baru terbit. */
-  async reprintWristband(encounterId: string, reason: string): Promise<WristbandPrint> {
-    const enc = await this.activeEncounter(encounterId);
-    await this.access.assert(enc.patientId);
-    await this.issueWristband(enc.id, enc.patientId, reason);
-    return this.wristband(enc.id);
   }
 
   // ----------------------------------------------------------------------------------------------------------

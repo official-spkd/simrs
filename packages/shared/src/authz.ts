@@ -43,6 +43,12 @@ export const PERMISSION_CATALOG = {
   bed: { label: 'Tempat tidur & ADT (admisi, transfer, pulang)', actions: ['read', 'write'] },
   consent: { label: 'Persetujuan tindakan', actions: ['read', 'write', 'sign'] },
   result: { label: 'Hasil penunjang (observasi, laporan)', actions: ['read', 'write'] },
+  // ADR-0109 · Konsultasi antardokter (cari dokter konsultan) dan penetapan DPJP utama oleh manajemen medis.
+  consult: { label: 'Konsultasi antardokter (cari konsultan)', actions: ['request'] },
+  care_team: {
+    label: 'Penetapan DPJP utama oleh manajemen medis (komite medik/kepala SMF)',
+    actions: ['assign'],
+  },
   // S01–S10 · Penunjang (fase 4, rencana §4.0a)
   'lab.worklist': { label: 'Worklist laboratorium', actions: ['read'] },
   'lab.specimen': {
@@ -287,6 +293,8 @@ const DOCTOR_CLINICAL: Grant[] = [
   ['result', 'read', 'unit'],
   ['triage', 'write', 'unit'],
   ['bed', 'read', 'unit'],
+  // ADR-0109: daftar dokter konsultan bukan data pasien; ABAC pasien tetap di permintaan konsul.
+  ['consult', 'request', 'all'],
 ];
 
 /** Residen: menulis dan mengoreksi tanpa co-sign/TTE (CPPT menunggu co-sign DPJP); order langsung aktif, ditinjau DPJP. */
@@ -300,6 +308,7 @@ const RESIDENT_CLINICAL: Grant[] = [
   ['result', 'read', 'unit'],
   ['triage', 'write', 'unit'],
   ['bed', 'read', 'unit'],
+  ['consult', 'request', 'all'],
 ];
 
 /** Perawat dan bidan: semuanya lingkup unit (eMAR, triase, bed, saksi persetujuan). */
@@ -439,9 +448,8 @@ export const DEFAULT_ROLE_GRANTS: Record<SystemRoleCode, readonly Grant[]> = {
     // K04/K05 · Admisi dan papan bed seluruh RS.
     ['bed', 'read', 'all'],
     ['bed', 'write', 'all'],
-    // K03 · Papan IGD dan triase awal di loket IGD (keputusan orkestrator 5 Okt 2026): lingkup unit penugasan IGD.
-    ['clinical', 'read', 'unit'],
-    ['triage', 'write', 'unit'],
+    // K03 · Tanpa `clinical.read`/`triage.write` (ADR-0109, 8 Okt 2026): triase oleh perawat/dokter IGD; loket IGD
+    // memakai papan IGD administratif (`GET /triage/board/admission`, `encounter.read`) tanpa isi triase.
   ],
   perawat: [
     ...CLINICAL_READ,

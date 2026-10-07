@@ -44,7 +44,8 @@ export class ConsultController {
     return this.consult.respond(id, body);
   }
 
-  @RequirePermission('clinical', 'write')
+  /** Daftar dokter konsultan: hanya pengirim konsul (`consult.request`, dokter/residen; ADR-0109). */
+  @RequirePermission('consult', 'request')
   @Get('consultants')
   consultants(@Query(new ZodValidationPipe(consultantSearchQuerySchema)) q: ConsultantSearchQuery) {
     return this.consult.consultants(q);

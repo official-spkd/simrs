@@ -7,6 +7,7 @@ import { ensureClinicalFixtures } from './support/clinical';
 import { registerTestDevices } from './support/devices';
 import { e2eFieldKeys } from './support/field-keys';
 import { resetMockState } from './support/mock';
+import { reconcileQueueSequences } from './support/queue';
 import { ensureStockFixtures } from './support/stock';
 import { ensureRsfaSchedule } from './support/schedule';
 
@@ -36,6 +37,8 @@ export default async function globalSetup(): Promise<void> {
     await ensureClinicalFixtures(prisma, tenant.id, tmpDir);
     // Fase 4: depo/gudang + stok awal fiktif + akun apoteker FARMASI dan IGD (`support/stock.ts`).
     await ensureStockFixtures(prisma, tenant.id, tmpDir);
+    // Urutan nomor antrean disamakan dengan tiket yang ada (DB slot dipakai ulang tidak memicu 409; ADR-0109).
+    await reconcileQueueSequences(prisma, tenant.id);
   } finally {
     await prisma.$disconnect();
   }

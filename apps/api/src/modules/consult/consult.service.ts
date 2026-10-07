@@ -61,9 +61,11 @@ type ResponseRow = ClinicalRowLike & {
  *   akses `konsultan` berbatas waktu (`CONSULT_ACCESS_HOURS`) dan notifikasi tanpa PHI;
  * - jawaban terstruktur HANYA oleh dokter tujuan (atau, bila tujuan hanya unit, dokter yang bertugas di unit itu),
  *   bukan pengirimnya; selain itu 403 `CONSULT_NOT_RECIPIENT`. Satu rantai jawaban per permintaan;
- * - konsul sekali yang dijawab: akses konsultan berakhir `CONSULT_ACCESS_HOURS` setelah jawaban;
+ * - konsul dijawab/ditolak: akses konsultan berakhir saat itu juga (ADR-0109); koreksi permintaan ke penerima lain
+ *   mencabut akses penerima lama; DPJP utama berganti mencabut akses konsultan rantai konsul kunjungan itu;
  * - menerima rawat bersama → anggota tim `rawat_bersama`; menerima alih rawat → DPJP utama lama diakhiri dan penjawab
- *   menjadi DPJP utama (relasi akses ikut, `CareTeamService`); serah DPJP utama langsung lewat `changePrimary`;
+ *   menjadi DPJP utama (relasi akses ikut, `CareTeamService`); serah DPJP utama langsung lewat `changePrimary` (DPJP
+ *   utama aktif atau manajemen medis `care_team.assign`, ADR-0109);
  * - jawaban konsultasi = peristiwa biaya `konsultasi` sekali per rantai.
  */
 @Injectable()
@@ -123,6 +125,8 @@ export class ConsultService {
         },
       }),
     );
+    // ADR-0109: koreksi permintaan ke penerima lain mencabut akses penerima lama (sumber relasi = rantai permintaan).
+    if (f.supersedesId) await this.endConsultAccess([f.rootId], new Date(), input.toUserId);
     if (input.toUserId) {
       await this.grantConsultantAccess(input.toUserId, enc.patientId, f.rootId);
       if (!f.supersedesId && !f.addendumOf) {
@@ -194,9 +198,12 @@ export class ConsultService {
       }),
     );
     const first = !f.supersedesId && !f.addendumOf;
+    if (first && accept) await this.applyAcceptance(req, me.userId);
+    // ADR-0109: konsul selesai (dijawab) atau ditolak → akses konsultan lewat rantai ini berakhir saat itu juga.
+    // Yang menerima rawat bersama/alih rawat tetap berakses lewat keanggotaan tim perawatan aktifnya. Koreksi/addendum
+    // jawaban membuka akses sementara lagi (di atas) dan menutupnya di sini.
+    await this.endConsultAccess([req.rootId], new Date());
     if (first) {
-      if (accept) await this.applyAcceptance(req, me.userId);
-      else await this.limitConsultantAccess(req, new Date(Date.now() + CONSULT_ACCESS_HOURS * HOUR));
       await this.billable.record({
         encounterId: enc.id,
         patientId: enc.patientId,
@@ -355,15 +362,13 @@ export class ConsultService {
   }
 
   /**
-   * Serah DPJP utama (versi baru tim perawatan): hanya DPJP utama aktif yang menyerahkan (atau dokter berakses bila
-   * kunjungan belum punya DPJP utama). Keanggotaan lama diakhiri (relasi akses berlaku sampai akhir hari berikutnya),
-   * dokter baru menjadi DPJP utama dengan relasi akses baru.
+   * Serah/tetapkan DPJP utama (versi baru tim perawatan, ADR-0109): hanya DPJP utama aktif (dokter) atau manajemen
+   * medis (`care_team.assign`, mis. komite medik/kepala SMF), beralasan dan diaudit; selain itu 403, termasuk bila
+   * kunjungan belum punya DPJP utama. Keanggotaan lama diakhiri (relasi akses berlaku sampai akhir hari berikutnya),
+   * dokter baru menjadi DPJP utama, akses konsultan rantai konsul kunjungan ini berakhir.
    */
   async changePrimary(encounterId: string, input: PrimaryDpjpChangeInput): Promise<CareTeamMember[]> {
     const me = this.records.author();
-    if (me.role !== CONSULTANT_ROLE) {
-      throw new AppError('FORBIDDEN', 'DPJP utama hanya diserahkan oleh dokter', 403);
-    }
     const enc = await clinicalEncounter(this.db, this.access, encounterId, 'write');
     await lockClinicalKey(this.db, `care-team:${enc.id}`);
     const tx = this.db.tx();
@@ -371,8 +376,17 @@ export class ConsultService {
       where: { encounterId: enc.id, role: 'dpjp_utama', endedAt: null },
       select: { id: true, userId: true },
     });
-    if (current && current.userId !== me.userId) {
-      throw new AppError('FORBIDDEN', 'Hanya DPJP utama aktif yang bisa menyerahkan DPJP utama', 403);
+    const primary = !!current && current.userId === me.userId && me.role === CONSULTANT_ROLE;
+    const manager =
+      !primary &&
+      !!me.role &&
+      (await this.matrix.scope(this.db.tenantId(), me.role, 'care_team', 'assign')) !== null;
+    if (!primary && !manager) {
+      throw new AppError(
+        'FORBIDDEN',
+        'DPJP utama hanya diserahkan DPJP utama aktif atau ditetapkan manajemen medis',
+        403,
+      );
     }
     if (current?.userId === input.userId) {
       throw new AppError('VALIDATION_FAILED', 'Dokter ini sudah DPJP utama', 422, { fields: ['userId'] });
@@ -382,13 +396,19 @@ export class ConsultService {
     }
     if (current) await this.careTeam.end(current.id, input.reason);
     await this.careTeam.add({ encounterId: enc.id, userId: input.userId, role: 'dpjp_utama' });
+    await this.endConsultantsOnPrimaryChange(enc.id, input.reason);
     this.db.audit({
       action: 'update',
       resourceType: 'care_team',
       resourceId: enc.id,
       patientId: enc.patientId,
       reason: input.reason,
-      details: { role: 'dpjp_utama', from: current?.userId ?? null, to: input.userId },
+      details: {
+        role: 'dpjp_utama',
+        from: current?.userId ?? null,
+        to: input.userId,
+        by: primary ? 'dpjp_utama' : 'manajemen_medis',
+      },
     });
     return this.presentTeam(enc.id);
   }
@@ -497,17 +517,46 @@ export class ConsultService {
     });
   }
 
-  /** Konsul sekali dijawab: akses konsultan berakhir `until` (dipendekkan atau diperpanjang ke batas itu). */
-  private async limitConsultantAccess(req: RequestRow, until: Date): Promise<void> {
+  /**
+   * ADR-0109 · Akses konsultan (relasi bersumber rantai permintaan) berakhir `at`; `keep` = penerima yang tetap berhak
+   * (penerima versi koreksi terbaru). Relasi tim perawatan (rawat bersama/DPJP) tidak tersentuh.
+   */
+  private async endConsultAccess(rootIds: string[], at: Date, keep?: string | null): Promise<void> {
+    if (rootIds.length === 0) return;
     await this.db.tx().accessRelationship.updateMany({
       where: {
-        patientId: req.patientId,
         sourceType: CONSULT_ACCESS_SOURCE,
-        sourceId: req.rootId,
-        OR: [{ validUntil: null }, { validUntil: { gt: new Date() } }],
+        sourceId: { in: rootIds },
+        ...(keep ? { userId: { not: keep } } : {}),
+        OR: [{ validUntil: null }, { validUntil: { gt: at } }],
       },
-      data: { validUntil: until },
+      data: { validUntil: at },
     });
+  }
+
+  /**
+   * DPJP utama berganti (serah langsung atau alih rawat diterima): akses konsultan semua rantai konsul kunjungan ini
+   * berakhir dan anggota tim berperan `konsultan` diakhiri. Konsultan yang aktif sebagai rawat bersama tetap berakses
+   * lewat keanggotaan itu. Konsul yang belum dijawab tetap bisa dijawab penerimanya (akses dibuka sementara saat
+   * menjawab).
+   */
+  private async endConsultantsOnPrimaryChange(encounterId: string, reason: string): Promise<void> {
+    const tx = this.db.tx();
+    const now = new Date();
+    const roots = await tx.consultRequest.findMany({
+      where: { encounterId },
+      select: { rootId: true },
+      distinct: ['rootId'],
+    });
+    await this.endConsultAccess(
+      roots.map((r) => r.rootId),
+      now,
+    );
+    const consultants = await tx.encounterParticipant.findMany({
+      where: { encounterId, role: 'konsultan', endedAt: null },
+      select: { id: true },
+    });
+    for (const c of consultants) await this.careTeam.end(c.id, `DPJP utama berganti: ${reason}`, now);
   }
 
   /** Terima rawat bersama / alih rawat: tim perawatan (dan relasi akses) ikut berubah. */
@@ -530,6 +579,7 @@ export class ConsultService {
     }
     if (!active.some((p) => p.userId === me && p.role === 'dpjp_utama')) {
       await this.careTeam.add({ encounterId: req.encounterId, userId: me, role: 'dpjp_utama' });
+      await this.endConsultantsOnPrimaryChange(req.encounterId, 'Alih rawat lewat konsultasi');
     }
   }
 

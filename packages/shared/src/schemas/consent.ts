@@ -168,6 +168,8 @@ export type ConsentSignatureInput = z.infer<typeof consentSignatureInputSchema>;
 
 /** Batas ukuran PNG tanda tangan (unggahan biner ke draf). */
 export const CONSENT_SIGNATURE_MAX_BYTES = 512 * 1024;
+/** Batas jumlah gambar tanda tangan per draf (semua slot, termasuk ulang goresan; ADR-0109). */
+export const CONSENT_SIGNATURE_MAX_IMAGES = 5;
 /** Atestasi saksi petugas berlaku sekian menit sampai finalisasi (lewat dari itu saksi beratestasi ulang). */
 export const CONSENT_WITNESS_VALID_MINUTES = 30;
 

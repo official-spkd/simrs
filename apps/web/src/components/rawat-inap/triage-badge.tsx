@@ -3,7 +3,16 @@ import { cx } from '@simrs/ui';
 import { TRIAGE_META } from '@/lib/rawat-inap';
 
 /** Lencana triase: nomor level + nama level (status tidak hanya lewat warna). */
-export function TriageBadge({ level, className }: { level: TriageLevel | null; className?: string }) {
+export function TriageBadge({
+  level,
+  className,
+  hidden,
+}: {
+  level: TriageLevel | null;
+  className?: string;
+  /** Papan administratif (ADR-0109): level triase tidak dikirim ke loket pendaftaran. */
+  hidden?: boolean;
+}) {
   if (level === null) {
     return (
       <span
@@ -12,7 +21,7 @@ export function TriageBadge({ level, className }: { level: TriageLevel | null; c
           className,
         )}
       >
-        Belum triase
+        {hidden ? 'Triase klinis' : 'Belum triase'}
       </span>
     );
   }

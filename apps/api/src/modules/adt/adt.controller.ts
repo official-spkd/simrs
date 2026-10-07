@@ -138,8 +138,10 @@ export class AdtController {
 }
 
 /**
- * K04 · Gelang identitas per kunjungan (bentuk rute per-kunjungan kanonik fase 3): `GET /api/v1/encounters/:id/wristband`
- * (data cetak, diaudit `print`) dan `POST /api/v1/encounters/:id/wristband/reprint` (beralasan; gelang lama batal).
+ * K04 · Gelang identitas per kunjungan (bentuk rute per-kunjungan kanonik fase 3, ADR-0109): `GET
+ * /api/v1/encounters/:id/wristband` (gelang aktif TANPA kode, diaudit `read`), `POST .../wristband/print` (kode untuk
+ * dicetak, diaudit `print`), dan `POST .../wristband/reprint` (beralasan; gelang lama batal, kode baru dicetak). Izin
+ * cetak = `bed.write` (admisi, perawat/bidan).
  */
 @ApiTags('klinis · ADT dan papan bed (K04/K05)')
 @TenantScoped()
@@ -152,6 +154,13 @@ export class AdtEncounterController {
   @Get(':id/wristband')
   wristband(@Param('id', uuid) encounterId: string) {
     return this.adt.wristband(encounterId);
+  }
+
+  @RequirePermission('bed', 'write')
+  @Post(':id/wristband/print')
+  @HttpCode(200)
+  print(@Param('id', uuid) encounterId: string) {
+    return this.adt.printWristband(encounterId);
   }
 
   @RequirePermission('bed', 'write')

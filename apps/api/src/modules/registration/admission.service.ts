@@ -306,13 +306,12 @@ export class AdmissionService {
       where: { id: encounterId },
       select: { id: true, number: true, sourceEncounterId: true },
     });
-    const [assignment, band, sep] = await Promise.all([
+    const [assignment, sep] = await Promise.all([
       tx.bedAssignment.findFirst({
         where: { encounterId },
         orderBy: { startedAt: 'desc' },
         include: { location: { select: { code: true } } },
       }),
-      tx.patientWristband.findFirst({ where: { encounterId, voidedAt: null }, select: { code: true } }),
       tx.sep.findFirst({ where: { encounterId }, orderBy: { createdAt: 'desc' }, select: { id: true } }),
     ]);
     if (!assignment || !enc.sourceEncounterId) throw new Error('admisi IGD tanpa bed/kunjungan asal');
@@ -321,7 +320,6 @@ export class AdmissionService {
       number: enc.number,
       bedId: assignment.locationId,
       bedCode: assignment.location.code,
-      wristbandCode: band?.code ?? '',
       sepId: sep?.id ?? null,
       sourceEncounterId: enc.sourceEncounterId,
     };

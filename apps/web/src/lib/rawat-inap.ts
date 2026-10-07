@@ -292,6 +292,8 @@ export interface EdBoardRow {
   ageLabel: string;
   guarantor: string;
   triageLevel: TriageLevel | null;
+  /** Papan administratif (loket IGD, ADR-0109): isi triase tidak dikirim, lencana tidak berbunyi "Belum triase". */
+  triageHidden?: boolean;
   chiefComplaint: string;
   doctor: string | null;
   losMinutes: number;

@@ -42,3 +42,16 @@ Action kembali bawaan (1 MB); gambar tanda tangan tablet dibatasi 256 KB per gam
 - Kode galat baru `CONSULT_NOT_RECIPIENT` (403).
 - Layar demo Konsultasi dan Paket layanan tetap mode presentasi. Sambungan mode api untuk konsultasi menjadi bagian layar Rawat inap (W4) atau layar Konsultasi pada gelombang berikutnya.
 - Akses konsultan yang kedaluwarsa tidak diperpanjang otomatis. Konsultan yang masih perlu membuka rekam memakai rawat bersama atau akses darurat yang tercatat.
+
+## Pembaruan 7 Oktober 2026 · Akses konsultan dan serah DPJP (ADR-0109)
+
+Keputusan orkestrator atas review keamanan fase 3 (rincian di ADR-0109):
+
+- Akses konsultan berakhir saat itu juga ketika konsul dijawab atau ditolak. Ini menggantikan aturan "24 jam setelah
+  jawaban".
+- Akses penerima lama dicabut bila permintaan dikoreksi ke penerima lain.
+- Akses konsultan semua rantai konsul kunjungan berakhir bila DPJP utama berganti. Konsultan yang aktif sebagai rawat
+  bersama tetap berakses lewat tim perawatan.
+- Serah/penetapan DPJP utama hanya oleh DPJP utama aktif atau manajemen medis (`care_team.assign`), beralasan dan
+  diaudit.
+- Daftar konsultan memakai izin `consult.request` (dokter/residen).

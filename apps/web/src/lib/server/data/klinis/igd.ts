@@ -12,7 +12,7 @@ import { DEMO_NOW } from '../../../demo/fixtures/waktu';
 import { applyIgd, type IgdDeath, type IgdState, walkInItems } from '../../../klinis-igd-toko';
 import { admissionFlows, type BedState } from '../../../rawat-inap-bed-toko';
 import { hartonoEdItem } from '../../../rawat-inap-scenario';
-import type { SessionView } from '../../../session-view';
+import { can, type SessionView } from '../../../session-view';
 import { scenarioRuns } from '../../demo/scenario-context';
 import { readDomain } from '../../demo/state';
 import { api } from '../../api';
@@ -27,9 +27,13 @@ import { notImplemented } from '../not-implemented';
  * (layar W3): `getEdBoardLive` = papan IGD API (`GET /triage/board`, unit penugasan; diaudit per pasien oleh API).
  */
 
-/** K03 · Papan IGD mode api (layar W3, ADR-0104). Galat API (`ApiError`) diteruskan ke halaman. */
-export async function getEdBoardLive(): Promise<EdBoardApi> {
-  return api('/api/v1/triage/board', { schema: edBoardApiSchema });
+/**
+ * K03 · Papan IGD mode api (layar W3, ADR-0104). Peran tanpa `clinical.read` (loket pendaftaran IGD) memakai papan
+ * administratif tanpa isi triase (ADR-0109). Galat API (`ApiError`) diteruskan ke halaman.
+ */
+export async function getEdBoardLive(session: SessionView): Promise<EdBoardApi> {
+  const path = can(session, 'clinical', 'read') ? '/api/v1/triage/board' : '/api/v1/triage/board/admission';
+  return api(path, { schema: edBoardApiSchema });
 }
 
 /** Papan IGD + toko (tanpa yang sudah tiba di bangsal atau meninggal). */

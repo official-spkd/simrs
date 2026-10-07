@@ -12,6 +12,7 @@ import {
   emergencyAdmissionInputSchema,
   emergencyAdmissionResultSchema,
   transferInputSchema,
+  type WristbandPrint,
   wristbandPrintSchema,
   wristbandReprintInputSchema,
 } from '@simrs/shared';
@@ -106,9 +107,7 @@ export async function emergencyAdmitAction(
 }
 
 /** Admisi terencana (`planned`, mis. SPRI) masuk bed yang sudah dipesan untuknya. */
-export async function admitPlannedAction(
-  input: unknown,
-): Promise<ApiActionResult<{ encounterId: string; wristbandCode: string }>> {
+export async function admitPlannedAction(input: unknown): Promise<ApiActionResult<{ encounterId: string }>> {
   const auth = await authorizeApi('bed.write', BED_DENIED);
   if (!auth.ok) return auth;
   const p = admitInputSchema.safeParse(input);
@@ -119,7 +118,7 @@ export async function admitPlannedAction(
       body: p.data,
       schema: admissionResultApiSchema,
     });
-    return { encounterId: r.encounterId, wristbandCode: r.wristbandCode };
+    return { encounterId: r.encounterId };
   });
 }
 
@@ -150,22 +149,35 @@ export async function dischargeAction(input: unknown): Promise<ApiActionResult<{
   );
 }
 
+/**
+ * Aksi cetak gelang (ADR-0109): satu-satunya jalan kode gelang aktif sampai ke layar (diaudit `print` oleh API).
+ * Halaman cetak memanggilnya saat petugas menekan "Cetak gelang", bukan saat halaman dibuka.
+ */
+export async function printWristbandAction(encounterId: unknown): Promise<ApiActionResult<WristbandPrint>> {
+  const auth = await authorizeApi('bed.write', BED_DENIED);
+  if (!auth.ok) return auth;
+  const id = uuid.safeParse(encounterId);
+  if (!id.success) return { ok: false, message: 'Kunjungan tidak sah.' };
+  return attempt(() =>
+    api(`/api/v1/encounters/${id.data}/wristband/print`, { method: 'POST', schema: wristbandPrintSchema }),
+  );
+}
+
 export async function reprintWristbandAction(
   encounterId: unknown,
   input: unknown,
-): Promise<ApiActionResult<{ code: string }>> {
+): Promise<ApiActionResult<WristbandPrint>> {
   const auth = await authorizeApi('bed.write', BED_DENIED);
   if (!auth.ok) return auth;
   const id = uuid.safeParse(encounterId);
   const p = wristbandReprintInputSchema.safeParse(input);
   if (!id.success || !p.success)
     return { ok: false, message: p.error ? issue(p.error) : 'Kunjungan tidak sah.' };
-  return attempt(async () => {
-    const r = await api(`/api/v1/encounters/${id.data}/wristband/reprint`, {
+  return attempt(() =>
+    api(`/api/v1/encounters/${id.data}/wristband/reprint`, {
       method: 'POST',
       body: p.data,
       schema: wristbandPrintSchema,
-    });
-    return { code: r.code };
-  });
+    }),
+  );
 }

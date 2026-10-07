@@ -253,8 +253,8 @@ describe('papan IGD untuk layar W3', () => {
         locationId: igdBed,
       })
       .expect(201);
-    // Petugas pendaftaran di unit IGD juga membuka papan (layar W3 bergerbang `clinical.read`).
-    const board = await as('daftarIgd').get('/triage/board').expect(200);
+    const board = await as('perawatIgd').get('/triage/board').expect(200);
+    expect(board.body.view).toBe('klinis');
     expect(board.body.unitName).toBe('Instalasi Gawat Darurat');
     const item = board.body.items.find((i: { encounterId: string }) => i.encounterId === e.encounterId);
     expect(item).toMatchObject({
@@ -272,11 +272,44 @@ describe('papan IGD untuk layar W3', () => {
     expect(item.triage.reasons.length).toBeGreaterThan(0);
     const bedRow = board.body.beds.find((b: { bedId: string }) => b.bedId === igdBed);
     expect(bedRow).toMatchObject({ status: 'terisi', encounterId: e.encounterId });
+
+    // ADR-0109: loket pendaftaran IGD tanpa izin klinis. Papan klinis 403; papan administratif tanpa isi triase.
+    await as('daftarIgd').get('/triage/board').expect(403);
+    const admin = await as('daftarIgd').get('/triage/board/admission').expect(200);
+    expect(admin.body.view).toBe('administratif');
+    const adminItem = admin.body.items.find((i: { encounterId: string }) => i.encounterId === e.encounterId);
+    expect(adminItem).toMatchObject({
+      patientName: item.patientName,
+      payer: { kind: 'bpjs' },
+      status: 'pemeriksaan',
+      bedId: igdBed,
+      triage: null,
+      sep: { status: 'pending', number: null },
+    });
+    expect(JSON.stringify(admin.body)).not.toContain('nyeri_sedang');
+    // Triase, saran, dan status alur hanya petugas klinis.
+    await as('daftarIgd')
+      .post('/triage/assessments', {
+        encounterId: e.encounterId,
+        occurredAt: new Date().toISOString(),
+        vitals,
+        discriminators: [],
+        chosenLevel: 3,
+        overrideReason: null,
+        revision: { kind: 'baru' },
+      })
+      .expect(403);
+    await as('daftarIgd')
+      .post(`/encounters/${e.encounterId}/ed-status`, { status: 'observasi', zone: 'B', locationId: igdBed })
+      .expect(403);
   });
 
   it('pratinjau saran triase dari server tanpa menyimpan; perawat bangsal 403', async () => {
     const e = await igd();
-    const r = await as('daftarIgd')
+    await as('daftarIgd')
+      .post('/triage/suggestions', { encounterId: e.encounterId, vitals, discriminators: [] })
+      .expect(403);
+    const r = await as('perawatIgd')
       .post('/triage/suggestions', {
         encounterId: e.encounterId,
         vitals: { ...vitals, sbp: 76 },
@@ -534,7 +567,7 @@ describe('admisi dari IGD satu langkah (keputusan fase 3 no. 7)', () => {
     expect(r.body).toMatchObject({ bedId, sourceEncounterId: e.encounterId, sepId: null });
     expect(r.body.number).toMatch(/^RI-/);
     expect(r.body.bedCode).toMatch(/^AGR-/);
-    expect(r.body.wristbandCode.length).toBeGreaterThan(5);
+    expect(r.body).not.toHaveProperty('wristbandCode');
     const again = await as('daftar').post('/registration/emergency-admissions', body, key).expect(201);
     expect(again.body).toEqual(r.body);
 

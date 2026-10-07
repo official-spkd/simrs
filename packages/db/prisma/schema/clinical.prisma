@@ -608,6 +608,8 @@ model ConsentDraft {
   closedAt           DateTime? @map("closed_at") @db.Timestamptz(3)
   closedBy           String?   @map("closed_by") @db.Uuid
   cancelReason       String?   @map("cancel_reason")
+  /// Jumlah gambar tanda tangan yang sudah diunggah ke draf ini (maks 5, ADR-0109).
+  signatureUploads   Int       @default(0) @map("signature_uploads")
   createdAt          DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
   createdBy          String    @map("created_by") @db.Uuid
   updatedAt          DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
