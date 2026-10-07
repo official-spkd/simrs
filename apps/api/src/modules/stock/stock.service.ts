@@ -196,9 +196,13 @@ export class StockService {
 
   // ─── Baca ──────────────────────────────────────────────────────────────────────────────────────────────────────
 
-  async locations(): Promise<StockLocationView[]> {
+  /** `own` = lokasi dalam lingkup sesi; `destination` = semua lokasi aktif sebagai tujuan mutasi. */
+  async locations(purpose: 'own' | 'destination' = 'own'): Promise<StockLocationView[]> {
     const rows = await this.tx().stockLocation.findMany({
-      where: { active: true, ...this.locationWhere(this.db.permissionScope()) },
+      where: {
+        active: true,
+        ...(purpose === 'own' ? this.locationWhere(this.db.permissionScope()) : {}),
+      },
       select: LOCATION_SELECT,
       orderBy: [{ kind: 'asc' }, { name: 'asc' }],
     });

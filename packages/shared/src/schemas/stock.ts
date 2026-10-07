@@ -23,6 +23,15 @@ export const stockLocationViewSchema = z.strictObject({
 });
 export type StockLocationView = z.infer<typeof stockLocationViewSchema>;
 
+/**
+ * `purpose=own` (bawaan) = lokasi dalam lingkup sesi; `destination` = semua lokasi aktif RS sebagai tujuan mutasi
+ * (nama saja, tanpa saldo; penerimaan tetap oleh petugas berlingkup atas depo tujuan).
+ */
+export const stockLocationQuerySchema = z.strictObject({
+  purpose: z.enum(['own', 'destination']).default('own'),
+});
+export type StockLocationQuery = z.infer<typeof stockLocationQuerySchema>;
+
 /** `GET /api/v1/stock/suppliers`: pemasok aktif (penerimaan barang). */
 export const supplierViewSchema = z.strictObject({ id: uuid, code: z.string(), name: z.string() });
 export type SupplierView = z.infer<typeof supplierViewSchema>;

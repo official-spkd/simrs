@@ -143,6 +143,9 @@ describe('stok depo (S05, 4.6a)', () => {
       'DEPO-RJ',
       'GUDANG',
     ]);
+    // Tujuan mutasi: semua lokasi aktif RS (nama saja), termasuk depo di luar unit.
+    const dest = await as('apoteker').get('/stock/locations?purpose=destination').expect(200);
+    expect((dest.body as Array<{ code: string }>).map((l) => l.code)).toContain('DEPO-IGD');
     const all = await as('manajemen').get('/stock/locations').expect(200);
     expect((all.body as unknown[]).length).toBeGreaterThanOrEqual(5);
     expect((await as('apotekerTanpaUnit').get('/stock/locations').expect(200)).body).toEqual([]);

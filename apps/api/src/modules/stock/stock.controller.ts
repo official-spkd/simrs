@@ -9,6 +9,8 @@ import {
   stockBalanceQuerySchema,
   stockDrugQuerySchema,
   type StockDrugView,
+  type StockLocationQuery,
+  stockLocationQuerySchema,
   type StockLocationView,
   type StockMovementQuery,
   stockMovementQuerySchema,
@@ -44,8 +46,10 @@ export class StockController {
 
   @RequirePermission('stock', 'read')
   @Get('locations')
-  locations(): Promise<StockLocationView[]> {
-    return this.stock.locations();
+  locations(
+    @Query(new ZodValidationPipe(stockLocationQuerySchema)) q: StockLocationQuery,
+  ): Promise<StockLocationView[]> {
+    return this.stock.locations(q.purpose);
   }
 
   @RequirePermission('stock', 'receive')
