@@ -4,6 +4,8 @@ import {
   BED_STATUSES,
   bedRequestInputSchema,
   bedStatusChangeInputSchema,
+  type CareTeamClaimResult,
+  careTeamClaimResultSchema,
   ED_STATUSES,
   ED_ZONES,
   edStatusInputSchema,
@@ -158,6 +160,25 @@ export async function changeIgdBedStatusAction(
       method: 'PATCH',
       body: p.data,
       schema: z.object({ status: z.enum(BED_STATUSES), version: z.int() }),
+    }),
+  );
+}
+
+/**
+ * "Ambil pasien" (dokter jaga IGD): masuk tim perawatan sebagai penanggung jawab IGD → relasi resmi untuk resume, surat
+ * kematian, dan dokumen ber-TTE lain. Peran dokter (`clinical.sign`) ditegakkan API.
+ */
+export async function claimPatientAction(
+  encounterId: unknown,
+): Promise<ApiActionResult<CareTeamClaimResult>> {
+  const auth = await authorizeApi('clinical.write', 'Peran Anda tidak berizin mengambil pasien.');
+  if (!auth.ok) return auth;
+  const id = uuid.safeParse(encounterId);
+  if (!id.success) return { ok: false, message: 'Kunjungan tidak sah.' };
+  return attempt(() =>
+    api(`/api/v1/encounters/${id.data}/care-team/claim`, {
+      method: 'POST',
+      schema: careTeamClaimResultSchema,
     }),
   );
 }

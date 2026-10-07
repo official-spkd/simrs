@@ -20,6 +20,7 @@ import { BED_STATUS_META, BOARDING_LATE_LABEL, ED_STATUS_META, ED_ZONE_LABEL } f
 import { parseDiagnosis } from '@/lib/registration-api';
 import {
   changeIgdBedStatusAction,
+  claimPatientAction,
   emergencySepAction,
   requestBedAction,
   setEdStatusAction,
@@ -413,6 +414,58 @@ export function IgdBedsPanel({
           );
         })}
       </ul>
+      <Message msg={msg} />
+    </section>
+  );
+}
+
+/**
+ * "Ambil pasien": dokter jaga menjadi penanggung jawab IGD (tim perawatan, relasi resmi untuk resume, surat kematian,
+ * dan dokumen ber-TTE lain tanpa akses darurat). Penanggung jawab lain digantikan (serah terima tercatat).
+ */
+export function ClaimPanel({
+  item,
+  canClaim,
+  userId,
+}: {
+  item: EdBoardItem;
+  canClaim: boolean;
+  userId: string;
+}) {
+  const router = useRouter();
+  const [msg, setMsg] = useState<Msg>(null);
+  const [pending, start] = useTransition();
+  const mine = item.doctorUserId === userId;
+  return (
+    <section aria-label="Dokter penanggung jawab" className="flex flex-col gap-1.5">
+      <p className="m-0 text-small">
+        <span className="text-ink-500">Dokter penanggung jawab IGD: </span>
+        <span className="font-semibold">{item.doctor ?? 'belum ada'}</span>
+        {mine ? ' (Anda)' : ''}
+      </p>
+      {canClaim && !mine && (
+        <Button
+          size="sm"
+          className="self-start"
+          disabled={pending}
+          onClick={() =>
+            start(async () => {
+              const r = await claimPatientAction(item.encounterId);
+              if (r.ok) {
+                setMsg({
+                  ok: true,
+                  text: r.data.replacedUserId
+                    ? 'Pasien diambil alih; Anda penanggung jawab IGD sekarang.'
+                    : 'Anda penanggung jawab IGD pasien ini.',
+                });
+                router.refresh();
+              } else setMsg({ ok: false, text: r.message });
+            })
+          }
+        >
+          {item.doctor ? 'Ambil alih pasien' : 'Ambil pasien'}
+        </Button>
+      )}
       <Message msg={msg} />
     </section>
   );

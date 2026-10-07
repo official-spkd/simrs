@@ -1,6 +1,6 @@
 -- W3 · Sinyal papan IGD dan papan bed (ADR-0104). Sebelumnya kanal `ed_board` hanya dipicu `ed_status_events` dan
--- `bed_board` hanya `bed_status_events`: pasien IGD baru, triase, permintaan bed (dibuat/dialokasikan/batal), dan
--- kunjungan IGD yang selesai tidak sampai ke layar yang sedang terbuka. Setiap perubahan itu kini mencatat satu baris
+-- `bed_board` hanya `bed_status_events`: pasien IGD baru, triase, permintaan bed (dibuat/dialokasikan/batal), dokter
+-- penanggung jawab IGD, dan kunjungan IGD yang selesai tidak sampai ke layar yang sedang terbuka. Setiap perubahan itu kini mencatat satu baris
 -- `board_signals` (id baru per perubahan, jadi SSE tidak membuangnya sebagai duplikat seperti bila id baris sumber
 -- dipakai ulang saat UPDATE), dan baris itu yang di-`pg_notify` (`{ tenant_id, id }`, ADR-0026). Muatan tanpa nama.
 
@@ -30,7 +30,7 @@ ALTER TABLE "board_signals" ADD CONSTRAINT "board_signals_tenant_id_fkey" FOREIG
 -- =====================================================================
 ALTER TABLE "board_signals" ADD CONSTRAINT board_signals_values_valid CHECK (
   board IN ('ed', 'bed')
-  AND source IN ('encounter', 'triage', 'bed_request')
+  AND source IN ('encounter', 'triage', 'bed_request', 'care_team')
   AND char_length(status) BETWEEN 1 AND 30);
 
 ALTER TABLE "board_signals" ENABLE ROW LEVEL SECURITY;
@@ -79,6 +79,26 @@ BEGIN
 END $fn$;
 CREATE TRIGGER triage_assessments_board_signal AFTER INSERT ON "triage_assessments"
   FOR EACH ROW EXECUTE FUNCTION app_board_signal_triage();
+
+-- Tim perawatan kunjungan IGD ("Ambil pasien" dokter jaga, serah terima): nama penanggung jawab di papan IGD.
+CREATE FUNCTION app_board_signal_care_team() RETURNS trigger
+LANGUAGE plpgsql AS $fn$
+DECLARE
+  v_class text;
+  v_unit uuid;
+BEGIN
+  SELECT class, unit_id INTO v_class, v_unit FROM encounters WHERE tenant_id = NEW.tenant_id AND id = NEW.encounter_id;
+  IF v_class = 'EMER' THEN
+    INSERT INTO board_signals (id, tenant_id, board, source, source_id, encounter_id, unit_id, status, created_at)
+    VALUES (gen_random_uuid(), NEW.tenant_id, 'ed', 'care_team', NEW.id, NEW.encounter_id, v_unit,
+            CASE WHEN NEW.ended_at IS NULL THEN 'aktif' ELSE 'berakhir' END, clock_timestamp());
+  END IF;
+  RETURN NULL;
+END $fn$;
+CREATE TRIGGER encounter_participants_board_signal_insert AFTER INSERT ON "encounter_participants"
+  FOR EACH ROW EXECUTE FUNCTION app_board_signal_care_team();
+CREATE TRIGGER encounter_participants_board_signal_update AFTER UPDATE OF ended_at ON "encounter_participants"
+  FOR EACH ROW WHEN (OLD.ended_at IS DISTINCT FROM NEW.ended_at) EXECUTE FUNCTION app_board_signal_care_team();
 
 -- Permintaan bed: papan bed selalu (unit tujuan = unit bed yang dialokasikan, atau unit diminta, null = mana pun);
 -- papan IGD bila kunjungan asalnya IGD.

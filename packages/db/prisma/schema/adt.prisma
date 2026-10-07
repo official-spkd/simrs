@@ -266,7 +266,7 @@ model BoardSignal {
   tenantId    String   @map("tenant_id") @db.Uuid
   /// ed | bed
   board       String
-  /// encounter | triage | bed_request
+  /// encounter | triage | bed_request | care_team
   source      String
   sourceId    String   @map("source_id") @db.Uuid
   encounterId String   @map("encounter_id") @db.Uuid

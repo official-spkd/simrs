@@ -17,7 +17,7 @@ import { TriageBadge } from '@/components/rawat-inap/triage-badge';
 import { ageLabel, arrivalLabel, edRowFromApi } from '@/lib/igd-api';
 import { edKpis, edLosAlert, filterEdItems, formatTimer } from '@/lib/rawat-inap';
 import { EdBoardTable } from './ed-board-table';
-import { DispositionPanel, EdStatusForm, IgdBedsPanel, SepPanel } from './igd-api-panels';
+import { ClaimPanel, DispositionPanel, EdStatusForm, IgdBedsPanel, SepPanel } from './igd-api-panels';
 import { IgdRegisterForm } from './igd-api-register';
 import { TriageApiForm } from './igd-api-triage';
 
@@ -30,6 +30,8 @@ export interface IgdPermissions {
   bed: boolean;
   /** SEP IGD menyusul (`coverage.write`). */
   sep: boolean;
+  /** "Ambil pasien" sebagai dokter penanggung jawab IGD (`clinical.write` + `clinical.sign`). */
+  claim: boolean;
 }
 
 const CHANGE_EVENTS = [CLINICAL_SSE_EVENTS.edStatus, CLINICAL_SSE_EVENTS.edChanged] as const;
@@ -56,12 +58,15 @@ export function IgdLive({
   board,
   initialSelected,
   perms,
+  userId,
   bedHref,
 }: {
   tenantName: string;
   board: EdBoardApi;
   initialSelected: string | null;
   perms: IgdPermissions;
+  /** Akun sesi (penanda "Anda penanggung jawab"). */
+  userId: string;
   bedHref: string | null;
 }) {
   const router = useRouter();
@@ -175,6 +180,7 @@ export function IgdLive({
             className="flex flex-[1_1_340px] flex-col gap-3 overflow-hidden rounded-card border border-white/95 bg-white/90 px-4 py-3.5 shadow-card lg:max-w-[460px]"
           >
             <PatientHead item={current} addSeconds={sec} />
+            <ClaimPanel item={current} canClaim={perms.claim} userId={userId} />
             <TriageApiForm item={current} canWrite={perms.triage} />
             <div className="border-t border-line-soft pt-2.5">
               <EdStatusForm item={current} beds={board.beds} canWrite={perms.triage} />
@@ -211,8 +217,7 @@ function PatientHead({ item, addSeconds }: { item: EdBoardApi['items'][number]; 
             ? item.payer.name === PAYER_KIND_LABEL[item.payer.kind]
               ? item.payer.name
               : `${PAYER_KIND_LABEL[item.payer.kind]} · ${item.payer.name}`
-            : 'belum ada'}{' '}
-          · Dokter: {item.doctor ?? 'belum ditetapkan'}
+            : 'belum ada'}
         </span>
       </div>
       <span className="flex flex-none flex-col items-end gap-1">

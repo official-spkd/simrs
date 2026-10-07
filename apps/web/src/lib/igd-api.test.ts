@@ -29,6 +29,7 @@ const item = (over: Partial<EdBoardItem> = {}): EdBoardItem => ({
   arrivalMode: 'ambulans',
   payer: { kind: 'bpjs', name: 'BPJS Kesehatan' },
   doctor: null,
+  doctorUserId: null,
   arrivedAt: '2026-10-07T03:00:00.000Z',
   losMinutes: 42,
   status: null,

@@ -34,6 +34,7 @@ let app: NestExpressApplication;
 let port: number;
 let A: { id: string; code: string };
 const tok: Record<string, Tokens> = {};
+const userIds: Record<string, string> = {};
 const unit: Record<string, string> = {};
 const beds: Record<string, string[]> = {};
 let dpjpId: string;
@@ -153,12 +154,15 @@ beforeAll(async () => {
     ['daftarIgd', 'petugas_pendaftaran', 'IGD'],
     ['perawatIgd', 'perawat', 'IGD'],
     ['perawatMelati', 'perawat', 'MELATI'],
+    ['dokterIgd', 'dokter', 'IGD'],
+    ['dokterIgd2', 'dokter', 'IGD'],
   ] as const) {
     const user = await createTestUser(A.id, {
       roles: [{ code: role, unitId: unitCode ? unit[unitCode] : undefined }],
       tenantCode: A.code,
     });
     tok[who] = await login(app, user);
+    userIds[who] = user.id;
   }
   const dokter = await createTestUser(A.id, {
     roles: [{ code: 'dokter', unitId: unit.MELATI }],
@@ -335,6 +339,56 @@ describe('papan IGD untuk layar W3', () => {
     expect(both.map((r) => r.status)).toEqual([201, 201]);
     const last = both.map((r) => r.body).sort((a, b) => a.at.localeCompare(b.at))[1];
     expect((await item()).status).toBe(last.status);
+  });
+});
+
+describe('"Ambil pasien" IGD (tinjauan 3.6, pilihan c)', () => {
+  const death = () => ({
+    revision: { kind: 'baru' },
+    diedAt: new Date(Date.now() - 20 * 60_000).toISOString(),
+    cause: { code: 'J18.9', display: 'Pneumonia' },
+    note: 'Gagal napas akibat pneumonia berat',
+  });
+
+  it('dokter IGD tanpa relasi: surat kematian 403; ambil pasien → tim + papan + audit → surat kematian 201', async () => {
+    const e = await igd();
+    await as('dokterIgd').post(`/encounters/${e.encounterId}/death-certificate`, death()).expect(403);
+    // Perawat (tanpa tanda tangan klinis) dan petugas pendaftaran tidak bisa mengambil pasien.
+    await as('perawatIgd').post(`/encounters/${e.encounterId}/care-team/claim`).expect(403);
+    await as('daftarIgd').post(`/encounters/${e.encounterId}/care-team/claim`).expect(403);
+
+    const r = await as('dokterIgd').post(`/encounters/${e.encounterId}/care-team/claim`).expect(200);
+    expect(r.body).toMatchObject({ encounterId: e.encounterId, unchanged: false, replacedUserId: null });
+    const again = await as('dokterIgd').post(`/encounters/${e.encounterId}/care-team/claim`).expect(200);
+    expect(again.body).toMatchObject({ unchanged: true, participantId: r.body.participantId });
+    const board = await as('perawatIgd').get('/triage/board').expect(200);
+    expect(
+      board.body.items.find((i: { encounterId: string }) => i.encounterId === e.encounterId),
+    ).toMatchObject({ doctor: 'Pengguna Uji Fiktif', doctorUserId: userIds.dokterIgd });
+    expect(
+      await run((tx) =>
+        tx.auditEvent.count({
+          where: { resourceType: 'care_team', resourceId: r.body.participantId, patientId: e.patientId },
+        }),
+      ),
+    ).toBe(1);
+    await as('dokterIgd').post(`/encounters/${e.encounterId}/death-certificate`, death()).expect(201);
+  });
+
+  it('dokter jaga berikutnya mengambil alih: penanggung jawab lama diakhiri beralasan', async () => {
+    const e = await igd();
+    const first = await as('dokterIgd').post(`/encounters/${e.encounterId}/care-team/claim`).expect(200);
+    const second = await as('dokterIgd2').post(`/encounters/${e.encounterId}/care-team/claim`).expect(200);
+    expect(second.body).toMatchObject({ unchanged: false, replacedUserId: userIds.dokterIgd });
+    const old = await run((tx) =>
+      tx.encounterParticipant.findUniqueOrThrow({ where: { id: first.body.participantId } }),
+    );
+    expect(old.endedAt).not.toBeNull();
+    expect(old.endReason).toContain('Diambil alih');
+    const active = await run((tx) =>
+      tx.encounterParticipant.findMany({ where: { encounterId: e.encounterId, endedAt: null } }),
+    );
+    expect(active.map((a) => a.userId)).toEqual([userIds.dokterIgd2]);
   });
 });
 

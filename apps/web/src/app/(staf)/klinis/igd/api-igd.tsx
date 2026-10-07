@@ -43,6 +43,7 @@ export async function ApiIgd({ session, pilih }: { session: SessionView; pilih: 
     triage: can(session, 'triage', 'write'),
     bed: can(session, 'bed', 'write'),
     sep: can(session, 'coverage', 'write'),
+    claim: can(session, 'clinical', 'write') && can(session, 'clinical', 'sign'),
   };
   const bedScreen = screenById('bed');
   return (
@@ -51,6 +52,7 @@ export async function ApiIgd({ session, pilih }: { session: SessionView; pilih: 
       board={board}
       initialSelected={board.items.find((i) => i.encounterId === pilih)?.encounterId ?? null}
       perms={perms}
+      userId={session.user.id}
       bedHref={bedScreen && can(session, 'bed', 'read') ? bedScreen.route : null}
     />
   );

@@ -77,7 +77,8 @@ export class TriageController {
 
 /**
  * K03 · Status alur IGD per kunjungan (`POST /api/v1/encounters/:id/ed-status`, bentuk rute per-kunjungan kanonik
- * fase 3): status + zona + penempatan bed IGD, `triage.write` berlingkup unit.
+ * fase 3): status + zona + penempatan bed IGD, `triage.write` berlingkup unit; "Ambil pasien" dokter jaga
+ * (`/care-team/claim`).
  */
 @ApiTags('klinis · triase IGD (K03)')
 @TenantScoped()
@@ -85,6 +86,14 @@ export class TriageController {
 @Controller('encounters')
 export class TriageEncounterController {
   constructor(private readonly triage: TriageService) {}
+
+  /** "Ambil pasien" IGD: dokter jaga masuk tim perawatan sebagai penanggung jawab (`clinical.write` + peran dokter). */
+  @RequirePermission('clinical', 'write')
+  @Post(':id/care-team/claim')
+  @HttpCode(200)
+  claim(@Param('id', ParseUUIDPipe) encounterId: string) {
+    return this.triage.claim(encounterId);
+  }
 
   @RequirePermission('triage', 'write')
   @Post(':id/ed-status')

@@ -153,6 +153,16 @@ test.describe('IGD → rawat inap (layar W3, mode api)', () => {
     const row1 = igd1.getByRole('button', { name: new RegExp(name) });
     await expect(row1).toContainText('3 · Urgen', { timeout: 15_000 });
 
+    // 2b · Dokter jaga IGD "Ambil pasien" → penanggung jawab tampil di papan jendela 1 tanpa muat ulang.
+    const jaga = await igdAccount('dokter', 'dr. Jaga IGD E2E Fiktif');
+    const igd3 = await open(browser, jaga, '/klinis/igd');
+    await live(igd3);
+    await igd3.getByRole('button', { name: new RegExp(name) }).click();
+    const panel3 = igd3.getByRole('complementary', { name: 'Pasien IGD terpilih' });
+    await panel3.getByRole('button', { name: 'Ambil pasien' }).click();
+    await expect(panel3.getByText('Anda penanggung jawab IGD pasien ini.')).toBeVisible();
+    await expect(row1).toContainText('dr. Jaga IGD E2E Fiktif', { timeout: 15_000 });
+
     // 3 · Keputusan rawat inap (jendela 1, petugas IGD berizin bed): minta bed kelas 1.
     await row1.click();
     const panel1 = igd1.getByRole('complementary', { name: 'Pasien IGD terpilih' });

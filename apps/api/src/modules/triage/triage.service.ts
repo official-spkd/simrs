@@ -3,6 +3,7 @@ import { readTenantSetting } from '@simrs/db';
 import {
   type AtsLevel,
   AppError,
+  type CareTeamClaimResult,
   clinicalError,
   type EdBoardApi,
   type EdStatus,
@@ -25,7 +26,10 @@ import {
   type TriageVitals,
 } from '@simrs/shared';
 import { ageYears } from '../../infra/clinical/clinical-context';
+import { DEV_ROLE } from '../../common/request-context';
+import { CareTeamService } from '../../infra/clinical/care-team.service';
 import { ClinicalRecordService } from '../../infra/clinical/clinical-record.service';
+import { PermissionMatrix } from '../../infra/permission-matrix';
 import { BillableRecorder, SatusehatRecorder } from '../../infra/clinical/staging';
 import { DomainEvents } from '../../infra/events/domain-events';
 import { TenantDb } from '../../infra/tenant-db';
@@ -59,7 +63,54 @@ export class TriageService {
     private readonly adt: AdtService,
     private readonly satusehat: SatusehatRecorder,
     private readonly billable: BillableRecorder,
+    private readonly careTeam: CareTeamService,
+    private readonly matrix: PermissionMatrix,
   ) {}
+
+  /**
+   * "Ambil pasien" (keputusan orkestrator, tinjauan 3.6 pilihan c): dokter jaga (peran ber-`clinical.sign`) menjadi
+   * penanggung jawab IGD = anggota tim `dpjp_utama` kunjungan IGD lewat `CareTeamService`, sehingga punya relasi resmi
+   * untuk resume, surat kematian (K-1), dan dokumen ber-TTE lain tanpa akses darurat. Penanggung jawab lain yang masih
+   * aktif digantikan (serah terima, keanggotaannya diakhiri beralasan). Diaudit.
+   */
+  async claim(encounterId: string): Promise<CareTeamClaimResult> {
+    const tx = this.db.tx();
+    const enc = await this.emergency(encounterId);
+    await this.access.assert(enc.patientId);
+    const actor = this.db.actor();
+    const me = this.db.actorUserId();
+    const doctor =
+      !!me &&
+      !!actor.role &&
+      !actor.devicePrincipal &&
+      (actor.role === DEV_ROLE ||
+        (await this.matrix.scope(this.db.tenantId(), actor.role, 'clinical', 'sign')) !== null);
+    if (!doctor || !me) {
+      throw new AppError('FORBIDDEN', 'Ambil pasien hanya untuk dokter (berizin tanda tangan klinis)', 403);
+    }
+    await this.lockEncounter(enc.id);
+    const current = await tx.encounterParticipant.findFirst({
+      where: { encounterId: enc.id, role: 'dpjp_utama', endedAt: null },
+    });
+    if (current?.userId === me) {
+      return { encounterId: enc.id, participantId: current.id, unchanged: true, replacedUserId: null };
+    }
+    if (current) await this.careTeam.end(current.id, 'Diambil alih dokter jaga IGD lain');
+    const { id } = await this.careTeam.add({ encounterId: enc.id, userId: me, role: 'dpjp_utama' });
+    this.db.audit({
+      action: 'update',
+      resourceType: 'care_team',
+      resourceId: id,
+      patientId: enc.patientId,
+      details: { claim: true, role: 'dpjp_utama', replaced: current?.userId ?? null },
+    });
+    return {
+      encounterId: enc.id,
+      participantId: id,
+      unchanged: false,
+      replacedUserId: current?.userId ?? null,
+    };
+  }
 
   /** Pratinjau saran ATS untuk isian yang sedang diketik petugas (aturan yang sama dengan `assess`, tanpa menyimpan). */
   async suggest(input: TriageSuggestionInput): Promise<TriageSuggestionApi> {
@@ -308,7 +359,7 @@ export class TriageService {
       },
     });
     const ids = encounters.map((e) => e.id);
-    const [statuses, triages, requests, assignments, seps, igdBeds] = await Promise.all([
+    const [statuses, triages, requests, assignments, seps, igdBeds, leads] = await Promise.all([
       tx.edStatusEvent.findMany({
         where: { encounterId: { in: ids } },
         orderBy: [{ changedAt: 'desc' }, { id: 'desc' }],
@@ -350,6 +401,10 @@ export class TriageService {
         orderBy: { code: 'asc' },
         select: { id: true, code: true, parent: { select: { name: true } }, bedStatus: true },
       }),
+      tx.encounterParticipant.findMany({
+        where: { encounterId: { in: ids }, role: 'dpjp_utama', endedAt: null },
+        select: { encounterId: true, userId: true, user: { select: { displayName: true } } },
+      }),
     ]);
     const today = isoDateJakarta(now);
     const items: EdBoardApi['items'] = encounters.map((e) => {
@@ -359,6 +414,7 @@ export class TriageService {
       const a = assignments.find((b) => b.encounterId === e.id);
       const sep = seps.find((x) => x.encounterId === e.id);
       const payer = e.coverages[0]?.payer;
+      const lead = leads.find((l) => l.encounterId === e.id);
       const wait = r ? minutesSince(r.requestedAt, now) : 0;
       return {
         encounterId: e.id,
@@ -371,7 +427,8 @@ export class TriageService {
         ageYears: ageYears(e.patient.birthDate, today),
         arrivalMode: (e.arrivalMode as EdBoardApi['items'][number]['arrivalMode']) ?? null,
         payer: payer ? { kind: payer.kind as PayerKind, name: payer.name } : null,
-        doctor: e.practitioner?.name ?? null,
+        doctor: lead?.user.displayName ?? e.practitioner?.name ?? null,
+        doctorUserId: lead?.userId ?? null,
         arrivedAt: e.arrivedAt?.toISOString() ?? null,
         losMinutes: minutesSince(e.arrivedAt ?? e.createdAt, now),
         status: (st?.status as EdStatus | undefined) ?? null,

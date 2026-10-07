@@ -787,7 +787,7 @@ export const CLINICAL_SSE_EVENTS = {
   /** Potret papan IGD saat (sambung ulang) berlangganan, tanpa `id:`. */
   edBoard: 'ed.board',
   edStatus: 'ed.status',
-  /** Isi papan IGD berubah selain status alur: kunjungan IGD masuk/keluar, triase, permintaan bed (ADR-0104). */
+  /** Isi papan IGD berubah selain status alur: kunjungan masuk/keluar, triase, permintaan bed, tim (ADR-0104). */
   edChanged: 'ed.changed',
   /** Potret papan bed saat (sambung ulang) berlangganan, tanpa `id:`. */
   bedBoard: 'bed.board',
@@ -798,7 +798,7 @@ export const CLINICAL_SSE_EVENTS = {
 } as const;
 
 /** Sumber perubahan papan IGD di event `ed.changed`. */
-export const ED_CHANGE_SOURCES = ['encounter', 'triage', 'bed_request'] as const;
+export const ED_CHANGE_SOURCES = ['encounter', 'triage', 'bed_request', 'care_team'] as const;
 export const edChangedSseEventSchema = z.strictObject({
   /** Id baris sumber (kunjungan, asesmen triase, atau permintaan bed). */
   sourceId: uuid,
@@ -991,6 +991,17 @@ export const practitionerOptionSchema = z.strictObject({
 export const practitionerOptionListSchema = z.strictObject({ items: z.array(practitionerOptionSchema) });
 export type PractitionerOption = z.infer<typeof practitionerOptionSchema>;
 
+/** Hasil `POST /encounters/:id/care-team/claim` ("Ambil pasien" IGD oleh dokter jaga). */
+export const careTeamClaimResultSchema = z.strictObject({
+  encounterId: uuid,
+  participantId: uuid,
+  /** true = sudah penanggung jawab sebelumnya (tidak ada perubahan). */
+  unchanged: z.boolean(),
+  /** Dokter penanggung jawab sebelumnya yang digantikan (serah terima), null bila belum ada. */
+  replacedUserId: uuid.nullable(),
+});
+export type CareTeamClaimResult = z.infer<typeof careTeamClaimResultSchema>;
+
 /** SEP IGD (VClaim rawat jalan, poli IGD): diagnosa awal dari dokter jaga bila belum diisi saat registrasi. */
 export const emergencySepInputSchema = z.strictObject({
   initialDiagnosis: icd10CodingSchema,
@@ -1076,8 +1087,12 @@ export const edBoardItemSchema = z.strictObject({
   arrivalMode: z.enum(ARRIVAL_MODES).nullable(),
   /** Penjamin utama aktif kunjungan IGD. */
   payer: z.strictObject({ kind: z.enum(PAYER_KINDS), name: z.string() }).nullable(),
-  /** Dokter penanggung jawab kunjungan IGD (praktisi kunjungan), null = belum ditetapkan. */
+  /**
+   * Dokter penanggung jawab IGD: anggota tim `dpjp_utama` aktif (lewat "Ambil pasien"), atau praktisi kunjungan; null =
+   * belum ada. `doctorUserId` = akun dokter tim (null bila hanya dari praktisi kunjungan).
+   */
   doctor: z.string().nullable(),
+  doctorUserId: uuid.nullable(),
   arrivedAt: instant.nullable(),
   losMinutes: z.int().min(0),
   status: z.enum(ED_STATUSES).nullable(),
