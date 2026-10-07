@@ -31,6 +31,12 @@ atau nama unit, tidak peka huruf besar), `unitId`, `limit` (bawaan 20, maks. 50)
 database dengan urutan nama → id. Pemilih "Dokter konsultan" dan "Dokter penerima" di layar mencari di server
 (`searchConsultantsAction`), tidak lagi memuat seluruh dokter.
 
+## Pembaruan 7 Oktober 2026 · Unggah berkas lewat Route Handler (tinjauan keamanan DOC)
+
+Unggah dokumen pasien dipindah dari Server Action ke Route Handler `POST /klinis/dokumen/unggah` yang memeriksa asal
+permintaan, sesi, dan izin sebelum membaca body, lalu membatasi 10 MB + jenis dari isi seperti API. Batas body Server
+Action kembali bawaan (1 MB); gambar tanda tangan tablet dibatasi 256 KB per gambar di web.
+
 ## Konsekuensi
 
 - Kode galat baru `CONSULT_NOT_RECIPIENT` (403).

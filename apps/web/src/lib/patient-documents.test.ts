@@ -4,8 +4,8 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
 import { formatSize, signatureState, signBlocker, uploadProblem, voidBlocker } from './patient-documents';
 
+vi.mock('next/navigation', () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
 vi.mock('@/lib/server/data/klinis/dokumen-actions', () => ({
-  uploadDocumentAction: vi.fn(),
   voidDocumentAction: vi.fn(),
   requestSignatureAction: vi.fn(),
 }));
