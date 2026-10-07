@@ -32,7 +32,7 @@ export function rawUpload(limitBytes: number) {
       } else if (tooLarge) {
         res.status(413).json({
           code: 'PAYLOAD_TOO_LARGE',
-          message: `Berkas maksimal ${Math.floor(limitBytes / 1048576)} MB`,
+          message: `Berkas maksimal ${sizeLabel(limitBytes)}`,
         });
       } else {
         req.body = Buffer.concat(chunks, size);
@@ -41,4 +41,9 @@ export function rawUpload(limitBytes: number) {
     });
     req.on('error', next);
   };
+}
+
+/** Batas ukuran untuk pesan pengguna: MB bila ≥ 1 MB, selain itu KB (mis. tanda tangan 512 KB, bukan "0 MB"). */
+export function sizeLabel(bytes: number): string {
+  return bytes >= 1048576 ? `${Math.floor(bytes / 1048576)} MB` : `${Math.floor(bytes / 1024)} KB`;
 }
