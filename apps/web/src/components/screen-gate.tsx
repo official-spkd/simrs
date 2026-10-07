@@ -15,23 +15,11 @@ interface Copy {
   byRole?: Readonly<Record<string, string>>;
 }
 
+/**
+ * Teks "Belum tersambung" hanya untuk layar yang jalur api-nya belum dibangun. Layar yang sudah tersambung (front office
+ * fase 2, Rawat inap W4) dihapus dari sini; layar tanpa entri memakai kalimat umum.
+ */
 const NOT_CONNECTED: Readonly<Record<string, Copy>> = {
-  jadwal: {
-    body: 'Jadwal praktik dan kuota dokter akan tampil di sini setelah modul jadwal tersambung ke server SIM RS. Sementara itu, ikuti prosedur jadwal yang berlaku di rumah sakit.',
-    byRole: {
-      dokter:
-        'Jadwal praktik Anda dan jumlah pasien yang sudah booking akan tampil di sini setelah modul jadwal tersambung ke server SIM RS.',
-    },
-  },
-  daftar: {
-    body: 'Pencarian pasien, cek kepesertaan BPJS, rujukan, dan penerbitan SEP akan tersedia di sini setelah modul pendaftaran tersambung ke server SIM RS. Sementara itu, layani pendaftaran dengan prosedur cadangan rumah sakit.',
-  },
-  kiosk: {
-    body: 'Anjungan pendaftaran mandiri belum dapat dipakai. Silakan ambil nomor antrean di loket pendaftaran.',
-  },
-  antrean: {
-    body: 'Papan antrean belum tersambung. Nomor antrean dipanggil langsung oleh petugas.',
-  },
   // Layar klinis fase 3: jalur api diisi layar W1–W5 setelah modul API klinisnya tergabung.
   poli: {
     body: 'Antrean poli, tanda vital, CPPT/SOAP, diagnosis ICD-10, dan resume rawat jalan akan tersedia di sini setelah modul rekam medis klinis tersambung ke server SIM RS. Sementara itu, catat pemeriksaan dengan prosedur cadangan rumah sakit.',
@@ -44,9 +32,6 @@ const NOT_CONNECTED: Readonly<Record<string, Copy>> = {
   },
   bed: {
     body: 'Papan tempat tidur, permintaan bed, dan admisi rawat inap akan tersedia di sini setelah modul tempat tidur tersambung ke server SIM RS. Sementara itu, ikuti prosedur admisi cadangan rumah sakit.',
-  },
-  ranap: {
-    body: 'CPPT, eMAR dengan pindai gelang, observasi EWS, dan asuhan keperawatan pasien rawat inap akan tersedia di sini setelah modul rawat inap tersambung ke server SIM RS. Sementara itu, catat asuhan dengan prosedur cadangan rumah sakit.',
   },
   resume: {
     body: 'Resume medis pulang, rekonsiliasi obat, dan TTE DPJP akan tersedia di sini setelah modul resume tersambung ke server SIM RS. Sementara itu, ikuti prosedur resume cadangan rumah sakit.',
