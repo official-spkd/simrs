@@ -3,10 +3,12 @@ import {
   CONSENT_INFORMATION_KEYS,
   CONSENT_TEMPLATE_SAMPLE,
   consentDraftCreateInputSchema,
+  consentEducationReady,
   consentDraftRefuseInputSchema,
   consentDraftSignaturesInputSchema,
   consentRevokeInputSchema,
   EDUCATION_FORM_SAMPLE,
+  educationFormSupportsConsent,
   formReadyProblems,
   formSchemaSchema,
 } from './index';
@@ -62,5 +64,17 @@ describe('K11 · kontrak persetujuan tindakan', () => {
     const revoke = { reason: 'Pasien berubah pikiran', signerKind: 'pasien', signer, familyWitness: null };
     expect(consentRevokeInputSchema.safeParse(revoke).success).toBe(true);
     expect(consentRevokeInputSchema.safeParse({ ...revoke, signerKind: 'wali' }).success).toBe(false);
+  });
+
+  it('syarat edukasi: isian terkini bertopik tindakan harus paham (edukasi ulang menggantikan)', () => {
+    const r = (topik: string[], evaluasi: string) => ({ answers: { topik, evaluasi } });
+    expect(consentEducationReady([])).toBe(false);
+    expect(consentEducationReady([r(['obat'], 'paham')])).toBe(false);
+    expect(consentEducationReady([r(['tindakan'], 'perlu_ulang'), r(['tindakan'], 'paham')])).toBe(true);
+    expect(consentEducationReady([r(['tindakan'], 'paham'), r(['tindakan', 'obat'], 'perlu_ulang')])).toBe(
+      false,
+    );
+    expect(consentEducationReady([r(['tindakan'], 'paham'), r(['obat'], 'perlu_ulang')])).toBe(true);
+    expect(educationFormSupportsConsent(formSchemaSchema.parse(EDUCATION_FORM_SAMPLE.schema))).toBe(true);
   });
 });

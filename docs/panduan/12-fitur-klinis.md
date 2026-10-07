@@ -507,7 +507,10 @@ halaman menampilkan "Belum tersambung".
    harus orang lain dari dokter yang memfinalkan.
 4. **Dokter berelasi** (`consent.sign`, hanya dokter, lingkup relasi) memfinalkan (`POST …/finalize`) atau mencatat
    penolakan beralasan (`POST …/refuse`). Hasilnya entri `consents` versi 1 + PDF + TTE, langsung terkunci. Perawat dan
-   residen ditolak 403. Tanpa tanda tangan atau atestasi → 422 `CONSENT_SIGNATURES_REQUIRED`.
+   residen ditolak 403. Tanpa tanda tangan atau atestasi → 422 `CONSENT_SIGNATURES_REQUIRED`. Final juga menunggu
+   **edukasi tindakan**: isian P07 `edukasi_terintegrasi` terkini di kunjungan itu dengan topik "Tindakan yang
+   direncanakan" harus berevaluasi "paham" (sama dengan layar Edukasi); bila belum → 422 `CONSENT_EDUCATION_REQUIRED`
+   dan draf menampilkan `edukasi_tindakan` di daftar kekurangan. Penolakan tidak menunggu edukasi.
 5. Draf **tutup-sekali**: setelah final, ditolak, atau dibatalkan (`POST …/cancel`, alasan ≥ 10) setiap perubahan → 409
    `CONSENT_CLOSED`, dijaga juga trigger database. Finalisasi serentak hanya terjadi sekali.
 6. **Pencabutan** (`POST /api/v1/consents/:id/revoke`, `consent.sign`) membuat entri baru `dicabut` ber-TTE dengan

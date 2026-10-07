@@ -1,6 +1,6 @@
 # ADR-0058 · Persetujuan tindakan: draf tablet, atestasi saksi, final ber-TTE
 
-Tanggal: 7 Oktober 2026 · Status: diterapkan pada potongan 3.7 (K11). Nomor dari blok cadangan fase 3–7.
+Tanggal: 7 Oktober 2026 · Status: diterapkan pada potongan 3.7 (K11) · diperbarui 7 Oktober 2026 (syarat edukasi). Nomor dari blok cadangan fase 3–7.
 
 ## Konteks
 
@@ -17,9 +17,13 @@ Rencana fase 3 §3.7 meminta templat P07 tujuh butir, draf, tanda tangan pasien/
 7. **Gambar tanda tangan** diunggah biner langsung ke draf (`POST /consents/drafts/:id/signature-image?slot=`, PNG ≤ 512 KB, ADR-0020) dan disimpan sebagai dokumen pasien `kind = consent`. Perawat tidak perlu izin `documents.write` umum. Unggahan P08 umum tetap diterima bila PNG milik pasien yang sama.
 8. **Edukasi** memakai formulir P07 `edukasi_terintegrasi` dengan `encounterId` (tanpa tabel baru).
 
+## Pembaruan 7 Oktober 2026 · Syarat edukasi tindakan (keputusan orkestrator, tinjauan 3.7)
+
+Final persetujuan ditolak 422 `CONSENT_EDUCATION_REQUIRED` bila isian `edukasi_terintegrasi` terkini di kunjungan itu yang memuat topik `tindakan` belum berevaluasi `paham`, sama dengan `consentReady` di layar Edukasi demo (edukasi ulang terbaru menggantikan evaluasi sebelumnya). Penolakan tidak terkena syarat ini. Templat contoh edukasi mendapat opsi topik `tindakan`. Seed menaikkan versi formulir edukasi lama yang belum memilikinya (`upgradePublishedForm`, versi lama diarsipkan). Draf menampilkan `edukasi_tindakan` di `missing`.
+
 ## Konsekuensi
 
-- Kode galat baru: `CONSENT_SIGNATURES_REQUIRED` (422, `details.missing`) dan `CONSENT_CLOSED` (409).
+- Kode galat baru: `CONSENT_SIGNATURES_REQUIRED` (422, `details.missing`), `CONSENT_EDUCATION_REQUIRED` (422) dan `CONSENT_CLOSED` (409).
 - Draf yang tidak pernah difinalkan tetap tersimpan berstatus `draf` (bukan rekam medis). Belum ada job pembersihan; layar menampilkan dan membatalkannya.
 - Gambar tanda tangan tidak ditanam di PDF. PDF mencantumkan nama + cara tanda tangan, berkasnya tetap di dokumen pasien.
 - Jalur demo (`DATA_SOURCE=demo`) tidak berubah. Layar tablet mode api (W5a) memakai endpoint ini.
