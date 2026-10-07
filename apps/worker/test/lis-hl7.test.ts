@@ -165,7 +165,7 @@ function oru(barcode: string, obs: Array<[string, string, string]>): string {
   return redactHl7([msh, 'PID|1||RM9||Analyzer^Ny', ...rest].join('\r'));
 }
 
-async function message(body: string): Promise<string> {
+async function message(body: string, receivedAt?: Date): Promise<string> {
   const id = newId();
   await inT((tx) =>
     tx.inboundEvent.create({
@@ -178,6 +178,7 @@ async function message(body: string): Promise<string> {
         rawBody: body,
         deviceId: C.deviceId,
         nextAttemptAt: new Date(Date.now() - 1000),
+        ...(receivedAt ? { receivedAt } : {}),
       },
     }),
   );
@@ -269,6 +270,19 @@ describe('penangan lis-hl7', () => {
     const v2 = await inT((tx) => tx.labResult.findFirstOrThrow({ where: { inboundEventId: other } }));
     expect(v2).toMatchObject({ version: 2 });
     expect(v2.correctionReason).toMatch(/Hasil ulang dari analyzer/);
+  });
+
+  it('pesan yang diterima sebelum label spesimen dibuat (pesan lama, nomor lab terpakai ulang) → dead', async () => {
+    const stale = await message(
+      oru(C.barcodes.serum as string, [['2823-3', '7.5', 'mmol/L']]),
+      new Date('2020-01-01'),
+    );
+    await process();
+    expect(await event(stale)).toMatchObject({
+      status: 'dead',
+      error: `Barcode spesimen ${C.barcodes.serum} belum dibuat saat pesan diterima`,
+    });
+    expect(await inT((tx) => tx.labResult.count({ where: { inboundEventId: stale } }))).toBe(0);
   });
 
   it('barcode tak dikenal → dead tanpa PHI; order sudah divalidasi teknis → hasil ulang alat ditolak (dead)', async () => {

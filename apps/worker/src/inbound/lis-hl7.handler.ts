@@ -33,7 +33,8 @@ const ORDER_LOCKED = new Set(['validasi_teknis', 'selesai', 'batal']);
  * autoverifikasi). Flag/rentang/delta dihitung inti `@simrs/db` yang sama dengan input manual; hasil kritis memunculkan
  * nilai kritis + event `critical_result.raised` (event worker, reaksinya lewat SSE `support_critical`).
  *
- * - barcode tak dikenal / order batal / tidak ada kode yang dikenali → `dead` (permanen, tampil di layar Lab),
+ * - barcode tak dikenal / belum dibuat saat pesan diterima / order batal / tidak ada kode yang dikenali → `dead`
+ *   (permanen, tampil di layar Lab),
  * - spesimen belum diterima lab → dicoba lagi (backoff) sampai diterima,
  * - OBX tertunda (`P`/tanpa nilai) dilewati; hasil yang sama persis dari analyzer tidak ditulis ulang; hasil berbeda
  *   menjadi versi baru (koreksi beralasan) selama order belum divalidasi; setelah validasi, hasil ulang alat ditolak
@@ -61,10 +62,17 @@ export const lisHl7Handler: InboundHandler = {
           status: true,
           specimenType: true,
           receivedBy: true,
+          createdAt: true,
           labOrder: { select: { id: true, status: true, patientId: true, encounterId: true } },
         },
       });
       if (!specimen) throw new PermanentInboundError(`Barcode spesimen ${o.specimenBarcode} tidak dikenal`);
+      // Label belum dicetak saat pesan diterima = pesan lama/salah barcode (nomor lab harian bisa terpakai ulang).
+      if (event.receivedAt.getTime() < specimen.createdAt.getTime()) {
+        throw new PermanentInboundError(
+          `Barcode spesimen ${specimen.barcode} belum dibuat saat pesan diterima`,
+        );
+      }
       const order = specimen.labOrder;
       if (order.status === 'batal')
         throw new PermanentInboundError(`Order lab untuk ${specimen.barcode} sudah batal`);

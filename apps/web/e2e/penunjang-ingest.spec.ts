@@ -65,17 +65,20 @@ test.describe('ingest analyzer lab (fase 4 §4.1a)', () => {
     expect(enrolled.device.kind).toBe('lab_analyzer');
     await mockLis.configure(enrolled.token, enrolled.hmacKey);
 
-    const sent = await mockLis.send('L2610070001-01', 'elektrolit', { scenario: 'kritis', duplicate: true });
+    // Barcode acak di luar pola nomor lab: pesan ini tidak boleh tercocok ke spesimen spesifikasi lain.
+    const barcode = `E2E${newId().slice(-8).toUpperCase()}`;
+    const sent = await mockLis.send(barcode, 'elektrolit', { scenario: 'kritis', duplicate: true });
     expect(sent.deliveries.map((d) => [d.status, d.ack])).toEqual([
       [200, 'AA'],
       [200, 'AA'],
     ]);
     const rows = await inbound(sent.controlId);
     expect(rows).toHaveLength(1);
-    expect(rows[0]).toMatchObject({ status: 'received', deviceId: enrolled.device.id });
-    expect(rows[0]?.rawBody).toContain('OBR|1||L2610070001-01');
+    // Status bisa sudah berubah (worker memproses async: barcode acak → berhenti); yang diuji di sini penyimpanan.
+    expect(rows[0]).toMatchObject({ deviceId: enrolled.device.id });
+    expect(rows[0]?.rawBody).toContain(`OBR|1||${barcode}`);
 
-    const bad = await mockLis.send('L2610070002-01', 'dl', { badSignature: true });
+    const bad = await mockLis.send(`E2E${newId().slice(-8).toUpperCase()}`, 'dl', { badSignature: true });
     expect(bad.deliveries[0]).toMatchObject({ status: 401, ack: null });
     expect(await inbound(bad.controlId)).toHaveLength(0);
 
