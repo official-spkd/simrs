@@ -78,25 +78,25 @@ Backend: ✅ selesai. Layar: 7.
 
 Backend: 🟨 berjalan. Layar: 17.
 
-| Layar                      | Rute                         | Komponen    | Sumber data          | Panduan                        |
-| -------------------------- | ---------------------------- | ----------- | -------------------- | ------------------------------ |
-| Pemeriksaan poli           | `/klinis/poli`               | K01 K02     | hibrida (demo + api) | [Klinis](./12-fitur-klinis.md) |
-| Order & resep (CPOE)       | `/klinis/order`              | K09         | hibrida (demo + api) | [Klinis](./12-fitur-klinis.md) |
-| IGD                        | `/klinis/igd`                | K03         | hibrida (demo + api) | [Klinis](./12-fitur-klinis.md) |
-| Tempat tidur               | `/klinis/tempat-tidur`       | K05         | hibrida (demo + api) | [Klinis](./12-fitur-klinis.md) |
-| Rawat inap                 | `/klinis/rawat-inap`         | K04 K07 K12 | hibrida (demo + api) | [Klinis](./12-fitur-klinis.md) |
-| Resume medis               | `/klinis/resume`             | K13         | hibrida (demo + api) | [Klinis](./12-fitur-klinis.md) |
-| Persetujuan tindakan       | `/tablet/persetujuan`        | K11         | hibrida (demo + api) | [Klinis](./12-fitur-klinis.md) |
-| Worklist klinis            | `/klinis/worklist`           | K01         | demo                 | [Klinis](./12-fitur-klinis.md) |
-| CPPT & serah terima        | `/klinis/cppt`               | K07         | demo                 | [Klinis](./12-fitur-klinis.md) |
-| Asesmen & skrining         | `/klinis/asesmen`            | K06         | demo                 | [Klinis](./12-fitur-klinis.md) |
-| Diagnosis & problem list   | `/klinis/diagnosis`          | K08         | demo                 | [Klinis](./12-fitur-klinis.md) |
-| Konsultasi & rawat bersama | `/klinis/konsultasi`         | K10         | demo                 | [Klinis](./12-fitur-klinis.md) |
-| Edukasi pasien             | `/klinis/edukasi`            | K11         | demo                 | [Klinis](./12-fitur-klinis.md) |
-| Asuhan keperawatan         | `/klinis/asuhan-keperawatan` | K12         | demo                 | [Klinis](./12-fitur-klinis.md) |
-| Ringkasan pasien           | `/klinis/ringkasan`          | K14         | demo                 | [Klinis](./12-fitur-klinis.md) |
-| Paket layanan khusus       | `/klinis/paket-layanan`      | K15         | demo                 | [Klinis](./12-fitur-klinis.md) |
-| Kelengkapan rekam medis    | `/klinis/kelengkapan`        | K13         | demo                 | [Klinis](./12-fitur-klinis.md) |
+| Layar                      | Rute                         | Komponen    | Sumber data                             | Panduan                        |
+| -------------------------- | ---------------------------- | ----------- | --------------------------------------- | ------------------------------ |
+| Pemeriksaan poli           | `/klinis/poli`               | K01 K02     | hibrida (demo + api)                    | [Klinis](./12-fitur-klinis.md) |
+| Order & resep (CPOE)       | `/klinis/order`              | K09         | hibrida (demo + api)                    | [Klinis](./12-fitur-klinis.md) |
+| IGD                        | `/klinis/igd`                | K03         | hibrida (demo + api)                    | [Klinis](./12-fitur-klinis.md) |
+| Tempat tidur               | `/klinis/tempat-tidur`       | K05         | hibrida (demo + api)                    | [Klinis](./12-fitur-klinis.md) |
+| Rawat inap                 | `/klinis/rawat-inap`         | K04 K07 K12 | hibrida (demo + api, api tersambung W4) | [Klinis](./12-fitur-klinis.md) |
+| Resume medis               | `/klinis/resume`             | K13         | hibrida (demo + api)                    | [Klinis](./12-fitur-klinis.md) |
+| Persetujuan tindakan       | `/tablet/persetujuan`        | K11         | hibrida (demo + api)                    | [Klinis](./12-fitur-klinis.md) |
+| Worklist klinis            | `/klinis/worklist`           | K01         | demo                                    | [Klinis](./12-fitur-klinis.md) |
+| CPPT & serah terima        | `/klinis/cppt`               | K07         | demo                                    | [Klinis](./12-fitur-klinis.md) |
+| Asesmen & skrining         | `/klinis/asesmen`            | K06         | demo                                    | [Klinis](./12-fitur-klinis.md) |
+| Diagnosis & problem list   | `/klinis/diagnosis`          | K08         | demo                                    | [Klinis](./12-fitur-klinis.md) |
+| Konsultasi & rawat bersama | `/klinis/konsultasi`         | K10         | demo                                    | [Klinis](./12-fitur-klinis.md) |
+| Edukasi pasien             | `/klinis/edukasi`            | K11         | demo                                    | [Klinis](./12-fitur-klinis.md) |
+| Asuhan keperawatan         | `/klinis/asuhan-keperawatan` | K12         | demo                                    | [Klinis](./12-fitur-klinis.md) |
+| Ringkasan pasien           | `/klinis/ringkasan`          | K14         | demo                                    | [Klinis](./12-fitur-klinis.md) |
+| Paket layanan khusus       | `/klinis/paket-layanan`      | K15         | demo                                    | [Klinis](./12-fitur-klinis.md) |
+| Kelengkapan rekam medis    | `/klinis/kelengkapan`        | K13         | demo                                    | [Klinis](./12-fitur-klinis.md) |
 
 ## Fase 4 · Penunjang
 
