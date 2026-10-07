@@ -50,7 +50,7 @@ export async function akuntansiAction(input: AkuntansiActionInput): Promise<Akun
   const jam = formatJam(at);
   const commit = async (event: EventOf<'akuntansi'>, message: string): Promise<AkuntansiActionResult> => {
     const r = await commitEvent('akuntansi', event, { rev: c.rev, session: s });
-    return r.ok ? { ok: true, message } : { ok: false, message: r.error, stale: r.stale };
+    return r.ok ? { ok: true, message, rev: r.rev } : { ok: false, message: r.error, stale: r.stale };
   };
   switch (c.type) {
     case 'petakan': {

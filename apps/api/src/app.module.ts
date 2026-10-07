@@ -63,6 +63,7 @@ import { MicroPaModule } from './modules/micro-pa/micro-pa.module';
 import { DiagnosticsModule } from './modules/diagnostics/diagnostics.module';
 import { NutritionModule } from './modules/nutrition/nutrition.module';
 import { BloodBankModule } from './modules/blood-bank/blood-bank.module';
+import { StockModule } from './modules/stock/stock.module';
 
 /**
  * Akar aplikasi. Env diteruskan eksplisit (bukan dibaca saat impor) agar tes dan runtime memakai
@@ -162,6 +163,8 @@ export class AppModule {
         DiagnosticsModule,
         NutritionModule,
         BloodBankModule,
+        // Fase 4 · 4.6a stok depo.
+        StockModule,
         // Endpoint bantu pengembangan tidak terdaftar sama sekali di produksi (rute tidak ada → 404).
         ...(env.devTools ? [DevToolsModule] : []),
       ],

@@ -7,9 +7,10 @@ import { createNonJknBooking } from './support/front-office';
 import { ensureRsfaSchedule } from './support/schedule';
 
 /**
- * Rantai lintas layar rawat jalan mode api (jaring regresi agen BUG): booking (aplikasi RS) → anjungan check-in →
- * nomor loket dipanggil di Kendali antrean → layar Pendaftaran (penjamin umum) → nomor poli dipanggil → dokter yang
- * terikat jadwal melihat pasiennya di daftar CPOE (worklist DPJP, relasi akses dari pendaftaran) → order lab terkirim.
+ * Rantai lintas layar rawat jalan mode api (jaring regresi agen BUG): booking umum → anjungan check-in → nomor loket
+ * dipanggil di Kendali antrean → layar Pendaftaran (penjamin umum) → dokter yang terikat jadwal membuka Pemeriksaan
+ * poli dari menu, memanggil pasien (task 4) → CPOE kunjungan yang sama (order lab) → SOAP + ICD-10 → tanda tangani dan
+ * selesai → resume rawat jalan.
  * Setiap layar staf dan perangkat yang dibuka di rantai ini dijaga tanpa galat konsol/halaman dan tanpa respons 5xx.
  * Data fiktif (NIK 9999…); sesi praktik milik dokter uji sendiri agar tidak berebut kuota dengan spesifikasi lain.
  */
@@ -36,7 +37,7 @@ test.beforeAll(async () => {
   await ensureRsfaSchedule();
 });
 
-test('rantai rawat jalan (api): booking → anjungan → loket → pendaftaran → poli → CPOE dokter jadwal', async ({
+test('rantai rawat jalan (api): booking → anjungan → loket → pendaftaran → poli → CPOE → resume', async ({
   page,
   browser,
 }, info) => {
@@ -48,9 +49,16 @@ test('rantai rawat jalan (api): booking → anjungan → loket → pendaftaran �
   const errors: string[] = [];
   const suffix = digits(4);
 
-  // Dokter uji yang terikat ke data praktisi jadwal (practitioner.userId), dengan sesi poli PD hari ini.
+  // Dokter uji di unit Poli Penyakit Dalam, terikat ke data praktisi jadwal (practitioner.userId), sesi PD hari ini.
   const doctorName = `dr. Rantai ${suffix} Fiktif, Sp.PD`;
-  const doctor = await createAccount({ roles: ['dokter'], displayName: doctorName });
+  const doctor = await createAccount({ displayName: doctorName });
+  await inTenant(TENANTS.RSFA, async (tx) => {
+    const role = await tx.role.findFirstOrThrow({ where: { code: 'dokter' } });
+    const unit = await tx.unit.findFirstOrThrow({ where: { code: 'POLI-DALAM' } });
+    await tx.staffAssignment.create({
+      data: { id: newId(), tenantId: TENANTS.RSFA, userId: doctor.id, roleId: role.id, unitId: unit.id },
+    });
+  });
   const today = isoDateJakarta();
   const minute = String(Math.floor(Math.random() * 60)).padStart(2, '0');
   const sessionLabel = new RegExp(`${doctorName.replace(/[.,]/g, '\\$&')}\\s*04\\.${minute}–23\\.59`);
@@ -166,27 +174,27 @@ test('rantai rawat jalan (api): booking → anjungan → loket → pendaftaran �
     appointmentId: booking.id,
   });
 
-  // 3) Poli memanggil nomor poli pasien.
-  await page.goto('/antrean');
-  await page
-    .getByRole('navigation', { name: 'Layanan antrean' })
-    .getByRole('link', { name: /^PD\s/ })
-    .click();
-  await page
-    .getByRole('listitem', { name: `${poliNo} · Menunggu` })
-    .getByRole('button', { name: `Panggil ${poliNo}` })
-    .click();
-  await expect(page.getByRole('listitem', { name: `${poliNo} · Dipanggil` })).toBeVisible();
-
-  // 4) Dokter jadwal: pasien tampil di daftar kunjungan CPOE (tanpa diatur manual), order lab terkirim.
+  // 3) Dokter jadwal di Pemeriksaan poli (W1, dari menu): pasien hasil pendaftaran ada di antrean poli → panggil
+  //    (task 4) → mulai periksa → CPOE kunjungan yang sama (order lab) → SOAP + ICD-10 → tanda tangani dan selesai →
+  //    resume rawat jalan (W5b) terbuka.
   const doctorContext = await browser.newContext();
   const doc = await doctorContext.newPage();
   watchErrors(doc, 'dokter', errors);
   try {
-    await loginAs(doc, doctor, '/klinis/poli');
-    await expect(doc.getByRole('heading', { level: 1 }).first()).toBeVisible();
-    await expect(doc.getByText('Akses ditolak')).toHaveCount(0);
-    await doc.goto('/klinis/order');
+    await loginAs(doc, doctor, '/');
+    const nav = doc.getByRole('navigation', { name: 'Navigasi utama' });
+    await nav.getByRole('link', { name: 'Pasien saya' }).click();
+    await expect(doc.getByRole('heading', { name: 'Pemeriksaan pasien', level: 1 })).toBeVisible();
+    await doc.goto(`/klinis/poli?pasien=${patient.id}`);
+    await expect(doc.getByText(patientName).first()).toBeVisible();
+    await doc.getByRole('button', { name: `Panggil pasien · ${poliNo}` }).click();
+    await expect(doc.getByText(new RegExp(`${poliNo} dipanggil`))).toBeVisible();
+    await doc.getByRole('button', { name: 'Mulai periksa' }).click();
+    await expect(doc.getByText(new RegExp(`Pemeriksaan ${poliNo} dimulai`))).toBeVisible();
+
+    // CPOE dari menu: kunjungan pasien ini ada di daftar (worklist DPJP dari jadwal), order lab terkirim.
+    await nav.getByRole('link', { name: 'Order & resep (CPOE)' }).click();
+    await expect(doc).toHaveURL(/\/klinis\/order$/);
     const row = doc
       .getByRole('region', { name: 'Kunjungan berjalan' })
       .getByRole('link')
@@ -204,16 +212,32 @@ test('rantai rawat jalan (api): booking → anjungan → loket → pendaftaran �
     await expect(send).toBeEnabled();
     await send.click();
     await expect(doc.getByRole('status').filter({ hasText: '1 order terkirim' })).toBeVisible();
-    await expect(
-      doc
-        .getByRole('region', { name: 'Order kunjungan ini' })
-        .getByText(/Hemoglobin/)
-        .first(),
-    ).toBeVisible();
     const orders = await inTenant(TENANTS.RSFA, (tx) =>
       tx.orderGroup.count({ where: { encounterId, orderedBy: doctor.id } }),
     );
     expect(orders).toBe(1);
+
+    // Kembali ke poli: SOAP + diagnosis → tanda tangani dan selesai → resume RJ.
+    await doc.goto(`/klinis/poli?pasien=${patient.id}`);
+    await doc.getByLabel('S · Subjektif').fill('Demam dan lemas sejak 2 hari');
+    await doc.getByLabel('O · Objektif').fill('Suhu 38,2 °C, konjungtiva tidak anemis');
+    await doc.getByRole('button', { name: '+ Tambah diagnosis' }).click();
+    await doc.getByLabel('Pilih kode ICD-10').selectOption('I10');
+    await doc.getByLabel('Catatan rencana (P)').fill('Cek hemoglobin, kontrol bila demam menetap');
+    await doc.getByLabel('Tindak lanjut / kontrol').fill('Kontrol Poli Penyakit Dalam 1 minggu');
+    await doc.getByRole('button', { name: 'Tanda tangani dan selesai' }).click();
+    await expect(doc.getByText(/Kunjungan selesai · ditandatangani/)).toBeVisible({ timeout: 20_000 });
+    await doc.getByRole('link', { name: 'Buka resume' }).click();
+    await expect(doc).toHaveURL(new RegExp(`/klinis/resume/${encounterId}`));
+    await expect(doc.getByRole('heading', { level: 1 }).first()).toBeVisible();
+    await expect(doc.getByText('Belum tersambung', { exact: true })).toHaveCount(0);
+    await expect(doc.getByText('Akses ditolak')).toHaveCount(0);
+
+    const state = await inTenant(TENANTS.RSFA, async (tx) => ({
+      enc: await tx.encounter.findUniqueOrThrow({ where: { id: encounterId }, select: { status: true } }),
+      resume: await tx.dischargeSummary.count({ where: { encounterId, kind: 'rawat_jalan' } }),
+    }));
+    expect(state).toEqual({ enc: { status: 'finished' }, resume: 1 });
   } finally {
     await doctorContext.close();
   }

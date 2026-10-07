@@ -118,7 +118,7 @@ export async function kasirAction(input: KasirActionInput): Promise<KasirActionR
   const store = await getKasirStore(s);
   const commit = async (event: EventOf<'tagihan'>, message: string): Promise<KasirActionResult> => {
     const r = await commitEvent('tagihan', event, { rev: c.rev, session: s });
-    return r.ok ? { ok: true, message } : { ok: false, message: r.error, stale: r.stale };
+    return r.ok ? { ok: true, message, rev: r.rev } : { ok: false, message: r.error, stale: r.stale };
   };
 
   if (c.type === 'tutup-shift') {

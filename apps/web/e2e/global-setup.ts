@@ -7,6 +7,7 @@ import { ensureClinicalFixtures } from './support/clinical';
 import { registerTestDevices } from './support/devices';
 import { e2eFieldKeys } from './support/field-keys';
 import { resetMockState } from './support/mock';
+import { ensureStockFixtures } from './support/stock';
 import { ensureRsfaSchedule } from './support/schedule';
 
 /**
@@ -33,6 +34,8 @@ export default async function globalSetup(): Promise<void> {
     await registerTestDevices({ prisma, tenantId: tenant.id, tmpDir });
     // Fase 3: master klinis RSFA + akun DPJP/residen/perawat/admisi + pasien beralergi (`support/clinical.ts`).
     await ensureClinicalFixtures(prisma, tenant.id, tmpDir);
+    // Fase 4: depo/gudang + stok awal fiktif + akun apoteker FARMASI dan IGD (`support/stock.ts`).
+    await ensureStockFixtures(prisma, tenant.id, tmpDir);
   } finally {
     await prisma.$disconnect();
   }
