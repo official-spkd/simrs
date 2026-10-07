@@ -13,7 +13,7 @@ import {
   withTenant,
 } from '@simrs/db';
 import { testDbUrls } from '@simrs/db/testing';
-import { newId } from '@simrs/shared';
+import { bloodBoardSchema, bloodRequestRecordSchema, newId, transfusionRecordSchema } from '@simrs/shared';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -200,6 +200,8 @@ describe('bank darah (S08)', () => {
     const e = await admitted();
     const rq = (await as('dokter').post('/blood/requests', ask(e.encounterId)).expect(201)).body;
     expect(rq.requestNo).toMatch(/^BD-\d{4}-\d{4}$/);
+    // Jawaban API sesuai kontrak bersama yang dipakai web.
+    bloodRequestRecordSchema.parse(rq);
     expect(rq.status).toBe('diminta');
     await as('analis').post(`/blood/requests/${rq.id}/receive`).expect(201);
     const prcA = await bag('PRC', 'A', 'pos');
@@ -402,6 +404,8 @@ describe('bank darah (S08)', () => {
       .expect(201);
     const board = (await as('perawat').get(`/blood/board?encounterId=${e.encounterId}`).expect(200)).body;
     expect(board.view).toBe('ruangan');
+    bloodBoardSchema.parse(board);
+    transfusionRecordSchema.parse(r.transfusion);
     const rq2 = board.requests.find((x: { id: string }) => x.id === second.rq.id);
     expect(rq2.issues[0].reactions).toHaveLength(1);
   });
@@ -435,6 +439,7 @@ describe('bank darah (S08)', () => {
     const rq = (await as('dokter').post('/blood/requests', ask(e.encounterId)).expect(201)).body;
     const bank = (await as('analis').get('/blood/board').expect(200)).body;
     expect(bank.view).toBe('layanan');
+    bloodBoardSchema.parse(bank);
     expect(bank.requests.map((x: { id: string }) => x.id)).toContain(rq.id);
     expect(bank.units.length).toBeGreaterThan(0);
     const ward = (await as('perawat').get('/blood/board').expect(200)).body;

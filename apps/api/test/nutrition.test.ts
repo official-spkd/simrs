@@ -12,7 +12,13 @@ import {
   withTenant,
 } from '@simrs/db';
 import { testDbUrls } from '@simrs/db/testing';
-import { isoDateJakarta, newId } from '@simrs/shared';
+import {
+  dietOrderRecordSchema,
+  isoDateJakarta,
+  mealListSchema,
+  mealServiceRecordSchema,
+  newId,
+} from '@simrs/shared';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -125,6 +131,7 @@ describe('gizi (S07)', () => {
     const e = await admitted('MELATI', 'Ny. Diet Fiktif');
     const first = (await as('perawat').post('/nutrition/diet-orders', order(e.encounterId)).expect(201)).body;
     expect(first.status).toBe('aktif');
+    dietOrderRecordSchema.parse(first);
     const second = (
       await as('gizi')
         .post(
@@ -161,6 +168,7 @@ describe('gizi (S07)', () => {
     await as('perawatAnggrek').post('/nutrition/diet-orders', order(anggrek.encounterId)).expect(201);
     const all = (await as('gizi').get(`/nutrition/meal-list?date=${today}&meal=siang`).expect(200)).body;
     expect(all.view).toBe('layanan');
+    mealListSchema.parse(all);
     const names = all.rows.map((r: { patient: { name: string } }) => r.patient.name);
     expect(names).toEqual(expect.arrayContaining(['Tn. Makan Melati', 'Tn. Makan Anggrek']));
     const row = all.rows.find((r: { encounterId: string }) => r.encounterId === melati.encounterId);
@@ -206,6 +214,7 @@ describe('gizi (S07)', () => {
         .expect(201)
     ).body;
     expect(after.recordedBy.id).toBe(users.perawat);
+    mealServiceRecordSchema.parse(after);
     const list = (
       await as('perawat')
         .get(`/nutrition/meal-list?date=${isoDateJakarta(servedAt)}&meal=siang`)
