@@ -117,8 +117,15 @@ test.describe('toko demo bersama', () => {
   test('mode api: layar toko 404, tanpa menu data demo, toko tidak tersentuh', async ({ page }) => {
     const akun = await createAccount({ roles: ['analis_lab'] });
     await loginAs(page, akun, `${API_WEB}/`);
-    for (const route of ['/penunjang/lab', '/penunjang/hasil-kritis']) {
+    // Layar yang hanya punya jalur toko demo: 404 di mode api.
+    for (const route of ['/keuangan/kasir', '/manajemen/sdm']) {
       expect((await page.goto(`${API_WEB}${route}`))?.status(), route).toBe(404);
+    }
+    // Lab dan Hasil kritis kini hibrida (fase 4 potongan 4.0c): terbuka di mode api tanpa data fiktif dan tanpa
+    // menyentuh toko demo.
+    for (const route of ['/penunjang/lab', '/penunjang/hasil-kritis']) {
+      expect((await page.goto(`${API_WEB}${route}`))?.status(), route).toBe(200);
+      await expect(page.getByText('Mode presentasi · data fiktif')).toHaveCount(0);
     }
     await page.goto(`${API_WEB}/`);
     await expect(page.getByRole('button', { name: /Mode presentasi/ })).toHaveCount(0);
