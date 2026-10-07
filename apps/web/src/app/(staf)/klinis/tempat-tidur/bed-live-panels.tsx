@@ -29,17 +29,24 @@ import type { ApiBed, ApiUnit, BedPermissions } from './bed-live';
 
 const INPUT = 'h-11 rounded-control border border-line-strong bg-white px-3 font-[inherit] text-body';
 const CARD = 'flex flex-col gap-2.5 rounded-card border border-white/95 bg-white/90 px-4 py-3.5 shadow-card';
-type Msg = { ok: boolean; text: string } | null;
+type Msg = { ok: boolean; text: string; reasons?: string[] } | null;
 
 function Message({ msg }: { msg: Msg }) {
   if (!msg) return null;
   return (
-    <p
+    <div
       role={msg.ok ? 'status' : 'alert'}
-      className={cx('m-0 text-small font-semibold', msg.ok ? 'text-success' : 'text-danger')}
+      className={cx('flex flex-col gap-1 text-small', msg.ok ? 'text-success' : 'text-danger')}
     >
-      {msg.text}
-    </p>
+      <p className="m-0 font-semibold">{msg.text}</p>
+      {msg.reasons && msg.reasons.length > 0 && (
+        <ul aria-label="Syarat yang belum terpenuhi" className="m-0 flex flex-col gap-0.5 pl-5 text-ink-800">
+          {msg.reasons.map((r) => (
+            <li key={r}>{r}</li>
+          ))}
+        </ul>
+      )}
+    </div>
   );
 }
 
@@ -79,11 +86,19 @@ export function BedPanel({
   const m = BED_STATUS_META[bed.status];
   const occupied = (bed.status === 'terisi' || bed.status === 'pulang') && bed.encounterId;
   const targets = transferTargets(board, bed.bedId);
-  const run = (fn: () => Promise<{ ok: true } | { ok: false; message: string }>, ok: string) =>
+  const run = (
+    fn: () => Promise<{ ok: true } | { ok: false; message: string; reasons?: string[] }>,
+    ok: string,
+  ) =>
     start(async () => {
       const r = await fn();
       if (r.ok) setMsg({ ok: true, text: ok });
-      else setMsg({ ok: false, text: r.message });
+      else
+        setMsg({
+          ok: false,
+          text: r.reasons?.length ? 'Pasien belum bisa dipulangkan. Lengkapi dulu:' : r.message,
+          reasons: r.reasons,
+        });
       router.refresh();
     });
 
@@ -210,8 +225,9 @@ export function BedPanel({
                 </select>
               </label>
               <span className="text-caption text-ink-500">
-                Gerbang pulang (resume, disposisi) diperiksa server. Disposisi meninggal dicatat dokter
-                penanggung jawab.
+                Syarat pulang diperiksa server: resume medis final ber-TTE DPJP; dirujuk juga surat rujukan.
+                Disposisi meninggal dicatat dokter yang berelasi dengan pasien (surat keterangan kematian
+                ber-TTE).
               </span>
               <Button type="submit" variant="danger" className="self-start" disabled={pending}>
                 Pulangkan pasien
@@ -249,12 +265,26 @@ export function RequestsPanel({
     for (const u of board.units) for (const b of u.beds) if (b.bedId === bedId) return b.code;
     return null;
   };
+  // Hasil admisi disimpan di sini: permintaan yang sudah ditempati keluar dari daftar saat papan dimuat ulang.
+  const [admitted, setAdmitted] = useState<Admitted | null>(null);
   return (
     <section aria-label="Permintaan bed" className={CARD}>
       <div className="flex items-baseline justify-between gap-2">
         <h2 className="m-0 text-body font-semibold">Permintaan bed</h2>
         <span className="text-caption text-ink-500">{board.requests.length} terbuka</span>
       </div>
+      {admitted && (
+        <p
+          role="status"
+          className="m-0 rounded-control border border-zamrud-200 bg-alert-success px-3 py-2 text-small"
+        >
+          <span className="font-semibold text-success">
+            Admisi selesai{admitted.bed ? ` di ${admitted.bed}` : ''}.
+          </span>{' '}
+          Gelang terbit: <span className="font-mono">{admitted.code}</span> ·{' '}
+          <Link href={`${GELANG_ROUTE}/${admitted.encounterId}`}>Cetak gelang</Link>
+        </p>
+      )}
       {board.requests.length === 0 && (
         <p className="m-0 text-small text-ink-500">Tidak ada permintaan bed terbuka.</p>
       )}
@@ -268,11 +298,18 @@ export function RequestsPanel({
             doctors={doctors}
             perms={perms}
             onPickBed={onPickBed}
+            onAdmitted={setAdmitted}
           />
         ))}
       </ul>
     </section>
   );
+}
+
+interface Admitted {
+  encounterId: string;
+  code: string;
+  bed?: string;
 }
 
 function RequestItem({
@@ -282,6 +319,7 @@ function RequestItem({
   doctors,
   perms,
   onPickBed,
+  onAdmitted,
 }: {
   req: BedBoardApi['requests'][number];
   board: BedBoardApi;
@@ -289,6 +327,7 @@ function RequestItem({
   doctors: PractitionerOption[];
   perms: BedPermissions;
   onPickBed: (bedId: string) => void;
+  onAdmitted: (a: Admitted) => void;
 }) {
   const router = useRouter();
   const id = useId();
@@ -369,7 +408,13 @@ function RequestItem({
         </div>
       )}
       {allocated && req.allocatedBedId && (
-        <AdmitForm req={req} allocatedBedId={req.allocatedBedId} doctors={doctors} perms={perms} />
+        <AdmitForm
+          req={req}
+          allocatedBedId={req.allocatedBedId}
+          doctors={doctors}
+          perms={perms}
+          onAdmitted={onAdmitted}
+        />
       )}
       {perms.write &&
         (cancelOpen ? (
@@ -417,11 +462,13 @@ function AdmitForm({
   allocatedBedId,
   doctors,
   perms,
+  onAdmitted,
 }: {
   req: BedBoardApi['requests'][number];
   allocatedBedId: string;
   doctors: PractitionerOption[];
   perms: BedPermissions;
+  onAdmitted: (a: Admitted) => void;
 }) {
   const router = useRouter();
   const id = useId();
@@ -432,25 +479,12 @@ function AdmitForm({
   const [confirmed, setConfirmed] = useState(false);
   const [dx, setDx] = useState('');
   const [msg, setMsg] = useState<Msg>(null);
-  const [done, setDone] = useState<{ encounterId: string; code: string; bed?: string } | null>(null);
   const [pending, start] = useTransition();
   const dxParsed = dx.trim() ? parseDiagnosis(dx, null) : null;
   const dxOk = !dx.trim() || !!dxParsed;
   const fromIgd = req.encounterClass === 'EMER';
   const planned = req.encounterClass === 'IMP' && req.plannedAdmissionId;
 
-  if (done) {
-    return (
-      <p
-        role="status"
-        className="m-0 rounded-control border border-zamrud-200 bg-alert-success px-3 py-2 text-small"
-      >
-        <span className="font-semibold text-success">Admisi selesai{done.bed ? ` di ${done.bed}` : ''}.</span>{' '}
-        Gelang terbit: <span className="font-mono">{done.code}</span> ·{' '}
-        <Link href={`${GELANG_ROUTE}/${done.encounterId}`}>Cetak gelang</Link>
-      </p>
-    );
-  }
   if (fromIgd && !perms.admit) {
     return (
       <p className="m-0 text-caption text-ink-500">Admisi rawat inap oleh petugas pendaftaran/admisi.</p>
@@ -483,7 +517,7 @@ function AdmitForm({
         );
         if (r.ok) {
           key.current = crypto.randomUUID();
-          setDone({ encounterId: r.data.encounterId, code: r.data.wristbandCode, bed: r.data.bedCode });
+          onAdmitted({ encounterId: r.data.encounterId, code: r.data.wristbandCode, bed: r.data.bedCode });
           router.refresh();
         } else setMsg({ ok: false, text: r.message });
         return;
@@ -495,7 +529,7 @@ function AdmitForm({
         initialDiagnosis: dxParsed,
       });
       if (r.ok) {
-        setDone({ encounterId: r.data.encounterId, code: r.data.wristbandCode });
+        onAdmitted({ encounterId: r.data.encounterId, code: r.data.wristbandCode });
         router.refresh();
       } else setMsg({ ok: false, text: r.message });
     });

@@ -9,7 +9,7 @@ import {
   type TriageLevel,
 } from '@simrs/shared';
 import { Button, KpiCard } from '@simrs/ui';
-import { usePathname, useRouter } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
 import { LiveIndicator, useLiveBoard } from '@/components/klinis/live-board';
 import { StatusFlag } from '@/components/klinis/status-flag';
@@ -65,7 +65,6 @@ export function IgdLive({
   bedHref: string | null;
 }) {
   const router = useRouter();
-  const pathname = usePathname();
   const live = useLiveBoard('/klinis/igd/events', CLINICAL_SSE_EVENTS.edBoard, CHANGE_EVENTS);
   const sec = useSecondsSince(board.asOf);
   const rows = useMemo(() => board.items.map(edRowFromApi), [board.items]);
@@ -78,10 +77,9 @@ export function IgdLive({
   const shown = filterEdItems(rows, zone, level);
   const k = edKpis(rows);
   const current = board.items.find((i) => i.encounterId === selected) ?? board.items[0] ?? null;
-  const select = (id: string) => {
-    setSelected(id);
-    window.history.replaceState(null, '', `${pathname}?pilih=${encodeURIComponent(id)}`);
-  };
+  // Pilihan pasien tidak ditulis ke URL: `?pilih=` yang berubah membuat muat ulang SSE berikutnya memasang ulang segmen
+  // halaman (isian triase yang sedang diketik hilang). `?pilih=` tetap dibaca untuk tautan langsung.
+  const select = (id: string) => setSelected(id);
   const bedsReady = board.beds.filter((b) => b.status === 'siap').length;
   const allocated = board.items.filter((i) => i.bedRequest?.status === 'dialokasi').length;
   const boarding = board.items.filter((i) => i.bedRequest?.boarding).length;
@@ -208,8 +206,13 @@ function PatientHead({ item, addSeconds }: { item: EdBoardApi['items'][number]; 
           {item.unidentified ? ' · identitas menyusul' : ''}
         </span>
         <span className="text-caption text-ink-700">
-          Penjamin: {item.payer ? `${PAYER_KIND_LABEL[item.payer.kind]} · ${item.payer.name}` : 'belum ada'} ·
-          Dokter: {item.doctor ?? 'belum ditetapkan'}
+          Penjamin:{' '}
+          {item.payer
+            ? item.payer.name === PAYER_KIND_LABEL[item.payer.kind]
+              ? item.payer.name
+              : `${PAYER_KIND_LABEL[item.payer.kind]} · ${item.payer.name}`
+            : 'belum ada'}{' '}
+          · Dokter: {item.doctor ?? 'belum ditetapkan'}
         </span>
       </div>
       <span className="flex flex-none flex-col items-end gap-1">

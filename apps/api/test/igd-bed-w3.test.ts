@@ -37,6 +37,7 @@ const tok: Record<string, Tokens> = {};
 const unit: Record<string, string> = {};
 const beds: Record<string, string[]> = {};
 let dpjpId: string;
+let dpjpUserId: string;
 
 const run = <R>(fn: (tx: TenantTx) => Promise<R>) => withTenant(testDb(), A.id, fn);
 const as = (who: string) => {
@@ -159,11 +160,68 @@ beforeAll(async () => {
     });
     tok[who] = await login(app, user);
   }
+  const dokter = await createTestUser(A.id, {
+    roles: [{ code: 'dokter', unitId: unit.MELATI }],
+    tenantCode: A.code,
+  });
+  dpjpUserId = dokter.id;
   dpjpId = await run(async (tx) => {
     const p = await tx.practitioner.findFirstOrThrow({ where: { name: 'dr. Andini Prameswari, Sp.PD' } });
+    await tx.practitioner.update({ where: { id: p.id }, data: { userId: dokter.id } });
     return p.id;
   });
 });
+
+/** Resume medis final ber-TTE (syarat `DischargeGate` 3.6), cukup baris final + dokumen + tanda tangan. */
+async function seedSignedResume(encounterId: string, disposition: string): Promise<void> {
+  await run(async (tx) => {
+    const enc = await tx.encounter.findUniqueOrThrow({ where: { id: encounterId } });
+    const id = newId();
+    await tx.dischargeSummary.create({
+      data: {
+        id,
+        tenantId: A.id,
+        patientId: enc.patientId,
+        encounterId,
+        rootId: id,
+        occurredAt: new Date(),
+        authorUserId: dpjpUserId,
+        authorRole: 'dokter',
+        kind: 'rawat_inap',
+        sections: {},
+        disposition,
+        dischargeCondition: 'Membaik',
+      },
+    });
+    const docId = newId();
+    await tx.document.create({
+      data: {
+        id: docId,
+        tenantId: A.id,
+        patientId: enc.patientId,
+        kind: 'resume',
+        title: 'Resume medis pulang',
+        fileName: 'resume.pdf',
+        mimeType: 'application/pdf',
+        sizeBytes: 10,
+        sha256: 'a'.repeat(64),
+        storageKey: `${A.id}/2026/10/${docId}`,
+        sourceType: 'discharge_summaries',
+        sourceId: id,
+      },
+    });
+    await tx.documentSignature.create({
+      data: {
+        id: newId(),
+        tenantId: A.id,
+        documentId: docId,
+        signerUserId: dpjpUserId,
+        documentSha256: 'a'.repeat(64),
+        verifyCode: `sv1.${A.id}.${'A'.repeat(11)}${newId().replace(/-/g, '')}`,
+      },
+    });
+  });
+}
 
 afterAll(async () => {
   await app?.close();
@@ -324,6 +382,25 @@ describe('sinyal SSE papan (ADR-0104)', () => {
       await bed.waitFor(() =>
         bed.events.some(
           (x) => x.event === 'bed.request' && x.data.requestId === req && x.data.status === 'menunggu',
+        ),
+      );
+      // Perubahan berikutnya pada baris yang sama (alokasi) tetap terkirim: id sinyal baru per perubahan.
+      const [target] = await freeBeds('ANGGREK', 1);
+      await as('daftar').post(`/adt/bed-requests/${req}/allocate`, { locationId: target }).expect(200);
+      await bed.waitFor(() =>
+        bed.events.some(
+          (x) => x.event === 'bed.request' && x.data.requestId === req && x.data.status === 'dialokasi',
+        ),
+      );
+      await ed.waitFor(
+        () => ed.events.filter((x) => x.event === 'ed.changed' && x.data.sourceId === req).length >= 2,
+      );
+      await as('daftar')
+        .post(`/adt/bed-requests/${req}/cancel`, { reason: 'Keluarga memilih RS lain' })
+        .expect(200);
+      await bed.waitFor(() =>
+        bed.events.some(
+          (x) => x.event === 'bed.request' && x.data.requestId === req && x.data.status === 'batal',
         ),
       );
       // Muatan tanpa nama pasien.
@@ -493,6 +570,7 @@ describe('transfer berlawanan arah (utang 3.3)', () => {
         expect((await bedStatus(toM)).encounterId).toBe(q.imp);
         // Bersihkan: pasien pulang agar bed bisa dipakai putaran berikutnya (kotor → siap).
         for (const enc of [p.imp, q.imp]) {
+          await seedSignedResume(enc, 'pulang');
           await as('daftar').post('/adt/discharges', { encounterId: enc, disposition: 'pulang' }).expect(201);
         }
       }

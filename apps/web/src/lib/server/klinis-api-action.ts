@@ -11,7 +11,15 @@ import type { SessionView } from '../session-view';
  * (kode stabil ikut), tidak pernah sebagai 500 di layar.
  */
 
-export type ApiActionResult<T> = { ok: true; data: T } | { ok: false; message: string; code?: string };
+export type ApiActionResult<T> =
+  | { ok: true; data: T }
+  | {
+      ok: false;
+      message: string;
+      code?: string;
+      /** Syarat yang belum terpenuhi dari gerbang server (mis. `DISCHARGE_BLOCKED`: resume belum final). */
+      reasons?: string[];
+    };
 
 /** Sesi lengkap pemegang izin `perm` (`resource.action`); selain itu hasil gagal berpesan. Belum login → /masuk. */
 export async function authorizeApi(
@@ -24,10 +32,15 @@ export async function authorizeApi(
   return can(s, resource, action) ? { ok: true, session: s } : { ok: false, message: denied };
 }
 
-export function apiFailure(err: unknown): { ok: false; message: string; code?: string } {
+export function apiFailure(err: unknown): { ok: false; message: string; code?: string; reasons?: string[] } {
   if (err instanceof ApiError) {
     if (err.status === 401) redirect('/masuk');
-    return { ok: false, code: err.code, message: err.message };
+    const d = err.details as { reasons?: unknown } | undefined;
+    const reasons =
+      Array.isArray(d?.reasons) && d.reasons.every((r) => typeof r === 'string')
+        ? (d.reasons as string[])
+        : undefined;
+    return { ok: false, code: err.code, message: err.message, ...(reasons ? { reasons } : {}) };
   }
   return { ok: false, message: 'Terjadi kesalahan. Coba lagi.' };
 }

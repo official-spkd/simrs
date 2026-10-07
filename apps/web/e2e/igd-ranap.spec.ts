@@ -23,9 +23,74 @@ async function igdAccount(role: string, displayName: string): Promise<Account> {
   return acc;
 }
 
+/** Resume medis final ber-TTE untuk pasien di bed `bedCode` (syarat `DischargeGate`; alurnya diuji layar Resume). */
+async function seedSignedResume(bedCode: string, doctorUserId: string): Promise<void> {
+  const tenantId = TENANTS.RSFA;
+  await inTenant(tenantId, async (tx) => {
+    const loc = await tx.location.findFirstOrThrow({ where: { code: bedCode } });
+    const st = await tx.bedStatus.findFirstOrThrow({ where: { locationId: loc.id } });
+    const encounterId = st.encounterId as string;
+    const enc = await tx.encounter.findUniqueOrThrow({ where: { id: encounterId } });
+    const id = newId();
+    await tx.dischargeSummary.create({
+      data: {
+        id,
+        tenantId,
+        patientId: enc.patientId,
+        encounterId,
+        rootId: id,
+        occurredAt: new Date(),
+        authorUserId: doctorUserId,
+        authorRole: 'dokter',
+        kind: 'rawat_inap',
+        sections: {},
+        disposition: 'pulang',
+        dischargeCondition: 'Membaik',
+      },
+    });
+    const docId = newId();
+    await tx.document.create({
+      data: {
+        id: docId,
+        tenantId,
+        patientId: enc.patientId,
+        kind: 'resume',
+        title: 'Resume medis pulang',
+        fileName: 'resume.pdf',
+        mimeType: 'application/pdf',
+        sizeBytes: 10,
+        sha256: 'a'.repeat(64),
+        storageKey: `${tenantId}/2026/10/${docId}`,
+        sourceType: 'discharge_summaries',
+        sourceId: id,
+      },
+    });
+    await tx.documentSignature.create({
+      data: {
+        id: newId(),
+        tenantId,
+        documentId: docId,
+        signerUserId: doctorUserId,
+        documentSha256: 'a'.repeat(64),
+        verifyCode: `sv1.${tenantId}.${'A'.repeat(11)}${newId().replace(/-/g, '')}`,
+      },
+    });
+  });
+}
+
+/** Galat konsol/halaman per jendela (syarat kualitas: layar mode api tanpa galat konsol). */
+const consoleErrors: string[] = [];
+
 async function open(browser: Browser, acc: Account, path: string): Promise<Page> {
   const ctx = await browser.newContext();
   const page = await ctx.newPage();
+  // Sama dengan spesifikasi lain: favicon (aplikasi tanpa folder public) bukan galat layar.
+  page.on('console', (m) => {
+    if (m.type() === 'error' && !`${m.text()} ${m.location().url}`.includes('favicon')) {
+      consoleErrors.push(`${path}: ${m.text()}`);
+    }
+  });
+  page.on('pageerror', (e) => consoleErrors.push(`${path}: ${e.message}`));
   await loginAs(page, acc, path);
   await expect(page).toHaveURL(new RegExp(path.replace(/\//g, '\\/')));
   return page;
@@ -46,6 +111,7 @@ test.describe('IGD → rawat inap (layar W3, mode api)', () => {
     const patient = await createPatient('RSFA', { name, sex: 'female', birthDate: '1979-04-02' });
     const admisi = await igdAccount('petugas_pendaftaran', 'Admisi IGD E2E Fiktif');
     const perawat = await igdAccount('perawat', 'Ns. IGD E2E Fiktif');
+    const dokter = await createAccount({ roles: ['dokter'], displayName: 'dr. DPJP Resume E2E Fiktif' });
 
     const igd1 = await open(browser, admisi, '/klinis/igd');
     const igd2 = await open(browser, perawat, '/klinis/igd');
@@ -113,7 +179,7 @@ test.describe('IGD → rawat inap (layar W3, mode api)', () => {
     await req.getByLabel('DPJP rawat inap').selectOption({ index: 1 });
     await req.getByRole('checkbox', { name: 'Persetujuan umum sudah ditandatangani' }).check();
     await req.getByRole('button', { name: 'Admisi · terbitkan gelang' }).click();
-    const done = req.getByText(/Admisi selesai di (\S+)\./);
+    const done = bed.getByRole('region', { name: 'Permintaan bed' }).getByText(/Admisi selesai di (\S+)\./);
     await expect(done).toBeVisible();
     const bedCode = /di (\S+)\./.exec((await done.textContent()) ?? '')?.[1] ?? '';
     expect(bedCode).toMatch(/^[A-Z]{3}-\d{3}-[A-Z]$/);
@@ -131,17 +197,25 @@ test.describe('IGD → rawat inap (layar W3, mode api)', () => {
     await expect(bed.getByRole('article', { name: 'Gelang identitas pasien' })).toContainText(name);
     await bed.goBack();
 
-    // 6 · Pulang (gerbang server) → bed kotor → dibersihkan → siap (versi bed bertambah tiap langkah).
+    // 6 · Pulang lewat `DischargeGate` (3.6): tanpa resume final syaratnya tampil beralasan; resume final ber-TTE
+    // ditanam (alur resume diuji layar Resume) → pulang → bed kotor → siap, agar run berikutnya punya bed siap.
     await bed.getByRole('button', { name: new RegExp(`^${bedCode} · `) }).click();
     const p = bed.getByRole('region', { name: `Bed ${bedCode}` });
     await p.getByRole('button', { name: 'Pulangkan pasien' }).click();
+    await expect(p.getByText('Pasien belum bisa dipulangkan. Lengkapi dulu:')).toBeVisible();
+    await expect(p.getByRole('list', { name: 'Syarat yang belum terpenuhi' })).toContainText(
+      'Resume medis final dengan TTE DPJP belum ada',
+    );
+    await seedSignedResume(bedCode, dokter.id);
+    await p.getByRole('button', { name: 'Pulangkan pasien' }).click();
     await expect(bed.getByRole('button', { name: new RegExp(`^${bedCode} · Kotor`) })).toBeVisible();
-    await bed.getByRole('button', { name: new RegExp(`^${bedCode} · Kotor`) }).click();
+    // Bed masih terpilih: panelnya menampilkan status baru (kotor) beserta transisi manualnya.
     await bed
       .getByRole('region', { name: `Bed ${bedCode}` })
       .getByRole('button', { name: 'Tandai siap' })
       .click();
     await expect(bed.getByRole('button', { name: new RegExp(`^${bedCode} · Siap`) })).toBeVisible();
+    expect(consoleErrors).toEqual([]);
   });
 
   test('pasien tanpa identitas terdaftar dari papan IGD; perawat bangsal tidak membuka papan IGD', async ({
@@ -167,5 +241,6 @@ test.describe('IGD → rawat inap (layar W3, mode api)', () => {
     const nurse = await createAccount({ roles: ['perawat'], unitName: 'Bangsal E2E IGD Fiktif' });
     const other = await open(browser, nurse, '/klinis/igd');
     await expect(other.getByText('Papan IGD hanya untuk petugas yang ditugaskan di IGD')).toBeVisible();
+    expect(consoleErrors).toEqual([]);
   });
 });
