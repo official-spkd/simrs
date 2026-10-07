@@ -57,8 +57,9 @@ function isScenario(e: PoliEncounter): boolean {
 }
 
 /** Mode api · antrean poli hari ini untuk unit penugasan sesi. */
-export function getPoliWorklistApi(): Promise<PoliWorklistApi> {
-  return api('/api/v1/poli/worklist', { schema: poliWorklistApiSchema });
+export function getPoliWorklistApi(serviceId?: string | null): Promise<PoliWorklistApi> {
+  const q = serviceId ? `?serviceId=${encodeURIComponent(serviceId)}` : '';
+  return api(`/api/v1/poli/worklist${q}`, { schema: poliWorklistApiSchema });
 }
 
 /** Mode api · kunjungan rawat jalan dalam bentuk layar poli. */

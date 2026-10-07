@@ -188,6 +188,16 @@ export class DocumentsService {
     const doc = await this.load(id);
     await this.assertAccess(doc.patientId);
     if (doc.voidedAt) throw new AppError('CONFLICT', 'Dokumen batal tidak bisa ditandatangani', 409);
+    // Dokumen klinis legal (resume, persetujuan, surat kematian, resep) ditandatangani lewat alurnya sendiri
+    // (`ClinicalSigningService.issueSigned`: izin tanda tangan, penanda tangan yang berhak, kunci versi sumber). TTE gagal
+    // diulang lewat koreksi beralasan di alur itu, bukan lewat endpoint dokumen generik.
+    if (doc.sourceType) {
+      throw new AppError(
+        'CONFLICT',
+        'Dokumen klinis ditandatangani lewat layarnya (resume, persetujuan, resep); TTE gagal diulang dari sana',
+        409,
+      );
+    }
     const me = this.db.actorUserId();
     if (doc.signatures.some((s) => s.signerUserId === me)) {
       throw new AppError(

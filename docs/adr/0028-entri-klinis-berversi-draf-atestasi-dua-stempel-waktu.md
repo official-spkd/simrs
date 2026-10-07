@@ -92,3 +92,14 @@ dengan celah berbeda.
 - **Draf** lewat `PUT/GET/DELETE /api/v1/drafts/:encounterId/:kind`. Izin `clinical.write` + ABAC pasien; baris
   selalu milik pengguna sesi; isi draf tidak masuk audit. Job worker `clinical.drafts-cleanup` (tiap jam) menghapus
   draf kunjungan yang selesai/batal lebih dari 48 jam.
+
+## Pembaruan 7 Okt 2026 · penutup fase 3 (potongan 3.9)
+
+- Tabel berversi bertambah satu: `death_certificates` (3.6, ADR-0093) memakai pola yang sama (rantai versi,
+  `app_clinical_guard`, `_current`, append-only, `supersedes_once`) agar TTE-nya dikunci lewat
+  `ClinicalSigningService.issueSigned`. Daftar `CLINICAL_TABLES` di `clinical-record.service.ts` ikut diperbarui.
+- Draf jenis `resume` dicadangkan: hanya ditulis lewat `/discharge/summaries` (isinya divalidasi dan memuat
+  konfirmasi rekonsiliasi DPJP); API draf generik menolaknya (422).
+- Tanda tangan ulang setelah TTE gagal = koreksi beralasan oleh penulis asli (versi gagal tidak terkunci karena
+  tanda tangannya `failed`). Versi ber-TTE pending/signed tetap 409 `RECORD_LOCKED`; dibuktikan tes API
+  `discharge.test.ts` dan E2E `klinis-resume.spec.ts`.

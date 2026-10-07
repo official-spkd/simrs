@@ -126,6 +126,8 @@ const vitalsForm = z.strictObject({
     .int()
     .min(4, 'Napas 4–60 x/mnt.')
     .max(60, 'Napas 4–60 x/mnt.'),
+  kesadaran: z.enum(['A', 'C', 'V', 'P', 'U'], { error: 'Pilih tingkat kesadaran (ACVPU).' }),
+  oksigen: z.boolean(),
   berat: z
     .string()
     .trim()
@@ -136,7 +138,12 @@ const vitalsForm = z.strictObject({
 export async function recordVitalsApiAction(input: PoliVitalsFormInput): Promise<PoliActionResult> {
   const denied = await staff(['clinical', 'write']);
   if (denied) return fail(denied);
-  const p = vitalsForm.safeParse({ ...input, berat: input.berat ?? '' });
+  const p = vitalsForm.safeParse({
+    ...input,
+    berat: input.berat ?? '',
+    kesadaran: input.kesadaran ?? '',
+    oksigen: input.oksigen ?? false,
+  });
   if (!p.success) {
     const issue = p.error.issues[0];
     return fail(issue?.message ?? 'Isian tanda vital tidak valid.', String(issue?.path[0] ?? ''));
@@ -154,8 +161,8 @@ export async function recordVitalsApiAction(input: PoliVitalsFormInput): Promise
         sbp,
         dbp,
         spo2: p.data.spo2,
-        onOxygen: false,
-        consciousness: 'A',
+        onOxygen: p.data.oksigen,
+        consciousness: p.data.kesadaran,
         weightKg: p.data.berat,
       },
       schema: vitalSignsRecordSchema,
@@ -181,6 +188,7 @@ function parseSoap(input: PoliSoapInput) {
     plan: input.plan ?? '',
     followUp: input.followUp ?? '',
     condition: input.condition ?? '',
+    disposition: input.disposition ?? '',
   });
 }
 
@@ -263,8 +271,8 @@ async function finishVisit(d: z.infer<typeof soapInput>): Promise<PoliActionResu
       method: 'PUT',
       body: {
         dischargeAt: null,
-        disposition: 'pulang',
-        dischargeCondition: d.condition || base?.dischargeCondition || 'Stabil',
+        disposition: d.disposition,
+        dischargeCondition: d.condition,
         notes: base?.notes ?? { anamnesis: null, fisik: null, penunjang: null, terapi: null },
         education: base?.education ?? null,
         instructions: base?.instructions ?? null,
@@ -281,7 +289,7 @@ async function finishVisit(d: z.infer<typeof soapInput>): Promise<PoliActionResu
   }
   await api(`/api/v1/encounters/${d.encounterId}/close`, {
     method: 'POST',
-    body: { disposition: 'pulang' },
+    body: { disposition: d.disposition },
     schema: encounterCloseResultSchema,
   });
   const at = formatJam(new Date());
@@ -295,6 +303,10 @@ export async function signPoliAction(input: PoliSoapInput): Promise<PoliActionRe
   if (!p.success) return fail('Isian CPPT tidak valid (maksimal 2.000 karakter per bagian).');
   if (p.data.diagnosisCodes.length === 0) {
     return fail('Isi minimal satu diagnosis (A · Asesmen ICD-10) agar kunjungan bisa diselesaikan.');
+  }
+  // Kondisi dan cara pulang masuk resume ber-TTE: wajib dipilih dokter (tanpa nilai bawaan).
+  if (!p.data.condition || !p.data.disposition) {
+    return fail('Pilih kondisi pulang dan cara pulang sebelum menandatangani resume rawat jalan.');
   }
   try {
     const visit = await api(`/api/v1/encounters/${p.data.encounterId}/poli-visit`, {
