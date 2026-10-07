@@ -598,6 +598,11 @@ lewat `ClinicalRecordService` dan `CareTeamService`.
 - Jawaban konsul sekali membatasi akses konsultan sampai 24 jam setelah jawaban. Rawat bersama/alih rawat yang
   diterima memakai relasi tim perawatan (berlaku selama dirawat; setelah diakhiri sampai akhir hari berikutnya).
 - Jawaban pertama mencatat biaya `konsultasi` sekali per rantai. Notifikasi permintaan/jawaban tanpa PHI.
+- Dokumen pasien di layar klinis (utang P08): komponen `components/klinis/patient-documents.tsx` (daftar, unggah,
+  batal beralasan, minta TTE, unduh) memakai data `lib/server/data/klinis/dokumen.ts`, Server Action
+  `dokumen-actions.ts` (unggah biner lewat `apiUpload`, batas body Server Action 11 MB di `next.config.ts`), dan
+  Route Handler unduh `/klinis/dokumen/:id/unduh` (BFF, token tetap di server). Aturan tombol di
+  `lib/patient-documents.ts`. Dipasang di tab Dokumen layar Rawat inap (W4).
 
 ### Booking (F02, fase 2 potongan 3)
 

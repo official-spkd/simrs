@@ -19,6 +19,7 @@ import {
   CONSENT_TEMPLATE_SAMPLE,
   EDUCATION_FORM_SAMPLE,
   newId,
+  patientDocumentSchema,
 } from '@simrs/shared';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import request from 'supertest';
@@ -309,6 +310,12 @@ describe('persetujuan tindakan (K11)', () => {
     ).rejects.toThrow(/RECORD_LOCKED/);
     const list = await as('perawat').get(`/encounters/${e.encounterId}/consents`).expect(200);
     expect(list.body.map((c: { id: string }) => c.id)).toEqual([r.body.id]);
+    // Dokumen pasien (P08) yang dibaca komponen dokumen klinis web: PDF persetujuan + PNG tanda tangan, bentuk
+    // sesuai kontrak `patientDocumentSchema`.
+    const docs = await as('dokter').get(`/patients/${e.patientId}/documents`).expect(200);
+    const parsed = patientDocumentSchema.array().parse(docs.body);
+    expect(parsed.map((x) => x.kind).sort()).toEqual(['consent', 'consent']);
+    expect(parsed.find((x) => x.id === doc.id)?.signatures[0]?.status).toBe('pending');
   });
 
   it('finalize tanpa tanda tangan/saksi → 422; saksi diri sendiri 422; ubah isi menghapus tanda tangan', async () => {
