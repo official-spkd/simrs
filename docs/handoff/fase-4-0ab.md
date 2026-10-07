@@ -4,7 +4,7 @@
 - Status: selesai, menunggu tinjauan DOC + penggabungan orkestrator
 - Pemilik sesi: Claude Code (agen A5)
 - Worktree: `/Users/godam/PROYEK/simrs/.claude/worktrees/agent-a0d98d16252d27a40`
-- Branch: `worktree-agent-a0d98d16252d27a40` (di atas master `837af390`)
+- Branch: `worktree-agent-a0d98d16252d27a40` (master terbaru `f6db07b1` sudah digabung)
 - Rencana: `docs/rencana/fase-4-penunjang.md` §4.0a, §4.0b
 - Sumber daya: DB `simrs_test_fe5`; migrasi `20261008100000_support_services` (rentang slot 20261008100000–199999)
 
@@ -34,7 +34,11 @@
 
 ## Validasi
 
-Lihat laporan akhir A5 (build/lint/typecheck/test/migrate diff).
+- `pnpm build && pnpm lint && pnpm typecheck`: lulus (7/12/12 tugas).
+- `pnpm test`: 12/12 tugas hijau (shared 286, db 233, api 562, web 1010, worker 123, mock 81, backup 52, ui 37, pdf 7).
+- `prisma migrate diff` terhadap DB slot: tidak ada selisih.
+- `pnpm db:sync-permissions --reconcile --dry-run` (DB slot): `dokter: + lab.worklist.read:unit`.
+- E2E slot a5: `e2e/demo/semua-layar.spec.ts` + `e2e/smoke.spec.ts` 56 lulus (termasuk posisi `ahli_gizi`).
 
 ## Kendala dan langkah berikutnya
 
