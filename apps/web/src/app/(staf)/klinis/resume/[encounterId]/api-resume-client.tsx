@@ -88,6 +88,7 @@ export function ApiResumeClient({
     change: 'baru' as DischargeMedicationLine['change'],
   });
   const [addendum, setAddendum] = useState('');
+  const [resignReason, setResignReason] = useState('');
   const set = (patch: Partial<DischargeDraftInput>) => {
     setForm((f) => ({ ...f, ...patch }));
     setDirty(true);
@@ -498,6 +499,41 @@ export function ApiResumeClient({
               >
                 Cetak PDF resume
               </a>
+            )}
+            {final.document?.signatureStatus === 'failed' && view.canSign && (
+              <div className="flex flex-col gap-1.5 border-t border-zamrud-200 pt-2">
+                <label htmlFor={`${ids}-resign`} className="text-small font-semibold text-danger">
+                  TTE gagal · alasan tanda tangan ulang
+                </label>
+                <textarea
+                  id={`${ids}-resign`}
+                  rows={2}
+                  maxLength={500}
+                  value={resignReason}
+                  onChange={(e) => setResignReason(e.target.value)}
+                  placeholder="Mis. TTE ditolak penyelenggara, ditandatangani ulang"
+                  className={textArea}
+                />
+                <span>
+                  <Button
+                    variant="primary"
+                    disabled={pending || resignReason.trim().length < 10}
+                    onClick={() =>
+                      run(
+                        () =>
+                          finalizeResumeAction(view.encounterId, {
+                            kind: 'koreksi',
+                            supersedesId: final.id,
+                            correctionReason: resignReason.trim(),
+                          }),
+                        () => setResignReason(''),
+                      )
+                    }
+                  >
+                    Tanda tangani ulang (TTE)
+                  </Button>
+                </span>
+              </div>
             )}
           </div>
         ) : (

@@ -482,6 +482,86 @@ describe('resume medis rawat inap (K13)', () => {
     ).toBeGreaterThan(0);
   });
 
+  it('TTE gagal: resume tidak dihitung gerbang; tanda tangan ulang beralasan = versi 2 terkunci; surat kematian juga', async () => {
+    const e = await encounter('IMP');
+    await sources(e.encounterId);
+    await as('dokter').post('/discharge/summaries', { encounterId: e.encounterId }).expect(201);
+    await as('dokter').put(`/discharge/summaries/${e.encounterId}/draft`, draftBody()).expect(200);
+    await as('dokter')
+      .post(`/discharge/summaries/${e.encounterId}/reconciliation`, { confirmed: true })
+      .expect(200);
+    const v1 = dischargeSummaryViewSchema.parse(
+      (
+        await as('dokter')
+          .post(`/discharge/summaries/${e.encounterId}/finalize`, { revision: baru })
+          .expect(201)
+      ).body,
+    );
+    const owner = createPrismaClient({ connectionString: testDbUrls().migrator, max: 1 });
+    const failTte = (documentId: string) =>
+      withTenant(owner, A.id, (tx) =>
+        tx.documentSignature.updateMany({ where: { documentId }, data: { status: 'failed' } }),
+      );
+    try {
+      await failTte(v1.final?.document?.id as string);
+      const failed = dischargeSummaryViewSchema.parse(
+        (await as('dokter').get(`/encounters/${e.encounterId}/discharge-summary`).expect(200)).body,
+      );
+      expect(failed.final).toMatchObject({ locked: false, document: { signatureStatus: 'failed' } });
+      // Gerbang pulang tidak menghitung resume dengan TTE gagal.
+      const blocked = await as('dokter').post(`/encounters/${e.encounterId}/close`, { disposition: 'pulang' });
+      expect(blocked.status).toBe(409);
+      // Tanda tangan ulang tanpa alasan ditolak; dengan alasan → versi 2 (isian DPJP dari versi 1, tanpa draf).
+      await as('dokter')
+        .post(`/discharge/summaries/${e.encounterId}/finalize`, {
+          revision: { kind: 'koreksi', supersedesId: v1.final?.id, correctionReason: 'ulang' },
+        })
+        .expect(400);
+      const v2 = dischargeSummaryViewSchema.parse(
+        (
+          await as('dokter')
+            .post(`/discharge/summaries/${e.encounterId}/finalize`, {
+              revision: {
+                kind: 'koreksi',
+                supersedesId: v1.final?.id,
+                correctionReason: 'TTE ditolak penyelenggara, tanda tangan ulang',
+              },
+            })
+            .expect(201)
+        ).body,
+      );
+      expect(v2.final).toMatchObject({ version: 2, locked: true, rootId: v1.final?.rootId });
+      expect(v2.summary.sections.find((x) => x.id === 'instruksi')?.body).toContain('Kembali ke IGD');
+      expect(v2.reconciliation).not.toBeNull();
+
+      // Surat kematian: TTE gagal → koreksi beralasan → versi 2.
+      const cert = await as('dokter')
+        .post(`/encounters/${e.encounterId}/death-certificate`, {
+          revision: baru,
+          diedAt: minutesAgo(10),
+          cause: { code: 'J18.9', display: 'Pneumonia' },
+          note: null,
+        })
+        .expect(201);
+      await failTte(cert.body.document.id);
+      const again = await as('dokter')
+        .post(`/encounters/${e.encounterId}/death-certificate`, {
+          revision: {
+            kind: 'koreksi',
+            supersedesId: cert.body.id,
+            correctionReason: 'TTE surat kematian gagal, tanda tangan ulang',
+          },
+          diedAt: minutesAgo(10),
+          cause: { code: 'J18.9', display: 'Pneumonia' },
+          note: null,
+        })
+        .expect(201);
+      expect(deathCertificateSchema.parse(again.body)).toMatchObject({ version: 2, locked: true });
+    } finally {
+      await owner.$disconnect();
+    }
+  });
+
   it('izin + isolasi: perawat tidak bisa TTE; dokter tenant lain 404; IGD tanpa resume', async () => {
     const e = await encounter('IMP');
     await as('perawat').post('/discharge/summaries', { encounterId: e.encounterId }).expect(201);

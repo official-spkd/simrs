@@ -1,6 +1,7 @@
 'use server';
 
 import {
+  deathCertificateSchema,
   dischargeAddendumInputSchema,
   type DischargeDraftInput,
   dischargeDraftInputSchema,
@@ -139,6 +140,61 @@ export async function addendumAction(summaryId: unknown, text: unknown): Promise
       schema: dischargeSummaryViewSchema,
     });
     return { ok: true, message: 'Addendum tersimpan · TTE diminta.' };
+  } catch (err) {
+    return failed(err);
+  }
+}
+
+const deathForm = z.strictObject({
+  diedAt: z.iso.datetime({ offset: true }),
+  causeCode: z
+    .string()
+    .trim()
+    .regex(/^[A-Z]\d{2}(\.\d{1,2})?$/, 'Kode ICD-10 tidak valid (mis. J18.9).'),
+  note: z.string().trim().max(500),
+});
+
+/**
+ * Surat keterangan kematian (keputusan K-1): dokter yang berelasi dengan pasien; TTE dokter. `supersedesId` + alasan =
+ * tanda tangan ulang bila TTE versi sebelumnya gagal.
+ */
+export async function issueDeathCertificateAction(
+  encounterId: unknown,
+  input: unknown,
+  resign: unknown,
+): Promise<ResumeActionResult> {
+  const denied = await gate(
+    'clinical',
+    'sign',
+    'Surat keterangan kematian hanya oleh dokter yang merawat pasien.',
+  );
+  if (denied) return { ok: false, message: denied };
+  const id = uuid.safeParse(encounterId);
+  const body = deathForm.safeParse(input);
+  const rev = z
+    .strictObject({ supersedesId: uuid, correctionReason: z.string().trim().min(10).max(500) })
+    .nullable()
+    .safeParse(resign ?? null);
+  if (!id.success || !body.success || !rev.success) {
+    return {
+      ok: false,
+      message:
+        body.error?.issues[0]?.message ??
+        'Isian surat kematian tidak valid (alasan ulang minimal 10 karakter).',
+    };
+  }
+  try {
+    await api(`/api/v1/encounters/${id.data}/death-certificate`, {
+      method: 'POST',
+      body: {
+        revision: rev.data ? { kind: 'koreksi', ...rev.data } : { kind: 'baru' },
+        diedAt: body.data.diedAt,
+        cause: { code: body.data.causeCode, display: body.data.causeCode },
+        note: body.data.note || null,
+      },
+      schema: deathCertificateSchema,
+    });
+    return { ok: true, message: 'Surat keterangan kematian terbit · TTE dokter diminta.' };
   } catch (err) {
     return failed(err);
   }
