@@ -20,6 +20,8 @@ import {
   type DischargeDraftInput,
   dischargeSummaryViewSchema,
   newId,
+  poliVisitSchema,
+  poliWorklistApiSchema,
 } from '@simrs/shared';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -83,8 +85,10 @@ async function encounter(
     const unitCode = cls === 'IMP' ? 'MELATI' : cls === 'EMER' ? 'IGD' : 'POLI-DALAM';
     const u = (await tx.unit.findFirstOrThrow({ where: { code: unitCode } })).id;
     let ticketId: string | null = null;
+    let serviceId: string | null = null;
     if (cls === 'AMB') {
       const svc = await tx.queueService.findFirstOrThrow({ where: { code: 'PD' } });
+      serviceId = svc.id;
       ticketId = newId();
       await tx.queueTicket.create({
         data: {
@@ -109,11 +113,12 @@ async function encounter(
         encounterClass: cls,
         status: cls === 'AMB' ? 'arrived' : 'in_progress',
         unitId: u,
-        arrivedAt: new Date(Date.now() - 3 * 86_400_000),
+        arrivedAt: cls === 'AMB' ? new Date(Date.now() - 600_000) : new Date(Date.now() - 3 * 86_400_000),
         startedAt: cls === 'AMB' ? null : new Date(Date.now() - 3 * 86_400_000),
         plannedAt: cls === 'IMP' ? new Date(Date.now() - 3 * 86_400_000) : null,
         arrivalMode: cls === 'EMER' ? 'datang_sendiri' : null,
         queueTicketId: ticketId,
+        serviceId,
       },
     });
     if (cls === 'IMP') {
@@ -672,5 +677,73 @@ describe('disposisi meninggal (keputusan K-1)', () => {
     expect(r.status).toBe(409);
     expect(JSON.stringify(r.body.details)).toContain('Resume medis');
     expect(JSON.stringify(r.body.details)).not.toContain('Surat keterangan kematian');
+  });
+});
+
+describe('layar poli mode api (W1)', () => {
+  it('antrean poli hari ini + kunjungan dalam bentuk layar; ABAC dan isolasi', async () => {
+    const e = await encounter('AMB', [['dokterPoli', 'dpjp_utama']], { ticketStatus: 'waiting' });
+    await as('dokterPoli')
+      .post(`/encounters/${e.encounterId}/observations`, vitals(e.encounterId, 5))
+      .expect(201);
+    const wl = poliWorklistApiSchema.parse((await as('dokterPoli').get('/poli/worklist').expect(200)).body);
+    const item = wl.items.find((i) => i.encounterId === e.encounterId);
+    expect(item).toMatchObject({ status: 'menunggu', queueTicketId: e.ticketId, ticketStatus: 'waiting' });
+    expect(wl.poli.code).toBe('PD');
+    // Dokter unit lain tidak melihat pasien poli ini.
+    const other = poliWorklistApiSchema.parse((await as('dokter').get('/poli/worklist').expect(200)).body);
+    expect(other.items.some((i) => i.encounterId === e.encounterId)).toBe(false);
+
+    await as('dokterPoli')
+      .put(`/drafts/${e.encounterId}/soap`, {
+        content: {
+          subjective: 'Pusing',
+          objective: 'TD tinggi',
+          diagnosisCodes: ['I10'],
+          plan: 'Amlodipin',
+          followUp: 'Kontrol 2 minggu',
+          condition: 'Stabil',
+        },
+      })
+      .expect(200);
+    const v = poliVisitSchema.parse(
+      (await as('dokterPoli').get(`/encounters/${e.encounterId}/poli-visit`).expect(200)).body,
+    );
+    expect(v.encounter.vitals.find((x) => x.id === 'td')).toMatchObject({ value: '150/95', flag: 'tinggi' });
+    expect(v.encounter.soap.subjective).toBe('Pusing');
+    expect(v.encounter.diagnoses).toEqual([expect.objectContaining({ code: 'I10', primary: true })]);
+    expect(v.api).toMatchObject({ queueTicketId: e.ticketId, canSign: true, resume: { state: 'belum' } });
+    expect(v.api.draft?.followUp).toBe('Kontrol 2 minggu');
+    await as('dokterB').get(`/encounters/${e.encounterId}/poli-visit`).expect(404);
+    await as('perawat').get(`/encounters/${e.encounterId}/poli-visit`).expect(403);
+    const imp = await encounter('IMP');
+    await as('dokter').get(`/encounters/${imp.encounterId}/poli-visit`).expect(422);
+  });
+
+  it('CPPT residen: menunggu co-sign sampai DPJP co-sign (atestasi), lalu final', async () => {
+    const e = await encounter('AMB', [
+      ['dokterPoli', 'dpjp_utama'],
+      ['residen', 'rawat_bersama'],
+    ]);
+    const r = await as('residen')
+      .post('/cppt/entries', {
+        encounterId: e.encounterId,
+        occurredAt: minutesAgo(5),
+        content: { format: 'soap', s: 'Pusing', o: 'TD tinggi', a: 'Hipertensi', p: 'Amlodipin' },
+        instruction: null,
+        revision: baru,
+      })
+      .expect(201);
+    const before = poliVisitSchema.parse(
+      (await as('dokterPoli').get(`/encounters/${e.encounterId}/poli-visit`).expect(200)).body,
+    );
+    expect(before.api.cppt).toMatchObject({ id: r.body.id, status: 'menunggu_cosign' });
+    expect(before.encounter.soap.signedAt).toBeNull();
+    await as('dokterPoli').post(`/cppt/entries/${r.body.id}/cosign`, { note: null }).expect(201);
+    const after = poliVisitSchema.parse(
+      (await as('dokterPoli').get(`/encounters/${e.encounterId}/poli-visit`).expect(200)).body,
+    );
+    expect(after.api.cppt?.status).toBe('final');
+    expect(after.encounter.soap.signedAt).not.toBeNull();
   });
 });

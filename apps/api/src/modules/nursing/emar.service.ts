@@ -9,6 +9,7 @@ import {
   formatJam,
   isoDateJakarta,
   jakartaWallTime,
+  MEDICATION_FREQUENCIES,
   newId,
   wristbandScanValid,
   type EmarBoard,
@@ -424,7 +425,11 @@ export class EmarService {
     const orders = active.map((m) => ({
       medicationRequestId: m.id,
       name: m.name,
-      sig: `${m.dose} · ${m.route} · ${m.frequency}`.slice(0, 160),
+      // Aturan pakai berlabel ("3×1 (tiap 8 jam)"), bukan kode mentah (`3x1`), sama seperti ringkasan pasien.
+      sig: `${m.dose} · ${m.route} · ${MEDICATION_FREQUENCIES[m.frequency as MedicationFrequency]?.label ?? m.frequency}`.slice(
+        0,
+        160,
+      ),
       frequency: m.frequency as MedicationFrequency,
       kfa: m.drug?.codeSystem === 'kfa' ? m.drug.code : null,
       highAlert: m.highAlert,

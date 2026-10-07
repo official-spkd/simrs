@@ -16,18 +16,11 @@ interface Copy {
 }
 
 /**
- * Teks "Belum tersambung" hanya untuk layar hibrida yang jalur api-nya belum dibangun (Poli W1, Resume W5b, penunjang
- * fase 4). Layar yang sudah tersambung (front office fase 2, W2, W3, W4, W5a) tidak ada di sini; layar tanpa entri
+ * Teks "Belum tersambung" hanya untuk layar hibrida yang jalur api-nya belum dibangun (penunjang fase 4). Layar yang
+ * sudah tersambung (front office fase 2, semua layar klinis fase 3 W1–W5b dan 3.8) tidak ada di sini; layar tanpa entri
  * memakai kalimat umum.
  */
 const NOT_CONNECTED: Readonly<Record<string, Copy>> = {
-  // Layar klinis fase 3 yang belum tersambung: Poli (W1), Resume (W5b).
-  poli: {
-    body: 'Antrean poli, tanda vital, CPPT/SOAP, diagnosis ICD-10, dan resume rawat jalan akan tersedia di sini setelah modul rekam medis klinis tersambung ke server SIM RS. Sementara itu, catat pemeriksaan dengan prosedur cadangan rumah sakit.',
-  },
-  resume: {
-    body: 'Resume medis pulang, rekonsiliasi obat, dan TTE DPJP akan tersedia di sini setelah modul resume tersambung ke server SIM RS. Sementara itu, ikuti prosedur resume cadangan rumah sakit.',
-  },
   // Layar penunjang fase 4 (potongan 4.0c): jalur api diisi potongan 4.2–4.9 setelah modul API penunjangnya tergabung.
   lab: {
     body: 'Worklist laboratorium, penerimaan spesimen, input hasil, validasi, dan pelaporan nilai kritis akan tersedia di sini setelah modul laboratorium tersambung ke server SIM RS. Sementara itu, ikuti prosedur cadangan laboratorium.',

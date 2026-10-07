@@ -22,7 +22,7 @@ export function KlinisPatientHeader({
         name={patient.name}
         sex={patient.sex}
         ageYears={patient.ageYears}
-        birthDate={formatTanggalLahir(patient.birthDate)}
+        birthDate={patient.birthDate ? formatTanggalLahir(patient.birthDate) : '—'}
         mrn={patient.rm}
         allergies={patient.allergies}
         guarantor={guarantor}
