@@ -2,7 +2,7 @@
 
 Halaman ini menjelaskan **mode presentasi** (layar dengan data dummy fiktif), layar **Simulasi pasien** yang menjalankan tiga skenario dari kedatangan sampai klaim, cara menyiapkan presentasi, dan **alat tangkap layar** yang membuat gambar di panduan ini.
 
-> Status 6 Okt 2026: semua layar fase 2–10 terbuka di mode presentasi. Mode ini hanya hidup di mesin lokal (`APP_ENV=local` + `DATA_SOURCE=demo`, ADR-0023). Di staging dan produksi layar demo tidak ada (404). Tiga layar operasional fase 10 (Mode downtime, Cadangan & pemulihan, Kesiapan go-live) juga berstatus `demo`; backend downtime dan go-live belum dibangun, sedangkan backup sungguhan berjalan sebagai skrip host ops ([Backup dan restore](./04-backup-restore.md)).
+> Status 6 Okt 2026: semua layar fase 2–10 terbuka di mode presentasi. Mode ini hanya hidup di mesin lokal atau demo publik (`APP_ENV=local`/`demo` + `DATA_SOURCE=demo`, ADR-0023; demo publik: `docs/panduan/06-demo-publik.md`). Di staging dan produksi layar demo tidak ada (404). Tiga layar operasional fase 10 (Mode downtime, Cadangan & pemulihan, Kesiapan go-live) juga berstatus `demo`; backend downtime dan go-live belum dibangun, sedangkan backup sungguhan berjalan sebagai skrip host ops ([Backup dan restore](./04-backup-restore.md)).
 
 ## Ringkasan layar
 

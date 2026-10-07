@@ -9,7 +9,7 @@ Diperbarui oleh Codex atau Claude Code di akhir setiap potongan kerja. Format: c
 | 0    | Fondasi repo dan infrastruktur     | ✅ selesai 5 Okt 2026 (macOS + Docker/OrbStack: BullMQ hijau, `/ready` hijau)                            |
 | 1    | Platform inti                      | ✅ selesai 5 Okt 2026 (6/6 kriteria diverifikasi ulang di kode tergabung; potongan 1–11)                 |
 | 2    | Front office                       | ✅ selesai 5 Okt 2026 (4/4 kriteria; potongan 0a–9; E2E rantai anjungan → SEP → display + downtime BPJS) |
-| 3    | Klinis RME                         | 🟨 berjalan: rencana disetujui 5 Okt 2026 (`docs/rencana/fase-3-klinis-rme.md`)                          |
+| 3    | Klinis RME                         | 🟨 berjalan: rencana disetujui 5 Okt 2026 (`docs/rencana/fase-3-klinis-rme.md`); backend dilanjutkan penuh 7 Okt 2026 (A1–A5) |
 | 4    | Penunjang                          | ⬜                                                                                                       |
 | 5    | Keuangan                           | ⬜                                                                                                       |
 | 6    | Pembayaran TPDI × BTN + pembiayaan | ⬜                                                                                                       |
@@ -259,9 +259,33 @@ Gerbang:
 
 Suite E2E lama tetap memakai `NAV_LAYOUT=sidebar`.
 
+## Backend penuh (mulai 7 Okt 2026)
+
+Keputusan pemilik produk 7 Okt 2026:
+- Backend SIM RS dibangun **penuh**: sisa fase 3 (3.6, 3.7, 3.8, W1–W5b, 3.9), lalu fase 4 → 10 sesuai `docs/rencana/fase-<n>-*.md`. Ini mencabut "backend ditunda" 6 Okt 2026.
+- **Syarat kualitas:** seluruh jalur terhubung tanpa galat. Setiap layar mode api memanggil API sungguhan; tidak ada tombol mati, 500, atau galat konsol. Jalur demo (`DATA_SOURCE=demo`) tetap jalan.
+- **K-1 diputuskan:** disposisi meninggal hanya oleh dokter yang berelasi dengan pasien (DPJP/rawat bersama/dokter jaga yang punya akses); wajib jam kematian, sebab kematian ICD-10, dan surat keterangan kematian ber-TTE (`clinical.sign`); admisi ditolak; ditegakkan `DischargeGate` (3.6).
+- Setelah tiap fase lulus tes, demo publik `https://demo.spkd.store/demo-simrs` diperbarui (`APP_ENV=demo`, `docs/panduan/06-demo-publik.md`).
+
+Pembagian agen, slot DB/port, dan rentang migrasi: `docs/13-pembagian-tugas-cd-cx.md` §0. Cara kerja backend untuk pembaca baru: `docs/panduan/07-cara-kerja-backend.md`.
+
+| Agen | Potongan                                              | Status      | Merge | Bukti (diisi DOC setelah tinjauan) |
+| ---- | ----------------------------------------------------- | ----------- | ----- | ---------------------------------- |
+| A1   | 3.6 → W1 → W5b                                        | 🟨 berjalan |       |                                    |
+| A2   | 3.7 → 3.8                                             | 🟨 berjalan |       |                                    |
+| A3   | W2 + tinjau order residen → W5a                       | 🟨 berjalan |       |                                    |
+| A4   | W3 (IGD + Tempat tidur) + perbaikan ADT               | 🟨 berjalan |       |                                    |
+| A5   | W4 (Rawat inap)                                       | 🟨 berjalan |       |                                    |
+| BUG  | Pemburu bug lintas jalur                              | 🟨 berjalan |       |                                    |
+| DOC  | Dokumentasi cara kerja + peninjau; satu-satunya penyunting PROGRESS | 🟨 berjalan |       | Tugas awal: papan tugas §0, K-1, `07-cara-kerja-backend.md` + diagram, perbaikan dokumen lama |
+
+Alur per hasil agen: orkestrator menggabung ke `master` → DOC menggabung `master`, meninjau (konvensi, RLS/ABAC/izin/audit/PHI, kecukupan tes, kesesuaian rencana), merapikan bagian kecil, mengisi baris potongan fase dengan bukti, memperbarui panduan, menjalankan `pnpm test` + E2E penuh.
+
 ## Langkah berikutnya
 
-- **6 Okt 2026 · front end semua fase**: 80 layar di registri. Berikutnya: (1) putaran 2 agen bug + dokumentasi untuk layar baru; (2) `docker compose up -d` setelah agen selesai agar port infra hanya 127.0.0.1 berlaku (SEC `c51607b`); (3) keputusan produk: gerbang `DischargeGate` untuk disposisi meninggal sebelum 3.6; (4) lanjut backend fase 3 (3.6–3.9; 3.5 selesai) atau sambungkan layar demo ke API per domain.
+- **7 Okt 2026 · backend penuh**: A1–A5 mengerjakan sisa fase 3 (lihat "Backend penuh" di atas); setelah 3.9 lulus, fase 4 dimulai dengan pembagian agen baru dan demo publik diperbarui.
+
+- **6 Okt 2026 · front end semua fase**: 80 layar di registri. Berikutnya: (1) putaran 2 agen bug + dokumentasi untuk layar baru; (2) `docker compose up -d` setelah agen selesai agar port infra hanya 127.0.0.1 berlaku (SEC `c51607b`); (3) ~~keputusan produk: gerbang `DischargeGate` untuk disposisi meninggal sebelum 3.6~~ · diputuskan 7 Okt 2026 (K-1); (4) lanjut backend fase 3 (3.6–3.9; 3.5 selesai) atau sambungkan layar demo ke API per domain.
 
 - ~~Pindah ke MacBook~~ · selesai 5 Okt 2026: fase 0 ditutup di macOS + OrbStack; tutorial "Mesin baru (macOS)" memuat Node 24 di `PATH`, port bentrok, dan Chromium untuk E2E. Pengerjaan paralel per git worktree: tutorial §7.
 - ~~Mode presentasi, sisa sebelum tampil~~ · selesai 5 Okt 2026 (potongan 12 ✅): E2E penuh 252/0/1, tinjauan klinis dan rawat inap (agen B, C), roster hari demo (agen D), QA visual ulang (peninjau; polesan tata letak oleh agen A). Sebelum tampil: `pnpm demo:cek`, lalu "Mulai ulang" skenario yang dipakai.
@@ -423,6 +447,9 @@ Suite E2E lama tetap memakai `NAV_LAYOUT=sidebar`.
 - 5 Okt 2026 · CPOE + CDS (3.4), diputuskan orkestrator atas mandat pemilik produk: (1) resep residen belum dimintakan TTE; TTE dibuat saat DPJP meninjau order lewat `POST /orders/:id/review` (K2 bersama W2); (2) `order.manage` (order set, basis CDS) tidak ada di peran bawaan; RS memberikannya ke komite PFT lewat layar Akses; (3) aturan seed `history` CDS memakai token `icd10-*` (kategori `icd10-n18` dan kode lengkap tanpa titik `icd10-n183`) dari diagnosis ICD-10 aktif; (4) kirim order yang diblokir CDS memakai pola ketiga `@NoRequestTransaction` (ADR-0030): satu `TenantDb.transaction()` yang hanya menulis `cds_alerts` + audit, galat 422 dilempar setelah commit
 - 5 Okt 2026 · CPPT dan worklist (3.2b), diputuskan orkestrator: koreksi hasil lab cukup izin `result.write`; tinjauan order residen ditutup lewat `POST /orders/:id/review` (K2, W2); rute per kunjungan kanonik `/api/v1/encounters/:id/…` (jamak, satu bentuk untuk semua modul); bentrok "satu yang utama" memakai kode stabil `PRIMARY_DIAGNOSIS_EXISTS` dan `PRIMARY_DPJP_EXISTS`
 
+- 7 Okt 2026 · Pemilik produk: backend dilanjutkan penuh (sisa fase 3, lalu fase 4 → 10); mencabut "backend ditunda" 6 Okt 2026. Syarat kualitas: semua layar mode api memanggil API sungguhan tanpa tombol mati, 500, atau galat konsol; jalur demo tetap jalan; demo publik diperbarui setelah tiap fase lulus. Pembagian agen A1–A5, BUG, DOC di `docs/13-pembagian-tugas-cd-cx.md` §0
+- 7 Okt 2026 · K-1 (pemilik produk, usulan bawaan diterima): disposisi `meninggal` hanya oleh dokter yang berelasi dengan pasien (DPJP, rawat bersama, atau dokter jaga yang punya akses); wajib jam kematian, sebab kematian ICD-10, dan surat keterangan kematian ber-TTE (`clinical.sign`); admisi ditolak; ditegakkan `DischargeGate` di potongan 3.6
+
 ## Utang teknis
 
 - `apps/web` (mode presentasi) · ID fixture demo memuat nama pasien (`kj-suryo`, `pk-hartono`, `?pilih=lab-endang`, `inv-endang`); ganti ID opak (UUID) sebelum tersambung API; kontrak sudah tidak mengikat format ID. Dikerjakan agen D di fase 2 potongan 0c.
@@ -506,7 +533,7 @@ Suite E2E lama tetap memakai `NAV_LAYOUT=sidebar`.
 - `apps/web` (FE2/FE3/FE5) · Ambang klinis contoh (gerbang lab paket kemoterapi Hb < 10, luaran askep, protokol onkologi, ambang gizi) dan diagnosis keperawatan master lokal tanpa kode SDKI wajib divalidasi komite sebelum dipakai klinis.
 - `apps/web` (FE1) · Status 51 EP di layar go-live adalah isi demo, bukan hasil audit `/cek-mrmik`.
 - `apps/web` · Form `/sistem/akses/perangkat` tidak punya pilihan papan display, padahal layar TV menyuruh admin memilihnya di sana (temuan agen dokumentasi).
-- `apps/api` (3.3) · `POST /adt/discharges` dengan disposisi `meninggal` bisa dilakukan admisi tanpa gerbang (`DischargeGate` masih stub sampai 3.6); perlu keputusan produk (temuan agen keamanan, docs/05 §6).
+- `apps/api` (3.3) · `POST /adt/discharges` dengan disposisi `meninggal` bisa dilakukan admisi tanpa gerbang (`DischargeGate` masih stub `BasicDischargeGate` sampai 3.6; temuan agen keamanan, docs/05 §6). Keputusan K-1 sudah diambil 7 Okt 2026; ditutup A1 di 3.6.
 - `apps/api` (3.3) · Dua transfer bersamaan berlawanan arah bisa deadlock (`aplicare_rooms`/`bed_status`); status IGD terakhir diurutkan `id desc`, sebaiknya `changedAt desc, id desc`.
 - `infra` · Port localhost (SEC `c51607b`) baru berlaku setelah `docker compose up -d`; Redis tanpa sandi dan root MinIO dipakai aplikasi di `.env.example` (lokal saja).
 - `apps/web` (BUG-2, keputusan produk) · Periode akuntansi Oktober bisa ditutup 5 Okt walau ada jurnal menunggu penyetuju kedua (`periodCloseCheck`, mengikuti mockup dan E2E `keuangan.spec`).
