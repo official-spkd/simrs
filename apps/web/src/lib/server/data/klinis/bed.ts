@@ -1,5 +1,11 @@
 import 'server-only';
-import { type BedBoard, bedBoardSchema, type BedRequest } from '@simrs/shared';
+import {
+  type BedBoard,
+  type BedBoardApi,
+  bedBoardApiSchema,
+  bedBoardSchema,
+  type BedRequest,
+} from '@simrs/shared';
 import { demoBedRequests, demoBeds, demoWards, matchingBeds } from '../../../demo/fixtures/rawat-inap';
 import { DEMO_NOW } from '../../../demo/fixtures/waktu';
 import { applyBeds, type BedState } from '../../../rawat-inap-bed-toko';
@@ -8,15 +14,21 @@ import { applyScenarioBeds, hartonoBedRequest, ratnaBedRequest } from '../../../
 import type { SessionView } from '../../../session-view';
 import { scenarioRuns } from '../../demo/scenario-context';
 import { readDomain } from '../../demo/state';
+import { api } from '../../api';
 import { assertDemo } from '../../demo-guard';
 import { webEnv } from '../../web-env';
 import { notImplemented } from '../not-implemented';
 
 /**
  * K05 · Data layar Tempat tidur. Mode presentasi: ruang dari `BANGSAL`, bed + permintaan fiktif, keadaan toko demo
- * (`tempat-tidur`: status bed, alokasi, permintaan bed dari IGD), ditumpangi bed dan permintaan pasien skenario; mode
- * api menunggu backend fase 3 (potongan 3.3, layar W3; halaman menampilkan "Belum tersambung").
+ * (`tempat-tidur`: status bed, alokasi, permintaan bed dari IGD), ditumpangi bed dan permintaan pasien skenario. Mode
+ * api (layar W3): `getBedBoardLive` = papan bed API (`GET /adt/beds`, label pasien hanya inisial).
  */
+
+/** K05 · Papan bed mode api (layar W3, ADR-0104). Galat API (`ApiError`) diteruskan ke halaman. */
+export async function getBedBoardLive(): Promise<BedBoardApi> {
+  return api('/api/v1/adt/beds', { schema: bedBoardApiSchema });
+}
 
 /** Permintaan bed dari IGD yang tersimpan, dalam bentuk kontrak papan (kandidat dari bed siap terkini). */
 function igdRequests(s: BedState, beds: BedBoard['beds']): BedRequest[] {
