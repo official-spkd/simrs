@@ -549,4 +549,6 @@ Alur per hasil agen: orkestrator menggabung ke `master` → DOC menggabung `mast
 - `apps/web` (BUG-2) · Info publik: seluruh booking + tanggal lahir terkirim ke payload klien dan batas percobaan hanya di state klien (pratinjau demo; API publik sungguhan sudah benar).
 - `apps/web` (BUG-2) · Data fixture saling bertentangan antarlayar (INV-02203/02209 Kas & Bank vs Kasir/BTN, koding Yusuf/Aminah/Joko vs Klaim, jaspel Anisa, kode Endang J18.9 vs J13, obat Rohana, kode akun penggajian 2-1410/2-1420 bentrok jaspel, stok PCT2512 gudang 20 vs 60) dan jam demo memakai `new Date()` di beberapa layar.
 - `docs/adr` · ADR-0063 (peran baru fase 8) dirujuk rencana fase 8 tetapi belum ada.
+- `scripts` (7 Okt 2026, temuan DOC) · `scripts/codex-tugas.mjs` masih mengirim prompt "backend ditunda" ke Codex; orkestrator memperbaruinya bila Codex dipakai lagi.
+- `apps/api` (3.5, temuan DOC) · Rute eMAR/askep `/api/v1/nursing/{emar,care-plans,fluid-balances}/:encounterId` belum berbentuk kanonik `/api/v1/encounters/:id/<sumber>`; keputusan orkestrator 7 Okt 2026: A5 menambah alias kanonik di W4, rute lama tetap.
 - `docs/panduan/gambar` · 115 PNG ±21 MB di git; setiap tangkap ulang menambah ukuran riwayat. Pertimbangkan Git LFS atau menyimpan gambar di luar git.
