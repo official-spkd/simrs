@@ -260,6 +260,34 @@ export const SUPPORT_ERRORS = {
     status: 409,
     message: 'Crossmatch cocok wajib sebelum kantong dikeluarkan (darurat: golongan O beralasan dokter)',
   },
+  // S08 · Gerbang 4.9 (ADR-0105)
+  BLOOD_GROUP_REQUIRED: {
+    status: 409,
+    message: 'Golongan darah pasien (ABO dan Rh) belum diperiksa; isi golongan sebelum crossmatch',
+  },
+  BLOOD_GROUP_LOCKED: { status: 409, message: 'Golongan pasien terkunci setelah crossmatch pertama' },
+  BLOOD_UNIT_UNAVAILABLE: {
+    status: 409,
+    message: 'Kantong tidak tersedia (kedaluwarsa, sudah keluar, atau dicadangkan untuk permintaan lain)',
+  },
+  BLOOD_COMPONENT_MISMATCH: { status: 409, message: 'Komponen kantong tidak sesuai permintaan' },
+  BLOOD_DOUBLE_CHECK_REQUIRED: {
+    status: 409,
+    message: 'Cek ganda pertama tidak ada, tidak cocok, atau lewat 30 menit; ulangi cek ganda',
+  },
+  BLOOD_SECOND_CHECKER_SAME: {
+    status: 409,
+    message: 'Petugas kedua harus orang lain dari sesinya sendiri, bukan pemeriksa pertama/pemasang',
+  },
+  BLOOD_WRONG_PATIENT: {
+    status: 422,
+    message: 'Gelang pasien tidak cocok dengan permintaan darah. Hentikan: jangan pasang kantong',
+  },
+  BLOOD_WRONG_BAG: {
+    status: 422,
+    message: 'Nomor kantong tidak cocok dengan kantong yang dikeluarkan untuk pasien ini',
+  },
+  TRANSFUSION_STATE: { status: 409, message: 'Status transfusi tidak mengizinkan tindakan ini' },
 } as const satisfies Record<string, { status: number; message: string }>;
 
 export type SupportErrorCode = keyof typeof SUPPORT_ERRORS;

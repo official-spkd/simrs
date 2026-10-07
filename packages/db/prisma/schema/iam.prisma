@@ -47,6 +47,11 @@ model User {
   crossmatchTesters            Crossmatch[]                     @relation("CrossmatchTester")
   bloodIssuers                 BloodIssue[]                     @relation("BloodIssuer")
   transfusionReactionReporters TransfusionReaction[]            @relation("TransfusionReactionReporter")
+  bloodIssueCheckers           BloodIssueCheck[]                @relation("BloodIssueChecker")
+  transfusionStarters          Transfusion[]                    @relation("TransfusionStarter")
+  transfusionVerifiers         Transfusion[]                    @relation("TransfusionVerifier")
+  transfusionEnders            Transfusion[]                    @relation("TransfusionEnder")
+  transfusionVitalRecorders    TransfusionVital[]               @relation("TransfusionVitalRecorder")
   medicationDoseChecks         MedicationDoubleCheck[]
   id                           String                           @id @db.Uuid
   tenantId                     String                           @map("tenant_id") @db.Uuid

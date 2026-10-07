@@ -71,10 +71,11 @@ model BloodUnit {
   createdBy   String?  @map("created_by") @db.Uuid
   updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  tenant       Tenant         @relation(fields: [tenantId], references: [id])
-  component    BloodComponent @relation(fields: [tenantId, componentId], references: [tenantId, id])
+  tenant       Tenant            @relation(fields: [tenantId], references: [id])
+  component    BloodComponent    @relation(fields: [tenantId, componentId], references: [tenantId, id])
   crossmatches Crossmatch[]
   issue        BloodIssue?
+  issueChecks  BloodIssueCheck[]
 
   @@unique([tenantId, id])
   @@unique([tenantId, bagNo])
@@ -102,13 +103,14 @@ model BloodRequest {
   requestedAt DateTime @default(now()) @map("requested_at") @db.Timestamptz(3)
   updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  tenant       Tenant         @relation(fields: [tenantId], references: [id])
-  encounter    Encounter      @relation(fields: [tenantId, encounterId], references: [tenantId, id])
-  patient      Patient        @relation(fields: [tenantId, patientId], references: [tenantId, id])
-  component    BloodComponent @relation(fields: [tenantId, componentId], references: [tenantId, id])
-  requester    User           @relation("BloodRequester", fields: [tenantId, requestedBy], references: [tenantId, id])
+  tenant       Tenant            @relation(fields: [tenantId], references: [id])
+  encounter    Encounter         @relation(fields: [tenantId, encounterId], references: [tenantId, id])
+  patient      Patient           @relation(fields: [tenantId, patientId], references: [tenantId, id])
+  component    BloodComponent    @relation(fields: [tenantId, componentId], references: [tenantId, id])
+  requester    User              @relation("BloodRequester", fields: [tenantId, requestedBy], references: [tenantId, id])
   crossmatches Crossmatch[]
   issues       BloodIssue[]
+  issueChecks  BloodIssueCheck[]
 
   @@unique([tenantId, id])
   @@unique([tenantId, requestNo])
@@ -147,8 +149,11 @@ model BloodIssue {
   encounterId     String   @map("encounter_id") @db.Uuid
   patientId       String   @map("patient_id") @db.Uuid
   emergencyReason String?  @map("emergency_reason")
+  /// Petugas KEDUA (sesinya sendiri) yang mengeluarkan kantong; pemeriksa pertama ada di `issueCheck`.
   issuedBy        String   @map("issued_by") @db.Uuid
   issuedAt        DateTime @default(now()) @map("issued_at") @db.Timestamptz(3)
+  /// Cek ganda pertama (migrasi 20261008500000). Wajib untuk baris baru (CHECK NOT VALID + trigger).
+  issueCheckId    String?  @map("issue_check_id") @db.Uuid
 
   tenant       Tenant                @relation(fields: [tenantId], references: [id])
   bloodRequest BloodRequest          @relation(fields: [tenantId, bloodRequestId], references: [tenantId, id])
@@ -156,10 +161,13 @@ model BloodIssue {
   encounter    Encounter             @relation(fields: [tenantId, encounterId], references: [tenantId, id])
   patient      Patient               @relation(fields: [tenantId, patientId], references: [tenantId, id])
   issuer       User                  @relation("BloodIssuer", fields: [tenantId, issuedBy], references: [tenantId, id])
+  issueCheck   BloodIssueCheck?      @relation(fields: [tenantId, issueCheckId], references: [tenantId, id])
   reactions    TransfusionReaction[]
+  transfusion  Transfusion?
 
   @@unique([tenantId, id])
   @@unique([tenantId, bloodUnitId])
+  @@unique([tenantId, issueCheckId])
   @@index([tenantId, bloodRequestId])
   @@map("blood_issues")
 }
@@ -183,4 +191,97 @@ model TransfusionReaction {
   @@unique([tenantId, id])
   @@index([tenantId, bloodIssueId])
   @@map("transfusion_reactions")
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════════════════════════════════
+// Fase 4 · 4.9 · S08 gerbang keselamatan bank darah (migrasi 20261008500000_blood_bank_safety, ADR-0105).
+// ═══════════════════════════════════════════════════════════════════════════════════════════════════════════
+
+/// S08 · Cek ganda PERTAMA sebelum kantong keluar (append-only): petugas bank darah mencentang lima butir. Kantong
+/// baru keluar bila petugas KEDUA dari sesinya sendiri mengeluarkannya (`blood_issues.issue_check_id`, trigger).
+model BloodIssueCheck {
+  id              String   @id @db.Uuid
+  tenantId        String   @map("tenant_id") @db.Uuid
+  bloodRequestId  String   @map("blood_request_id") @db.Uuid
+  bloodUnitId     String   @map("blood_unit_id") @db.Uuid
+  /// Lima butir (`BLOOD_ISSUE_CHECK_ITEMS`) semuanya `true` (CHECK).
+  checklist       Json
+  /// Jalur darurat tanpa crossmatch (keputusan fase 4 no. 22): alasan dokter >= 10 karakter.
+  emergencyReason String?  @map("emergency_reason")
+  checkedBy       String   @map("checked_by") @db.Uuid
+  checkedAt       DateTime @default(now()) @map("checked_at") @db.Timestamptz(3)
+
+  tenant       Tenant       @relation(fields: [tenantId], references: [id])
+  bloodRequest BloodRequest @relation(fields: [tenantId, bloodRequestId], references: [tenantId, id])
+  bloodUnit    BloodUnit    @relation(fields: [tenantId, bloodUnitId], references: [tenantId, id])
+  checker      User         @relation("BloodIssueChecker", fields: [tenantId, checkedBy], references: [tenantId, id])
+  issue        BloodIssue?
+
+  @@unique([tenantId, id])
+  @@index([tenantId, bloodRequestId])
+  @@map("blood_issue_checks")
+}
+
+/// S08 · Transfusi di samping pasien: pemasang memindai gelang (pindaian gelang fase 3) + nomor kantong, lalu
+/// petugas KEDUA dari sesinya sendiri memindai ulang gelang + kantong sebelum transfusi berjalan. Hanya kolom
+/// verifikasi/penutupan yang diubah (trigger menjaga transisi).
+model Transfusion {
+  id           String    @id @db.Uuid
+  tenantId     String    @map("tenant_id") @db.Uuid
+  bloodIssueId String    @map("blood_issue_id") @db.Uuid
+  encounterId  String    @map("encounter_id") @db.Uuid
+  patientId    String    @map("patient_id") @db.Uuid
+  startScanId  String    @map("start_scan_id") @db.Uuid
+  startBagNo   String    @map("start_bag_no")
+  startedBy    String    @map("started_by") @db.Uuid
+  startedAt    DateTime  @default(now()) @map("started_at") @db.Timestamptz(3)
+  verifyScanId String?   @map("verify_scan_id") @db.Uuid
+  verifyBagNo  String?   @map("verify_bag_no")
+  verifiedBy   String?   @map("verified_by") @db.Uuid
+  verifiedAt   DateTime? @map("verified_at") @db.Timestamptz(3)
+  /// menunggu_verifikasi | berjalan | selesai | dihentikan
+  status       String    @default("menunggu_verifikasi")
+  endedAt      DateTime? @map("ended_at") @db.Timestamptz(3)
+  endedBy      String?   @map("ended_by") @db.Uuid
+  stopReason   String?   @map("stop_reason")
+
+  tenant     Tenant             @relation(fields: [tenantId], references: [id])
+  bloodIssue BloodIssue         @relation(fields: [tenantId, bloodIssueId], references: [tenantId, id])
+  encounter  Encounter          @relation(fields: [tenantId, encounterId], references: [tenantId, id])
+  patient    Patient            @relation(fields: [tenantId, patientId], references: [tenantId, id])
+  startScan  WristbandScan      @relation("TransfusionStartScan", fields: [tenantId, startScanId], references: [tenantId, id])
+  verifyScan WristbandScan?     @relation("TransfusionVerifyScan", fields: [tenantId, verifyScanId], references: [tenantId, id])
+  starter    User               @relation("TransfusionStarter", fields: [tenantId, startedBy], references: [tenantId, id])
+  verifier   User?              @relation("TransfusionVerifier", fields: [tenantId, verifiedBy], references: [tenantId, id])
+  ender      User?              @relation("TransfusionEnder", fields: [tenantId, endedBy], references: [tenantId, id])
+  vitals     TransfusionVital[]
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, bloodIssueId])
+  @@index([tenantId, encounterId])
+  @@map("transfusions")
+}
+
+/// S08 · Tanda vital selama transfusi (append-only, waktu server): awal, 15 menit, 1 jam, selesai.
+model TransfusionVital {
+  id            String   @id @db.Uuid
+  tenantId      String   @map("tenant_id") @db.Uuid
+  transfusionId String   @map("transfusion_id") @db.Uuid
+  /// awal | 15_menit | 1_jam | selesai | lain
+  label         String
+  tempC         Decimal  @map("temp_c") @db.Decimal(4, 1)
+  systolic      Int
+  diastolic     Int
+  pulse         Int
+  signs         String[]
+  recordedBy    String   @map("recorded_by") @db.Uuid
+  recordedAt    DateTime @default(now()) @map("recorded_at") @db.Timestamptz(3)
+
+  tenant      Tenant      @relation(fields: [tenantId], references: [id])
+  transfusion Transfusion @relation(fields: [tenantId, transfusionId], references: [tenantId, id])
+  recorder    User        @relation("TransfusionVitalRecorder", fields: [tenantId, recordedBy], references: [tenantId, id])
+
+  @@unique([tenantId, id])
+  @@index([tenantId, transfusionId, recordedAt])
+  @@map("transfusion_vitals")
 }
