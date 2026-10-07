@@ -5,36 +5,50 @@
 /// rekam medis yang dipertahankan (P05, potongan 7b); nomor RM tidak berubah.
 /// NIK dan identifier lain di `patient_identifiers`; alamat dan no. HP dienkripsi di aplikasi (docs/04 §1).
 model Patient {
-  id                 String    @id @db.Uuid
-  tenantId           String    @map("tenant_id") @db.Uuid
+  labOrders             LabOrder[]
+  labResults            LabResult[]
+  criticalResults       CriticalResult[]
+  imagingStudies        ImagingStudy[]
+  imagingReports        ImagingReport[]
+  paReports             PaReport[]
+  stockMovements        StockMovement[]
+  pharmacyPrescriptions PharmacyPrescription[]
+  dispenses             Dispense[]
+  surgeryCases          SurgeryCase[]
+  operativeReports      OperativeReport[]
+  dietOrders            DietOrder[]
+  bloodRequests         BloodRequest[]
+  bloodIssues           BloodIssue[]
+  id                    String                 @id @db.Uuid
+  tenantId              String                 @map("tenant_id") @db.Uuid
   /// Nomor rekam medis `00-41-27-88` dari layanan penomoran (P08, jenis `mrn`). Tidak bisa diubah (hak kolom).
-  mrn                String
-  name               String
+  mrn                   String
+  name                  String
   /// Nama ternormalisasi untuk trigram/duplikat (`normalizePersonName`), indeks GIN di migrasi.
-  nameSearch         String    @map("name_search")
+  nameSearch            String                 @map("name_search")
   /// male | female | unknown (kode FHIR gender)
-  sex                String
-  birthDate          DateTime? @map("birth_date") @db.Date
-  birthDateEstimated Boolean   @default(false) @map("birth_date_estimated")
-  motherName         String?   @map("mother_name")
+  sex                   String
+  birthDate             DateTime?              @map("birth_date") @db.Date
+  birthDateEstimated    Boolean                @default(false) @map("birth_date_estimated")
+  motherName            String?                @map("mother_name")
   /// AES-256-GCM (`encryptField`, tujuan `contact`).
-  addressEnc         String?   @map("address_enc")
-  phoneEnc           String?   @map("phone_enc")
+  addressEnc            String?                @map("address_enc")
+  phoneEnc              String?                @map("phone_enc")
   /// Blind index HMAC no. HP baku `62…` untuk pencocokan duplikat.
-  phoneHash          String?   @map("phone_hash")
+  phoneHash             String?                @map("phone_hash")
   /// Pasien tanpa identitas (mis. IGD tidak sadar, "Tn. X").
-  unidentified       Boolean   @default(false)
+  unidentified          Boolean                @default(false)
   /// EP 10c · Pasien rahasia (VIP/karyawan/kasus sensitif): setiap akses menjadi temuan audit "akses pasien rahasia";
   /// pengetatan akses di B09 fase 8 (keputusan fase 3 no. 21).
-  confidential       Boolean   @default(false)
+  confidential          Boolean                @default(false)
   /// active | merged
-  status             String    @default("active")
-  mergedIntoId       String?   @map("merged_into_id") @db.Uuid
-  mergedAt           DateTime? @map("merged_at") @db.Timestamptz(3)
-  createdAt          DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
-  createdBy          String?   @map("created_by") @db.Uuid
-  updatedAt          DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
-  updatedBy          String?   @map("updated_by") @db.Uuid
+  status                String                 @default("active")
+  mergedIntoId          String?                @map("merged_into_id") @db.Uuid
+  mergedAt              DateTime?              @map("merged_at") @db.Timestamptz(3)
+  createdAt             DateTime               @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy             String?                @map("created_by") @db.Uuid
+  updatedAt             DateTime               @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy             String?                @map("updated_by") @db.Uuid
 
   tenant          Tenant                  @relation(fields: [tenantId], references: [id])
   mergedInto      Patient?                @relation("PatientMerge", fields: [tenantId, mergedIntoId], references: [tenantId, id])

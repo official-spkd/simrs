@@ -1,0 +1,369 @@
+// ═══════════════════════════════════════════════════════════════════════════════════════════════════════════
+// Fase 4 · S01 Laboratorium, S09 Nilai kritis, S02 Mikrobiologi (rencana fase 4 §4.0b).
+// Entitas kerja (`lab_orders`) dibuat saat unit lab menerima order fase 3 (`service_requests`, keputusan no. 2).
+// ═══════════════════════════════════════════════════════════════════════════════════════════════════════════
+
+/// S01 · Order yang diterima unit lab: nomor lab (`L` + YYMMDD + 4), prioritas, status (hanya kolom status diubah).
+model LabOrder {
+  id             String    @id @db.Uuid
+  tenantId       String    @map("tenant_id") @db.Uuid
+  labNo          String    @map("lab_no")
+  encounterId    String    @map("encounter_id") @db.Uuid
+  patientId      String    @map("patient_id") @db.Uuid
+  /// Unit lab pelaksana (lingkup `unit`).
+  unitId         String    @map("unit_id") @db.Uuid
+  /// cito | rutin
+  priority       String
+  /// diterima | sampel | proses | hasil | validasi_teknis | selesai | batal
+  status         String    @default("diterima")
+  idempotencyKey String    @map("idempotency_key")
+  acceptedBy     String    @map("accepted_by") @db.Uuid
+  acceptedAt     DateTime  @default(now()) @map("accepted_at") @db.Timestamptz(3)
+  receivedAt     DateTime? @map("received_at") @db.Timestamptz(3)
+  releasedAt     DateTime? @map("released_at") @db.Timestamptz(3)
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  tenant        Tenant                  @relation(fields: [tenantId], references: [id])
+  encounter     Encounter               @relation(fields: [tenantId, encounterId], references: [tenantId, id])
+  patient       Patient                 @relation(fields: [tenantId, patientId], references: [tenantId, id])
+  unit          Unit                    @relation(fields: [tenantId, unitId], references: [tenantId, id])
+  acceptor      User                    @relation("LabOrderAcceptor", fields: [tenantId, acceptedBy], references: [tenantId, id])
+  items         LabOrderItem[]
+  statusHistory LabOrderStatusHistory[]
+  specimens     Specimen[]
+  results       LabResult[]
+  validations   LabValidation[]
+  microIsolates MicroIsolate[]
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, labNo])
+  @@unique([tenantId, idempotencyKey])
+  @@index([tenantId, unitId, status])
+  @@index([tenantId, encounterId])
+  @@map("lab_orders")
+}
+
+/// S01 · Order fase 3 yang dikerjakan dalam satu nomor lab (satu service request hanya sekali diterima).
+model LabOrderItem {
+  id               String    @id @db.Uuid
+  tenantId         String    @map("tenant_id") @db.Uuid
+  labOrderId       String    @map("lab_order_id") @db.Uuid
+  serviceRequestId String    @map("service_request_id") @db.Uuid
+  /// Dibatalkan setelah diterima (event `lab.test_voided`); null = aktif.
+  voidedAt         DateTime? @map("voided_at") @db.Timestamptz(3)
+  voidReason       String?   @map("void_reason")
+  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  tenant         Tenant         @relation(fields: [tenantId], references: [id])
+  labOrder       LabOrder       @relation(fields: [tenantId, labOrderId], references: [tenantId, id])
+  serviceRequest ServiceRequest @relation(fields: [tenantId, serviceRequestId], references: [tenantId, id])
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, serviceRequestId])
+  @@index([tenantId, labOrderId])
+  @@map("lab_order_items")
+}
+
+/// S01 · Riwayat status order lab (append-only).
+model LabOrderStatusHistory {
+  id         String   @id @db.Uuid
+  tenantId   String   @map("tenant_id") @db.Uuid
+  labOrderId String   @map("lab_order_id") @db.Uuid
+  fromStatus String?  @map("from_status")
+  toStatus   String   @map("to_status")
+  changedBy  String?  @map("changed_by") @db.Uuid
+  changedAt  DateTime @default(now()) @map("changed_at") @db.Timestamptz(3)
+  reason     String?
+
+  tenant   Tenant   @relation(fields: [tenantId], references: [id])
+  labOrder LabOrder @relation(fields: [tenantId, labOrderId], references: [tenantId, id])
+
+  @@unique([tenantId, id])
+  @@index([tenantId, labOrderId, changedAt])
+  @@map("lab_order_status_history")
+}
+
+/// S01 · Spesimen berbarcode: ambil → terima → (tolak). Hanya kolom status/jejaknya yang diubah; riwayat di events.
+model Specimen {
+  id             String    @id @db.Uuid
+  tenantId       String    @map("tenant_id") @db.Uuid
+  labOrderId     String    @map("lab_order_id") @db.Uuid
+  barcode        String
+  specimenType   String    @map("specimen_type")
+  /// menunggu | diambil | diterima | ditolak
+  status         String    @default("menunggu")
+  collectedAt    DateTime? @map("collected_at") @db.Timestamptz(3)
+  collectedBy    String?   @map("collected_by") @db.Uuid
+  receivedAt     DateTime? @map("received_at") @db.Timestamptz(3)
+  receivedBy     String?   @map("received_by") @db.Uuid
+  rejectedReason String?   @map("rejected_reason")
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  tenant    Tenant          @relation(fields: [tenantId], references: [id])
+  labOrder  LabOrder        @relation(fields: [tenantId, labOrderId], references: [tenantId, id])
+  collector User?           @relation("SpecimenCollector", fields: [tenantId, collectedBy], references: [tenantId, id])
+  receiver  User?           @relation("SpecimenReceiver", fields: [tenantId, receivedBy], references: [tenantId, id])
+  events    SpecimenEvent[]
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, barcode])
+  @@index([tenantId, labOrderId])
+  @@map("specimens")
+}
+
+/// S01 · Riwayat spesimen (append-only): diambil, diterima, ditolak (+ alasan).
+model SpecimenEvent {
+  id         String   @id @db.Uuid
+  tenantId   String   @map("tenant_id") @db.Uuid
+  specimenId String   @map("specimen_id") @db.Uuid
+  /// diambil | diterima | ditolak
+  kind       String
+  reason     String?
+  note       String?
+  userId     String   @map("user_id") @db.Uuid
+  occurredAt DateTime @default(now()) @map("occurred_at") @db.Timestamptz(3)
+
+  tenant   Tenant   @relation(fields: [tenantId], references: [id])
+  specimen Specimen @relation(fields: [tenantId, specimenId], references: [tenantId, id])
+  user     User     @relation(fields: [tenantId, userId], references: [tenantId, id])
+
+  @@unique([tenantId, id])
+  @@index([tenantId, specimenId])
+  @@map("specimen_events")
+}
+
+/// S01 · Hasil lab (entri klinis berversi, append-only; versi terkini di `lab_results_current`). Menyimpan SALINAN
+/// rentang rujukan/batas kritis yang berlaku saat hasil masuk; flag, delta, dan kritis dihitung server.
+model LabResult {
+  id                    String   @id @db.Uuid
+  tenantId              String   @map("tenant_id") @db.Uuid
+  patientId             String   @map("patient_id") @db.Uuid
+  encounterId           String   @map("encounter_id") @db.Uuid
+  rootId                String   @map("root_id") @db.Uuid
+  version               Int      @default(1)
+  supersedesId          String?  @map("supersedes_id") @db.Uuid
+  addendumOf            String?  @map("addendum_of") @db.Uuid
+  status                String   @default("final")
+  correctionReason      String?  @map("correction_reason")
+  occurredAt            DateTime @map("occurred_at") @db.Timestamptz(3)
+  recordedAt            DateTime @default(now()) @map("recorded_at") @db.Timestamptz(3)
+  authorUserId          String   @map("author_user_id") @db.Uuid
+  authorRole            String   @map("author_role")
+  labOrderId            String   @map("lab_order_id") @db.Uuid
+  testDefinitionId      String   @map("test_definition_id") @db.Uuid
+  loinc                 String?
+  name                  String
+  valueNumeric          Decimal? @map("value_numeric") @db.Decimal(18, 6)
+  valueText             String?  @map("value_text")
+  unit                  String   @default("")
+  decimals              Int      @default(0)
+  refLow                Decimal? @map("ref_low") @db.Decimal(14, 4)
+  refHigh               Decimal? @map("ref_high") @db.Decimal(14, 4)
+  criticalLow           Decimal? @map("critical_low") @db.Decimal(14, 4)
+  criticalHigh          Decimal? @map("critical_high") @db.Decimal(14, 4)
+  /// N | H | L | KRITIS
+  flag                  String
+  delta                 Boolean  @default(false)
+  deltaComparedResultId String?  @map("delta_compared_result_id") @db.Uuid
+  /// manual | analyzer
+  source                String
+  inboundEventId        String?  @map("inbound_event_id") @db.Uuid
+  comment               String?
+
+  tenant          Tenant            @relation(fields: [tenantId], references: [id])
+  patient         Patient           @relation(fields: [tenantId, patientId], references: [tenantId, id])
+  encounter       Encounter         @relation(fields: [tenantId, encounterId], references: [tenantId, id])
+  author          User              @relation("LabResultAuthor", fields: [tenantId, authorUserId], references: [tenantId, id])
+  labOrder        LabOrder          @relation(fields: [tenantId, labOrderId], references: [tenantId, id])
+  testDefinition  LabTestDefinition @relation(fields: [tenantId, testDefinitionId], references: [tenantId, id])
+  deltaCompared   LabResult?        @relation("LabResultDelta", fields: [tenantId, deltaComparedResultId], references: [tenantId, id])
+  deltaOf         LabResult[]       @relation("LabResultDelta")
+  inboundEvent    InboundEvent?     @relation(fields: [tenantId, inboundEventId], references: [tenantId, id])
+  supersedes      LabResult?        @relation("LabResultVersion", fields: [tenantId, supersedesId], references: [tenantId, id])
+  supersededBy    LabResult[]       @relation("LabResultVersion")
+  addendumTarget  LabResult?        @relation("LabResultAddendum", fields: [tenantId, addendumOf], references: [tenantId, id])
+  addenda         LabResult[]       @relation("LabResultAddendum")
+  criticalResults CriticalResult[]
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, rootId, version])
+  @@index([tenantId, labOrderId])
+  @@index([tenantId, patientId, loinc])
+  @@map("lab_results")
+}
+
+/// S01 · Validasi teknis (analis) → klinis (dokter unit lab, TTE). Append-only; satu per order × level × putaran.
+model LabValidation {
+  id               String   @id @db.Uuid
+  tenantId         String   @map("tenant_id") @db.Uuid
+  labOrderId       String   @map("lab_order_id") @db.Uuid
+  /// teknis | klinis
+  level            String
+  /// Putaran validasi (naik setelah koreksi hasil yang sudah divalidasi).
+  round            Int      @default(1)
+  /// SHA-256 snapshot kanonik hasil yang divalidasi.
+  snapshotHash     String   @map("snapshot_hash")
+  qcOverrideReason String?  @map("qc_override_reason")
+  /// TTE validasi klinis (F3-7).
+  documentId       String?  @map("document_id") @db.Uuid
+  validatedBy      String   @map("validated_by") @db.Uuid
+  validatorRole    String   @map("validator_role")
+  validatedAt      DateTime @default(now()) @map("validated_at") @db.Timestamptz(3)
+
+  tenant    Tenant    @relation(fields: [tenantId], references: [id])
+  labOrder  LabOrder  @relation(fields: [tenantId, labOrderId], references: [tenantId, id])
+  document  Document? @relation(fields: [tenantId, documentId], references: [tenantId, id])
+  validator User      @relation("LabValidator", fields: [tenantId, validatedBy], references: [tenantId, id])
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, labOrderId, level, round])
+  @@map("lab_validations")
+}
+
+/// S01 · Run kontrol mutu (Westgard sederhana): ok | warn | reject. Append-only.
+model LabQcRun {
+  id               String   @id @db.Uuid
+  tenantId         String   @map("tenant_id") @db.Uuid
+  analyzerId       String?  @map("analyzer_id") @db.Uuid
+  testDefinitionId String   @map("test_definition_id") @db.Uuid
+  controlLevel     Int      @map("control_level")
+  value            Decimal  @db.Decimal(18, 6)
+  mean             Decimal  @db.Decimal(18, 6)
+  sd               Decimal  @db.Decimal(18, 6)
+  outcome          String
+  violations       String[]
+  runBy            String   @map("run_by") @db.Uuid
+  runAt            DateTime @default(now()) @map("run_at") @db.Timestamptz(3)
+
+  tenant         Tenant            @relation(fields: [tenantId], references: [id])
+  analyzer       LabAnalyzer?      @relation(fields: [tenantId, analyzerId], references: [tenantId, id])
+  testDefinition LabTestDefinition @relation(fields: [tenantId, testDefinitionId], references: [tenantId, id])
+  runner         User              @relation("LabQcRunner", fields: [tenantId, runBy], references: [tenantId, id])
+
+  @@unique([tenantId, id])
+  @@index([tenantId, testDefinitionId, controlLevel, runAt])
+  @@map("lab_qc_runs")
+}
+
+/// S09 · Nilai kritis dari hasil lab atau ekspertise radiologi. `status` HANYA berubah lewat trigger saat laporan
+/// ber-read-back masuk (role aplikasi tanpa hak UPDATE). Batas menit disalin saat muncul.
+model CriticalResult {
+  id              String   @id @db.Uuid
+  tenantId        String   @map("tenant_id") @db.Uuid
+  /// lab | radiology
+  source          String
+  labResultId     String?  @map("lab_result_id") @db.Uuid
+  imagingReportId String?  @map("imaging_report_id") @db.Uuid
+  encounterId     String   @map("encounter_id") @db.Uuid
+  patientId       String   @map("patient_id") @db.Uuid
+  /// Unit pelapor (lab/radiologi).
+  unitId          String   @map("unit_id") @db.Uuid
+  analyte         String
+  valueText       String   @map("value_text")
+  limitMinutes    Int      @map("limit_minutes")
+  /// terbuka | dilaporkan
+  status          String   @default("terbuka")
+  raisedAt        DateTime @default(now()) @map("raised_at") @db.Timestamptz(3)
+  raisedBy        String?  @map("raised_by") @db.Uuid
+
+  tenant        Tenant                     @relation(fields: [tenantId], references: [id])
+  labResult     LabResult?                 @relation(fields: [tenantId, labResultId], references: [tenantId, id])
+  imagingReport ImagingReport?             @relation(fields: [tenantId, imagingReportId], references: [tenantId, id])
+  encounter     Encounter                  @relation(fields: [tenantId, encounterId], references: [tenantId, id])
+  patient       Patient                    @relation(fields: [tenantId, patientId], references: [tenantId, id])
+  unit          Unit                       @relation(fields: [tenantId, unitId], references: [tenantId, id])
+  report        CriticalResultReport?
+  escalations   CriticalResultEscalation[]
+
+  @@unique([tenantId, id])
+  @@index([tenantId, status, raisedAt])
+  @@index([tenantId, encounterId])
+  @@map("critical_results")
+}
+
+/// S09 · Laporan nilai kritis (append-only, satu per nilai kritis). CHECK: penerima = staf ATAU nama ≥ 5 + peran;
+/// read-back wajib true. Durasi (`minutes_to_report`) diisi trigger dari `raised_at` ke waktu server.
+model CriticalResultReport {
+  id                String   @id @db.Uuid
+  tenantId          String   @map("tenant_id") @db.Uuid
+  criticalResultId  String   @map("critical_result_id") @db.Uuid
+  recipientUserId   String?  @map("recipient_user_id") @db.Uuid
+  recipientName     String?  @map("recipient_name")
+  recipientRole     String?  @map("recipient_role")
+  /// telepon | langsung
+  channel           String
+  readBackText      String   @map("read_back_text")
+  readBackConfirmed Boolean  @map("read_back_confirmed")
+  reportedBy        String   @map("reported_by") @db.Uuid
+  reportedAt        DateTime @default(now()) @map("reported_at") @db.Timestamptz(3)
+  minutesToReport   Int      @default(0) @map("minutes_to_report")
+  withinLimit       Boolean  @default(false) @map("within_limit")
+
+  tenant         Tenant         @relation(fields: [tenantId], references: [id])
+  criticalResult CriticalResult @relation(fields: [tenantId, criticalResultId], references: [tenantId, id])
+  recipient      User?          @relation("CriticalReportRecipient", fields: [tenantId, recipientUserId], references: [tenantId, id])
+  reporter       User           @relation("CriticalReportReporter", fields: [tenantId, reportedBy], references: [tenantId, id])
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, criticalResultId])
+  @@map("critical_result_reports")
+}
+
+/// S09 · Eskalasi nilai kritis (append-only), sekali per tingkat walau job berjalan ganda.
+model CriticalResultEscalation {
+  id               String   @id @db.Uuid
+  tenantId         String   @map("tenant_id") @db.Uuid
+  criticalResultId String   @map("critical_result_id") @db.Uuid
+  level            Int
+  notifiedUserIds  String[] @map("notified_user_ids") @db.Uuid
+  escalatedAt      DateTime @default(now()) @map("escalated_at") @db.Timestamptz(3)
+
+  tenant         Tenant         @relation(fields: [tenantId], references: [id])
+  criticalResult CriticalResult @relation(fields: [tenantId, criticalResultId], references: [tenantId, id])
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, criticalResultId, level])
+  @@map("critical_result_escalations")
+}
+
+/// S02 · Isolat kultur (append-only; laporan awal/akhir). Organisme dari daftar lokal (SNOMED menyusul).
+model MicroIsolate {
+  id           String   @id @db.Uuid
+  tenantId     String   @map("tenant_id") @db.Uuid
+  labOrderId   String   @map("lab_order_id") @db.Uuid
+  /// awal | akhir
+  stage        String
+  organismCode String   @map("organism_code")
+  growth       String
+  recordedBy   String   @map("recorded_by") @db.Uuid
+  recordedAt   DateTime @default(now()) @map("recorded_at") @db.Timestamptz(3)
+
+  tenant           Tenant                @relation(fields: [tenantId], references: [id])
+  labOrder         LabOrder              @relation(fields: [tenantId, labOrderId], references: [tenantId, id])
+  recorder         User                  @relation("MicroIsolateRecorder", fields: [tenantId, recordedBy], references: [tenantId, id])
+  susceptibilities MicroSusceptibility[]
+
+  @@unique([tenantId, id])
+  @@index([tenantId, labOrderId])
+  @@map("micro_isolates")
+}
+
+/// S02 · Uji kepekaan antibiotik per isolat: S/I/R + MIC (append-only; sumber antibiogram PPRA fase 8).
+model MicroSusceptibility {
+  id             String   @id @db.Uuid
+  tenantId       String   @map("tenant_id") @db.Uuid
+  isolateId      String   @map("isolate_id") @db.Uuid
+  antibioticCode String   @map("antibiotic_code")
+  /// S | I | R
+  result         String
+  micValue       Decimal? @map("mic_value") @db.Decimal(12, 4)
+  recordedAt     DateTime @default(now()) @map("recorded_at") @db.Timestamptz(3)
+
+  tenant  Tenant       @relation(fields: [tenantId], references: [id])
+  isolate MicroIsolate @relation(fields: [tenantId, isolateId], references: [tenantId, id])
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, isolateId, antibioticCode])
+  @@map("micro_susceptibilities")
+}

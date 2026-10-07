@@ -1,0 +1,155 @@
+// ═══════════════════════════════════════════════════════════════════════════════════════════════════════════
+// Fase 4 · S03 Radiologi, S02 Patologi anatomi (rencana fase 4 §4.0b). S10 diagnostik lain memakai
+// `diagnostic_reports` fase 3 (keputusan fase 3 no. 12: muara hasil penunjang).
+// ═══════════════════════════════════════════════════════════════════════════════════════════════════════════
+
+/// S03 · Pemeriksaan radiologi: accession, slot modalitas, cek identitas, skrining kontras, dosis. CHECK: CT tidak
+/// bisa `selesai`/`ditandatangani` tanpa CTDIvol + DLP. Hanya kolom status/pelaksanaan yang diubah.
+model ImagingStudy {
+  id                  String    @id @db.Uuid
+  tenantId            String    @map("tenant_id") @db.Uuid
+  accession           String
+  serviceRequestId    String    @map("service_request_id") @db.Uuid
+  encounterId         String    @map("encounter_id") @db.Uuid
+  patientId           String    @map("patient_id") @db.Uuid
+  unitId              String    @map("unit_id") @db.Uuid
+  modalityId          String    @map("modality_id") @db.Uuid
+  /// Salinan jenis modalitas (CT | DR | USG | MRI | ANGIO) untuk CHECK dosis.
+  modality            String
+  procedureId         String?   @map("procedure_id") @db.Uuid
+  contrast            Boolean   @default(false)
+  /// terjadwal | berlangsung | selesai | ditandatangani | batal
+  status              String    @default("terjadwal")
+  scheduledAt         DateTime  @map("scheduled_at") @db.Timestamptz(3)
+  identityConfirmedBy String?   @map("identity_confirmed_by") @db.Uuid
+  contrastScreening   Json?     @map("contrast_screening")
+  overrideReason      String?   @map("override_reason")
+  overrideBy          String?   @map("override_by") @db.Uuid
+  startedAt           DateTime? @map("started_at") @db.Timestamptz(3)
+  completedAt         DateTime? @map("completed_at") @db.Timestamptz(3)
+  ctdiVol             Decimal?  @map("ctdi_vol") @db.Decimal(10, 2)
+  dlp                 Decimal?  @db.Decimal(10, 2)
+  /// DICOM Study Instance UID (PACS menyusul, keputusan fase 4 no. 15).
+  studyInstanceUid    String?   @map("study_instance_uid")
+  acceptedBy          String    @map("accepted_by") @db.Uuid
+  acceptedAt          DateTime  @default(now()) @map("accepted_at") @db.Timestamptz(3)
+  updatedAt           DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  tenant            Tenant                      @relation(fields: [tenantId], references: [id])
+  serviceRequest    ServiceRequest              @relation(fields: [tenantId, serviceRequestId], references: [tenantId, id])
+  encounter         Encounter                   @relation(fields: [tenantId, encounterId], references: [tenantId, id])
+  patient           Patient                     @relation(fields: [tenantId, patientId], references: [tenantId, id])
+  unit              Unit                        @relation(fields: [tenantId, unitId], references: [tenantId, id])
+  modalityRef       RadiologyModality           @relation(fields: [tenantId, modalityId], references: [tenantId, id])
+  procedure         RadiologyProcedure?         @relation(fields: [tenantId, procedureId], references: [tenantId, id])
+  identityConfirmer User?                       @relation("ImagingIdentityConfirmer", fields: [tenantId, identityConfirmedBy], references: [tenantId, id])
+  overrider         User?                       @relation("ImagingOverrider", fields: [tenantId, overrideBy], references: [tenantId, id])
+  acceptor          User                        @relation("ImagingAcceptor", fields: [tenantId, acceptedBy], references: [tenantId, id])
+  statusHistory     ImagingStudyStatusHistory[]
+  reports           ImagingReport[]
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, accession])
+  @@unique([tenantId, serviceRequestId])
+  @@index([tenantId, modalityId, scheduledAt])
+  @@index([tenantId, unitId, status])
+  @@map("imaging_studies")
+}
+
+/// S03 · Riwayat status pemeriksaan radiologi (append-only).
+model ImagingStudyStatusHistory {
+  id             String   @id @db.Uuid
+  tenantId       String   @map("tenant_id") @db.Uuid
+  imagingStudyId String   @map("imaging_study_id") @db.Uuid
+  fromStatus     String?  @map("from_status")
+  toStatus       String   @map("to_status")
+  changedBy      String?  @map("changed_by") @db.Uuid
+  changedAt      DateTime @default(now()) @map("changed_at") @db.Timestamptz(3)
+  reason         String?
+
+  tenant       Tenant       @relation(fields: [tenantId], references: [id])
+  imagingStudy ImagingStudy @relation(fields: [tenantId, imagingStudyId], references: [tenantId, id])
+
+  @@unique([tenantId, id])
+  @@index([tenantId, imagingStudyId, changedAt])
+  @@map("imaging_study_status_history")
+}
+
+/// S03 · Ekspertise radiologi final (entri klinis berversi, append-only; addendum setelah TTE). Draf di
+/// `clinical_drafts`. Versi terkini di `imaging_reports_current`.
+model ImagingReport {
+  id               String   @id @db.Uuid
+  tenantId         String   @map("tenant_id") @db.Uuid
+  patientId        String   @map("patient_id") @db.Uuid
+  encounterId      String   @map("encounter_id") @db.Uuid
+  rootId           String   @map("root_id") @db.Uuid
+  version          Int      @default(1)
+  supersedesId     String?  @map("supersedes_id") @db.Uuid
+  addendumOf       String?  @map("addendum_of") @db.Uuid
+  status           String   @default("final")
+  correctionReason String?  @map("correction_reason")
+  occurredAt       DateTime @map("occurred_at") @db.Timestamptz(3)
+  recordedAt       DateTime @default(now()) @map("recorded_at") @db.Timestamptz(3)
+  authorUserId     String   @map("author_user_id") @db.Uuid
+  authorRole       String   @map("author_role")
+  imagingStudyId   String   @map("imaging_study_id") @db.Uuid
+  templateCode     String?  @map("template_code")
+  findings         String
+  impression       String
+  critical         Boolean  @default(false)
+
+  tenant          Tenant           @relation(fields: [tenantId], references: [id])
+  patient         Patient          @relation(fields: [tenantId, patientId], references: [tenantId, id])
+  encounter       Encounter        @relation(fields: [tenantId, encounterId], references: [tenantId, id])
+  author          User             @relation("ImagingReportAuthor", fields: [tenantId, authorUserId], references: [tenantId, id])
+  imagingStudy    ImagingStudy     @relation(fields: [tenantId, imagingStudyId], references: [tenantId, id])
+  supersedes      ImagingReport?   @relation("ImagingReportVersion", fields: [tenantId, supersedesId], references: [tenantId, id])
+  supersededBy    ImagingReport[]  @relation("ImagingReportVersion")
+  addendumTarget  ImagingReport?   @relation("ImagingReportAddendum", fields: [tenantId, addendumOf], references: [tenantId, id])
+  addenda         ImagingReport[]  @relation("ImagingReportAddendum")
+  criticalResults CriticalResult[]
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, rootId, version])
+  @@index([tenantId, imagingStudyId])
+  @@map("imaging_reports")
+}
+
+/// S02 · Laporan patologi anatomi (entri klinis berversi, append-only, TTE). Gambar mikroskopis lewat P08.
+model PaReport {
+  id               String   @id @db.Uuid
+  tenantId         String   @map("tenant_id") @db.Uuid
+  patientId        String   @map("patient_id") @db.Uuid
+  encounterId      String   @map("encounter_id") @db.Uuid
+  rootId           String   @map("root_id") @db.Uuid
+  version          Int      @default(1)
+  supersedesId     String?  @map("supersedes_id") @db.Uuid
+  addendumOf       String?  @map("addendum_of") @db.Uuid
+  status           String   @default("final")
+  correctionReason String?  @map("correction_reason")
+  occurredAt       DateTime @map("occurred_at") @db.Timestamptz(3)
+  recordedAt       DateTime @default(now()) @map("recorded_at") @db.Timestamptz(3)
+  authorUserId     String   @map("author_user_id") @db.Uuid
+  authorRole       String   @map("author_role")
+  surgeryCaseId    String?  @map("surgery_case_id") @db.Uuid
+  specimenSite     String   @map("specimen_site")
+  macroscopic      String
+  microscopic      String
+  diagnosis        String
+  icd10            String?
+
+  tenant         Tenant       @relation(fields: [tenantId], references: [id])
+  patient        Patient      @relation(fields: [tenantId, patientId], references: [tenantId, id])
+  encounter      Encounter    @relation(fields: [tenantId, encounterId], references: [tenantId, id])
+  author         User         @relation("PaReportAuthor", fields: [tenantId, authorUserId], references: [tenantId, id])
+  surgeryCase    SurgeryCase? @relation(fields: [tenantId, surgeryCaseId], references: [tenantId, id])
+  supersedes     PaReport?    @relation("PaReportVersion", fields: [tenantId, supersedesId], references: [tenantId, id])
+  supersededBy   PaReport[]   @relation("PaReportVersion")
+  addendumTarget PaReport?    @relation("PaReportAddendum", fields: [tenantId, addendumOf], references: [tenantId, id])
+  addenda        PaReport[]   @relation("PaReportAddendum")
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, rootId, version])
+  @@index([tenantId, encounterId])
+  @@map("pa_reports")
+}

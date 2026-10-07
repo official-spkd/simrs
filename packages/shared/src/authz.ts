@@ -357,6 +357,8 @@ const RADIOGRAPHER: Grant[] = [
 ];
 
 const DOCTOR_SUPPORT: Grant[] = [
+  // Layar Lab mode api untuk dokter Sp.PK pemegang `lab.result.release` (keputusan orkestrator, temuan 4.0c).
+  ['lab.worklist', 'read', 'unit'],
   ['lab.result', 'release', 'unit'],
   ['radiology', 'read', 'unit'],
   ['radiology', 'report', 'unit'],

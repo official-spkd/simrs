@@ -130,6 +130,13 @@ export {
   seedStaffPhone,
 } from './seed-data';
 export { seedStaff, type SeedStaffResult } from './seed-staff';
+export {
+  SEED_LAB_TESTS,
+  SEED_WHO_CHECKLIST,
+  seedSupportMasters,
+  seedSupportStock,
+  type SeedSupportResult,
+} from './seed-support';
 export { seedHospitalStructure } from './seed-structure';
 export {
   SEED_DRUGS,
