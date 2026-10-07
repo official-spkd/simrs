@@ -114,18 +114,22 @@ test.describe('toko demo bersama', () => {
     ).toBeVisible();
   });
 
-  test('mode api: layar toko 404, tanpa menu data demo, toko tidak tersentuh', async ({ page }) => {
+  test('mode api: layar toko tanpa data demo (hibrida 4.0c), tanpa menu data demo, toko tidak tersentuh', async ({
+    page,
+  }) => {
     const akun = await createAccount({ roles: ['analis_lab'] });
     await loginAs(page, akun, `${API_WEB}/`);
     // Layar yang hanya punya jalur toko demo: 404 di mode api.
     for (const route of ['/keuangan/kasir', '/manajemen/sdm']) {
       expect((await page.goto(`${API_WEB}${route}`))?.status(), route).toBe(404);
     }
-    // Lab dan Hasil kritis kini hibrida (fase 4 potongan 4.0c): terbuka di mode api tanpa data fiktif dan tanpa
-    // menyentuh toko demo.
+    // Sejak 4.0c layar penunjang hibrida: mode api membuka gerbang layar ("Belum tersambung"/"Akses ditolak"), tidak
+    // pernah membaca toko demo.
     for (const route of ['/penunjang/lab', '/penunjang/hasil-kritis']) {
       expect((await page.goto(`${API_WEB}${route}`))?.status(), route).toBe(200);
+      await expect(page.getByText(/^(Belum tersambung|Akses ditolak)$/)).toBeVisible();
       await expect(page.getByText('Mode presentasi · data fiktif')).toHaveCount(0);
+      await expect(page.getByText(/Yusuf Hidayat/)).toHaveCount(0);
     }
     await page.goto(`${API_WEB}/`);
     await expect(page.getByRole('button', { name: /Mode presentasi/ })).toHaveCount(0);

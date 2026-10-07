@@ -1,0 +1,258 @@
+// ═══════════════════════════════════════════════════════════════════════════════════════════════════════════
+// Fase 4 · S06 Kamar operasi (rencana fase 4 §4.0b, keputusan no. 13–14). Jadwal kamar dijaga EXCLUDE (btree_gist);
+// urutan daftar tilik WHO, kelengkapan butir, gerbang insisi, dan hitung akhir dijaga trigger database.
+// ═══════════════════════════════════════════════════════════════════════════════════════════════════════════
+
+/// S06 · Kasus operasi: nomor `OK-YYMM-NNNN`, kamar (`locations`), rentang waktu, status (+ riwayat), versi templat
+/// daftar tilik, persetujuan tindakan (F3-6). Kasus aktif tidak boleh tumpang tindih per kamar (EXCLUDE manual).
+model SurgeryCase {
+  id                  String   @id @db.Uuid
+  tenantId            String   @map("tenant_id") @db.Uuid
+  caseNo              String   @map("case_no")
+  encounterId         String   @map("encounter_id") @db.Uuid
+  patientId           String   @map("patient_id") @db.Uuid
+  roomId              String   @map("room_id") @db.Uuid
+  startsAt            DateTime @map("starts_at") @db.Timestamptz(3)
+  endsAt              DateTime @map("ends_at") @db.Timestamptz(3)
+  /// elektif | cito
+  priority            String
+  /// terjadwal | persiapan | berjalan | selesai | batal
+  status              String   @default("terjadwal")
+  procedureName       String   @map("procedure_name")
+  procedureCode       String?  @map("procedure_code")
+  consentId           String?  @map("consent_id") @db.Uuid
+  checklistTemplateId String   @map("checklist_template_id") @db.Uuid
+  cancelReason        String?  @map("cancel_reason")
+  createdBy           String   @map("created_by") @db.Uuid
+  createdAt           DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt           DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  tenant            Tenant                       @relation(fields: [tenantId], references: [id])
+  encounter         Encounter                    @relation(fields: [tenantId, encounterId], references: [tenantId, id])
+  patient           Patient                      @relation(fields: [tenantId, patientId], references: [tenantId, id])
+  room              Location                     @relation(fields: [tenantId, roomId], references: [tenantId, id])
+  consent           Consent?                     @relation(fields: [tenantId, consentId], references: [tenantId, id])
+  checklistTemplate SurgeryChecklistTemplate     @relation(fields: [tenantId, checklistTemplateId], references: [tenantId, id])
+  creator           User                         @relation("SurgeryCaseCreator", fields: [tenantId, createdBy], references: [tenantId, id])
+  statusHistory     SurgeryCaseStatusHistory[]
+  team              SurgeryCaseTeam[]
+  checks            SurgicalSafetyCheck[]
+  confirmations     SurgicalSafetyConfirmation[]
+  events            SurgeryEvent[]
+  counts            SurgicalCount[]
+  discrepancies     SurgeryCountDiscrepancy[]
+  reports           OperativeReport[]
+  supplyUsages      SurgerySupplyUsage[]
+  paReports         PaReport[]
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, caseNo])
+  @@index([tenantId, roomId, startsAt])
+  @@index([tenantId, encounterId])
+  @@map("surgery_cases")
+}
+
+/// S06 · Riwayat status kasus (append-only).
+model SurgeryCaseStatusHistory {
+  id            String   @id @db.Uuid
+  tenantId      String   @map("tenant_id") @db.Uuid
+  surgeryCaseId String   @map("surgery_case_id") @db.Uuid
+  fromStatus    String?  @map("from_status")
+  toStatus      String   @map("to_status")
+  changedBy     String?  @map("changed_by") @db.Uuid
+  changedAt     DateTime @default(now()) @map("changed_at") @db.Timestamptz(3)
+  reason        String?
+
+  tenant      Tenant      @relation(fields: [tenantId], references: [id])
+  surgeryCase SurgeryCase @relation(fields: [tenantId, surgeryCaseId], references: [tenantId, id])
+
+  @@unique([tenantId, id])
+  @@index([tenantId, surgeryCaseId, changedAt])
+  @@map("surgery_case_status_history")
+}
+
+/// S06 · Tim operasi (operator, asisten, anestesi, perawat instrumen/sirkuler). Keluar tim = `ended_at`.
+model SurgeryCaseTeam {
+  id            String    @id @db.Uuid
+  tenantId      String    @map("tenant_id") @db.Uuid
+  surgeryCaseId String    @map("surgery_case_id") @db.Uuid
+  userId        String    @map("user_id") @db.Uuid
+  role          String
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  endedAt       DateTime? @map("ended_at") @db.Timestamptz(3)
+
+  tenant      Tenant      @relation(fields: [tenantId], references: [id])
+  surgeryCase SurgeryCase @relation(fields: [tenantId, surgeryCaseId], references: [tenantId, id])
+  user        User        @relation("SurgeryTeamMember", fields: [tenantId, userId], references: [tenantId, id])
+
+  @@unique([tenantId, id])
+  @@index([tenantId, surgeryCaseId])
+  @@map("surgery_case_team")
+}
+
+/// S06 · Butir daftar tilik yang dicentang (append-only, sekali per fase × butir). Butir persetujuan = `system`.
+model SurgicalSafetyCheck {
+  id            String   @id @db.Uuid
+  tenantId      String   @map("tenant_id") @db.Uuid
+  surgeryCaseId String   @map("surgery_case_id") @db.Uuid
+  /// sign-in | time-out | sign-out
+  phase         String
+  itemCode      String   @map("item_code")
+  /// manual | system
+  source        String   @default("manual")
+  checkedBy     String   @map("checked_by") @db.Uuid
+  checkedAt     DateTime @default(now()) @map("checked_at") @db.Timestamptz(3)
+
+  tenant      Tenant      @relation(fields: [tenantId], references: [id])
+  surgeryCase SurgeryCase @relation(fields: [tenantId, surgeryCaseId], references: [tenantId, id])
+  checker     User        @relation("SurgicalCheckChecker", fields: [tenantId, checkedBy], references: [tenantId, id])
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, surgeryCaseId, phase, itemCode])
+  @@map("surgical_safety_checks")
+}
+
+/// S06 · Konfirmasi fase (append-only, sekali per fase). Trigger: urutan sign in → time out → sign out, semua butir
+/// fase tercentang, sign out butuh insisi tercatat + hitung akhir cocok (atau selisih ditindaklanjuti).
+model SurgicalSafetyConfirmation {
+  id            String   @id @db.Uuid
+  tenantId      String   @map("tenant_id") @db.Uuid
+  surgeryCaseId String   @map("surgery_case_id") @db.Uuid
+  phase         String
+  confirmedBy   String   @map("confirmed_by") @db.Uuid
+  confirmedAt   DateTime @default(now()) @map("confirmed_at") @db.Timestamptz(3)
+
+  tenant      Tenant      @relation(fields: [tenantId], references: [id])
+  surgeryCase SurgeryCase @relation(fields: [tenantId, surgeryCaseId], references: [tenantId, id])
+  confirmer   User        @relation("SurgicalConfirmer", fields: [tenantId, confirmedBy], references: [tenantId, id])
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, surgeryCaseId, phase])
+  @@map("surgical_safety_confirmations")
+}
+
+/// S06 · Peristiwa intraoperatif (append-only, sekali per jenis). Trigger: induksi butuh sign in; insisi butuh time
+/// out kecuali `override_reason` ≥ batas RS (bawaan 15) oleh pemegang `surgery.override` (ditinjau mutu).
+model SurgeryEvent {
+  id             String   @id @db.Uuid
+  tenantId       String   @map("tenant_id") @db.Uuid
+  surgeryCaseId  String   @map("surgery_case_id") @db.Uuid
+  /// induksi | insisi | tutup | keluar
+  kind           String
+  occurredAt     DateTime @map("occurred_at") @db.Timestamptz(3)
+  recordedAt     DateTime @default(now()) @map("recorded_at") @db.Timestamptz(3)
+  overrideReason String?  @map("override_reason")
+  recordedBy     String   @map("recorded_by") @db.Uuid
+
+  tenant      Tenant      @relation(fields: [tenantId], references: [id])
+  surgeryCase SurgeryCase @relation(fields: [tenantId, surgeryCaseId], references: [tenantId, id])
+  recorder    User        @relation("SurgeryEventRecorder", fields: [tenantId, recordedBy], references: [tenantId, id])
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, surgeryCaseId, kind])
+  @@map("surgery_events")
+}
+
+/// S06 · Hitung kasa/jarum/instrumen (append-only): awal, tambahan, akhir per butir.
+model SurgicalCount {
+  id            String   @id @db.Uuid
+  tenantId      String   @map("tenant_id") @db.Uuid
+  surgeryCaseId String   @map("surgery_case_id") @db.Uuid
+  /// awal | tambahan | akhir
+  kind          String
+  itemCode      String   @map("item_code")
+  label         String
+  quantity      Int
+  countedBy     String   @map("counted_by") @db.Uuid
+  countedAt     DateTime @default(now()) @map("counted_at") @db.Timestamptz(3)
+
+  tenant      Tenant      @relation(fields: [tenantId], references: [id])
+  surgeryCase SurgeryCase @relation(fields: [tenantId, surgeryCaseId], references: [tenantId, id])
+  counter     User        @relation("SurgicalCounter", fields: [tenantId, countedBy], references: [tenantId, id])
+
+  @@unique([tenantId, id])
+  @@index([tenantId, surgeryCaseId, itemCode])
+  @@map("surgical_counts")
+}
+
+/// S06 · Tindak lanjut selisih hitung sebelum sign out (append-only, mis. rontgen intraoperatif).
+model SurgeryCountDiscrepancy {
+  id            String   @id @db.Uuid
+  tenantId      String   @map("tenant_id") @db.Uuid
+  surgeryCaseId String   @map("surgery_case_id") @db.Uuid
+  itemCode      String   @map("item_code")
+  action        String
+  recordedBy    String   @map("recorded_by") @db.Uuid
+  recordedAt    DateTime @default(now()) @map("recorded_at") @db.Timestamptz(3)
+
+  tenant      Tenant      @relation(fields: [tenantId], references: [id])
+  surgeryCase SurgeryCase @relation(fields: [tenantId, surgeryCaseId], references: [tenantId, id])
+  recorder    User        @relation("SurgeryDiscrepancyRecorder", fields: [tenantId, recordedBy], references: [tenantId, id])
+
+  @@unique([tenantId, id])
+  @@index([tenantId, surgeryCaseId])
+  @@map("surgery_count_discrepancies")
+}
+
+/// S06 · Laporan operasi (entri klinis berversi, append-only, TTE operator).
+model OperativeReport {
+  id               String   @id @db.Uuid
+  tenantId         String   @map("tenant_id") @db.Uuid
+  patientId        String   @map("patient_id") @db.Uuid
+  encounterId      String   @map("encounter_id") @db.Uuid
+  rootId           String   @map("root_id") @db.Uuid
+  version          Int      @default(1)
+  supersedesId     String?  @map("supersedes_id") @db.Uuid
+  addendumOf       String?  @map("addendum_of") @db.Uuid
+  status           String   @default("final")
+  correctionReason String?  @map("correction_reason")
+  occurredAt       DateTime @map("occurred_at") @db.Timestamptz(3)
+  recordedAt       DateTime @default(now()) @map("recorded_at") @db.Timestamptz(3)
+  authorUserId     String   @map("author_user_id") @db.Uuid
+  authorRole       String   @map("author_role")
+  surgeryCaseId    String   @map("surgery_case_id") @db.Uuid
+  preOpDiagnosis   Json     @map("pre_op_diagnosis")
+  postOpDiagnosis  Json     @map("post_op_diagnosis")
+  procedureCodes   String[] @map("procedure_codes")
+  findings         String
+  complications    String   @default("")
+  bloodLossMl      Int      @map("blood_loss_ml")
+  implants         String   @default("")
+  paSpecimen       Boolean  @default(false) @map("pa_specimen")
+
+  tenant         Tenant            @relation(fields: [tenantId], references: [id])
+  patient        Patient           @relation(fields: [tenantId, patientId], references: [tenantId, id])
+  encounter      Encounter         @relation(fields: [tenantId, encounterId], references: [tenantId, id])
+  author         User              @relation("OperativeReportAuthor", fields: [tenantId, authorUserId], references: [tenantId, id])
+  surgeryCase    SurgeryCase       @relation(fields: [tenantId, surgeryCaseId], references: [tenantId, id])
+  supersedes     OperativeReport?  @relation("OperativeReportVersion", fields: [tenantId, supersedesId], references: [tenantId, id])
+  supersededBy   OperativeReport[] @relation("OperativeReportVersion")
+  addendumTarget OperativeReport?  @relation("OperativeReportAddendum", fields: [tenantId, addendumOf], references: [tenantId, id])
+  addenda        OperativeReport[] @relation("OperativeReportAddendum")
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, rootId, version])
+  @@index([tenantId, surgeryCaseId])
+  @@map("operative_reports")
+}
+
+/// S06 · BHP/implan terpakai (append-only): menunjuk movement `usage` dari depo OK.
+model SurgerySupplyUsage {
+  id              String   @id @db.Uuid
+  tenantId        String   @map("tenant_id") @db.Uuid
+  surgeryCaseId   String   @map("surgery_case_id") @db.Uuid
+  stockMovementId String   @map("stock_movement_id") @db.Uuid
+  implant         Boolean  @default(false)
+  recordedBy      String   @map("recorded_by") @db.Uuid
+  recordedAt      DateTime @default(now()) @map("recorded_at") @db.Timestamptz(3)
+
+  tenant        Tenant        @relation(fields: [tenantId], references: [id])
+  surgeryCase   SurgeryCase   @relation(fields: [tenantId, surgeryCaseId], references: [tenantId, id])
+  stockMovement StockMovement @relation(fields: [tenantId, stockMovementId], references: [tenantId, id])
+  recorder      User          @relation("SurgerySupplyRecorder", fields: [tenantId, recordedBy], references: [tenantId, id])
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, stockMovementId])
+  @@index([tenantId, surgeryCaseId])
+  @@map("surgery_supply_usages")
+}

@@ -137,6 +137,14 @@ test.describe('smoke', () => {
       'ranap',
       'resume',
     ]);
+    // Bagan RME yang tersambung API di 3.8 (Konsultasi, Edukasi, Paket layanan): alurnya di `konsultasi-api.spec.ts`
+    // dan `persetujuan.spec.ts`; di sini cukup halaman api terbuka tanpa "Belum tersambung".
+    for (const id of ['konsul', 'edukasi', 'paket']) {
+      const screen = clinical.find((s) => s.id === id);
+      expect((await page.goto(screen?.route ?? '/'))?.status(), id).toBe(200);
+      await expect(page.getByText('Belum tersambung', { exact: true })).toHaveCount(0);
+      await expect(page.getByText('Mode presentasi · data fiktif')).toHaveCount(0);
+    }
     // Rawat inap sudah tersambung API (layar W4, `rawat-inap-api.spec.ts`): daftar terbuka, ID demo = tidak ditemukan.
     await page.goto('/klinis/rawat-inap');
     await expect(page.getByRole('heading', { name: 'Pasien rawat inap', level: 1 })).toBeVisible();
@@ -203,6 +211,17 @@ test.describe('smoke', () => {
     await page.goto(`/tablet/persetujuan/${CONSENT_ID.hartono}`);
     await expect(page.getByRole('heading', { name: 'Persetujuan tindakan', level: 1 })).toBeVisible();
     await expect(page.getByText('Draf tidak ditemukan')).toBeVisible();
+
+    // Konsultasi, Edukasi, Paket layanan sudah tersambung (3.7/3.8, `konsultasi-api.spec.ts`, `persetujuan.spec.ts`).
+    await page.goto('/klinis/konsultasi');
+    await expect(page.getByRole('heading', { name: 'Konsultasi & rawat bersama', level: 1 })).toBeVisible();
+    await expect(page.getByRole('region', { name: 'Konsul masuk' })).toBeVisible();
+    await page.goto('/klinis/edukasi');
+    await expect(page.getByRole('heading', { name: 'Edukasi pasien', level: 1 })).toBeVisible();
+    await expect(page.getByText('Pilih kunjungan pasien')).toBeVisible();
+    await page.goto('/klinis/paket-layanan');
+    await expect(page.getByRole('heading', { name: 'Paket formulir per setting', level: 1 })).toBeVisible();
+    await expect(page.getByText('Belum tersambung', { exact: true })).toHaveCount(0);
 
     // Tersambung API: dokter tanpa unit poli melihat antrean kosong; daftar resume kosong; id demo = tidak ditemukan.
     await page.goto('/klinis/poli');

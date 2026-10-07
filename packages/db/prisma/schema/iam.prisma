@@ -2,26 +2,70 @@
 
 /// P02 · Akun per orang (tanpa akun bersama). Tidak dihapus; dinonaktifkan (status = disabled).
 model User {
-  medicationDoseChecks MedicationDoubleCheck[]
-  id                   String                  @id @db.Uuid
-  tenantId             String                  @map("tenant_id") @db.Uuid
+  labOrderAcceptors            LabOrder[]                       @relation("LabOrderAcceptor")
+  specimenCollectors           Specimen[]                       @relation("SpecimenCollector")
+  specimenReceivers            Specimen[]                       @relation("SpecimenReceiver")
+  specimenEvents               SpecimenEvent[]
+  labResultAuthors             LabResult[]                      @relation("LabResultAuthor")
+  labValidators                LabValidation[]                  @relation("LabValidator")
+  labQcRunners                 LabQcRun[]                       @relation("LabQcRunner")
+  criticalReportRecipients     CriticalResultReport[]           @relation("CriticalReportRecipient")
+  criticalReportReporters      CriticalResultReport[]           @relation("CriticalReportReporter")
+  microIsolateRecorders        MicroIsolate[]                   @relation("MicroIsolateRecorder")
+  imagingIdentityConfirmers    ImagingStudy[]                   @relation("ImagingIdentityConfirmer")
+  imagingOverriders            ImagingStudy[]                   @relation("ImagingOverrider")
+  imagingAcceptors             ImagingStudy[]                   @relation("ImagingAcceptor")
+  imagingReportAuthors         ImagingReport[]                  @relation("ImagingReportAuthor")
+  paReportAuthors              PaReport[]                       @relation("PaReportAuthor")
+  stockMovementCreators        StockMovement[]                  @relation("StockMovementCreator")
+  stockReceiptReceivers        StockReceipt[]                   @relation("StockReceiptReceiver")
+  stockTransferSenders         StockTransfer[]                  @relation("StockTransferSender")
+  stockTransferReceivers       StockTransfer[]                  @relation("StockTransferReceiver")
+  stockAdjustmentAdjusters     StockAdjustment[]                @relation("StockAdjustmentAdjuster")
+  prescriptionAcceptors        PharmacyPrescription[]           @relation("PrescriptionAcceptor")
+  prescriptionReviewers        PrescriptionReview[]             @relation("PrescriptionReviewer")
+  interventionPrescribers      PharmacistIntervention[]         @relation("InterventionPrescriber")
+  interventionCreators         PharmacistIntervention[]         @relation("InterventionCreator")
+  interventionResponders       PharmacistInterventionResponse[] @relation("InterventionResponder")
+  dispensePreparers            Dispense[]                       @relation("DispensePreparer")
+  dispenseDoubleCheckers       Dispense[]                       @relation("DispenseDoubleChecker")
+  dispenseHandovers            Dispense[]                       @relation("DispenseHandover")
+  dispenseReturners            DispenseReturn[]                 @relation("DispenseReturner")
+  surgeryCaseCreators          SurgeryCase[]                    @relation("SurgeryCaseCreator")
+  surgeryTeamMembers           SurgeryCaseTeam[]                @relation("SurgeryTeamMember")
+  surgicalCheckCheckers        SurgicalSafetyCheck[]            @relation("SurgicalCheckChecker")
+  surgicalConfirmers           SurgicalSafetyConfirmation[]     @relation("SurgicalConfirmer")
+  surgeryEventRecorders        SurgeryEvent[]                   @relation("SurgeryEventRecorder")
+  surgicalCounters             SurgicalCount[]                  @relation("SurgicalCounter")
+  surgeryDiscrepancyRecorders  SurgeryCountDiscrepancy[]        @relation("SurgeryDiscrepancyRecorder")
+  operativeReportAuthors       OperativeReport[]                @relation("OperativeReportAuthor")
+  surgerySupplyRecorders       SurgerySupplyUsage[]             @relation("SurgerySupplyRecorder")
+  dietOrderers                 DietOrder[]                      @relation("DietOrderer")
+  mealServiceRecorders         MealService[]                    @relation("MealServiceRecorder")
+  bloodRequesters              BloodRequest[]                   @relation("BloodRequester")
+  crossmatchTesters            Crossmatch[]                     @relation("CrossmatchTester")
+  bloodIssuers                 BloodIssue[]                     @relation("BloodIssuer")
+  transfusionReactionReporters TransfusionReaction[]            @relation("TransfusionReactionReporter")
+  medicationDoseChecks         MedicationDoubleCheck[]
+  id                           String                           @id @db.Uuid
+  tenantId                     String                           @map("tenant_id") @db.Uuid
   /// NIP atau email RS, selalu huruf kecil (CHECK di database).
-  username             String
-  displayName          String                  @map("display_name")
-  email                String?
+  username                     String
+  displayName                  String                           @map("display_name")
+  email                        String?
   /// No. HP staf terenkripsi (`staff_phone`, bentuk baku 62…): WhatsApp notifikasi + kode cadangan login.
-  phoneEnc             String?                 @map("phone_enc")
+  phoneEnc                     String?                          @map("phone_enc")
   /// active | disabled
-  status               String                  @default("active")
-  mustChangePassword   Boolean                 @default(true) @map("must_change_password")
-  failedLoginCount     Int                     @default(0) @map("failed_login_count")
-  lockedUntil          DateTime?               @map("locked_until") @db.Timestamptz(3)
-  lastLoginAt          DateTime?               @map("last_login_at") @db.Timestamptz(3)
-  passwordChangedAt    DateTime?               @map("password_changed_at") @db.Timestamptz(3)
-  createdAt            DateTime                @default(now()) @map("created_at") @db.Timestamptz(3)
-  createdBy            String?                 @map("created_by") @db.Uuid
-  updatedAt            DateTime                @updatedAt @map("updated_at") @db.Timestamptz(3)
-  updatedBy            String?                 @map("updated_by") @db.Uuid
+  status                       String                           @default("active")
+  mustChangePassword           Boolean                          @default(true) @map("must_change_password")
+  failedLoginCount             Int                              @default(0) @map("failed_login_count")
+  lockedUntil                  DateTime?                        @map("locked_until") @db.Timestamptz(3)
+  lastLoginAt                  DateTime?                        @map("last_login_at") @db.Timestamptz(3)
+  passwordChangedAt            DateTime?                        @map("password_changed_at") @db.Timestamptz(3)
+  createdAt                    DateTime                         @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy                    String?                          @map("created_by") @db.Uuid
+  updatedAt                    DateTime                         @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy                    String?                          @map("updated_by") @db.Uuid
 
   tenant              Tenant               @relation(fields: [tenantId], references: [id])
   credential          UserCredential?
@@ -335,47 +379,48 @@ model TrustedDevice {
 /// (FIELD_HASH_KEY) yang terikat tenant + akun + perangkat. Fase 2 memakai ulang tabel ini untuk anjungan/TV (jenis
 /// baru, kolom khusus PIN kosong). Tidak dihapus: pencabutan = kolom `revoked_*`, final (dijaga trigger).
 model RegisteredDevice {
-  id             String    @id @db.Uuid
-  tenantId       String    @map("tenant_id") @db.Uuid
+  labAnalyzers   LabAnalyzer[]
+  id             String        @id @db.Uuid
+  tenantId       String        @map("tenant_id") @db.Uuid
   /// staff_pin (ADR-0024) | kiosk | display (prinsipal perangkat, ADR-0027); CHECK database
-  kind           String    @default("staff_pin")
+  kind           String        @default("staff_pin")
   /// staff_pin: pemilik PIN (wajib untuk jenis ini, CHECK `registered_devices_staff_pin`).
-  userId         String?   @map("user_id") @db.Uuid
+  userId         String?       @map("user_id") @db.Uuid
   /// staff_pin: posisi (penugasan) yang dibuka sesi PIN; unitnya = unit tempat perangkat terdaftar.
-  assignmentId   String?   @map("assignment_id") @db.Uuid
+  assignmentId   String?       @map("assignment_id") @db.Uuid
   /// Nama perangkat dari pengguna (mis. "Komputer nurse station Melati").
   name           String
   /// SHA-256 rahasia token perangkat. kiosk/display: kosong sampai perangkat mendaftar dengan kode sekali pakai.
-  tokenHash      String?   @unique @map("token_hash")
+  tokenHash      String?       @unique @map("token_hash")
   /// staff_pin: argon2id dari HMAC berlada atas tenant + perangkat + akun + PIN.
-  pinHash        String?   @map("pin_hash")
+  pinHash        String?       @map("pin_hash")
   /// staff_pin: ID kunci hash (cincin FIELD_HASH_KEYS) yang menjadi lada PIN ini; baris lama = v1. Kunci yang
   /// dipensiunkan membuat PIN dicabut (`key_rotated`), bukan gagal diam-diam (ADR-0015, pembaruan 5 Okt 2026).
-  pinKeyId       String?   @map("pin_key_id")
+  pinKeyId       String?       @map("pin_key_id")
   /// Percobaan salah berturut-turut, dicadangkan sebelum PIN diperiksa (aman dari tebakan paralel); maks. 5.
-  failedAttempts Int       @default(0) @map("failed_attempts")
+  failedAttempts Int           @default(0) @map("failed_attempts")
   /// Ringkas (maks. 200 karakter), untuk ditampilkan/ditinjau.
-  userAgent      String?   @map("user_agent")
-  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  userAgent      String?       @map("user_agent")
+  createdAt      DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
   /// staff_pin: maks. 30 hari setelah didaftarkan (CHECK database).
-  expiresAt      DateTime  @map("expires_at") @db.Timestamptz(3)
-  lastUsedAt     DateTime? @map("last_used_at") @db.Timestamptz(3)
-  revokedAt      DateTime? @map("revoked_at") @db.Timestamptz(3)
+  expiresAt      DateTime      @map("expires_at") @db.Timestamptz(3)
+  lastUsedAt     DateTime?     @map("last_used_at") @db.Timestamptz(3)
+  revokedAt      DateTime?     @map("revoked_at") @db.Timestamptz(3)
   /// user_removed | admin_revoked | too_many_attempts | password_changed | password_reset | mfa_reset |
   /// user_disabled | assignment_ended | key_rotated
-  revokedReason  String?   @map("revoked_reason")
+  revokedReason  String?       @map("revoked_reason")
   /// Pengguna yang mencabut (pemilik atau admin); kosong untuk pencabutan sistem (mis. terlalu banyak salah).
-  revokedBy      String?   @map("revoked_by") @db.Uuid
+  revokedBy      String?       @map("revoked_by") @db.Uuid
   /// kiosk/display: unit tempat perangkat dipasang (wajib, CHECK `registered_devices_principal`).
-  unitId         String?   @map("unit_id") @db.Uuid
+  unitId         String?       @map("unit_id") @db.Uuid
   /// display: papan antrean yang ditampilkan (opsional; CHECK `registered_devices_queue_display`).
-  queueDisplayId String?   @map("queue_display_id") @db.Uuid
+  queueDisplayId String?       @map("queue_display_id") @db.Uuid
   /// kiosk/display: HMAC kode pendaftaran sekali pakai (dibuang saat perangkat mendaftar).
-  enrolCodeHash  String?   @map("enrol_code_hash")
-  enrolExpiresAt DateTime? @map("enrol_expires_at") @db.Timestamptz(3)
-  enrolledAt     DateTime? @map("enrolled_at") @db.Timestamptz(3)
+  enrolCodeHash  String?       @map("enrol_code_hash")
+  enrolExpiresAt DateTime?     @map("enrol_expires_at") @db.Timestamptz(3)
+  enrolledAt     DateTime?     @map("enrolled_at") @db.Timestamptz(3)
   /// Admin yang mendaftarkan perangkat (kiosk/display).
-  createdBy      String?   @map("created_by") @db.Uuid
+  createdBy      String?       @map("created_by") @db.Uuid
 
   tenant       Tenant           @relation(fields: [tenantId], references: [id])
   unit         Unit?            @relation(fields: [tenantId, unitId], references: [tenantId, id])

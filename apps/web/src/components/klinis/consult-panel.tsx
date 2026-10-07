@@ -10,6 +10,7 @@ import type {
 import { Button, Chip, cx } from '@simrs/ui';
 import { useRouter } from 'next/navigation';
 import { useId, useState, useTransition } from 'react';
+import { ConsultantPicker } from '@/components/klinis/consultant-picker';
 import { Feedback, type FeedbackMsg } from '@/components/rme/feedback';
 import {
   activePrimary,
@@ -54,7 +55,6 @@ export function ConsultPanel({
   encounterId,
   consults,
   team,
-  consultants,
   me,
   now,
   canWrite,
@@ -62,8 +62,6 @@ export function ConsultPanel({
   encounterId: string;
   consults: readonly ConsultRequestRecord[];
   team: readonly CareTeamMember[];
-  /** Pilihan dokter tujuan/penerima; null bila sesi tanpa `clinical.write`. */
-  consultants: readonly ConsultantOption[] | null;
   me: ConsultMe;
   now: string;
   canWrite: boolean;
@@ -98,19 +96,9 @@ export function ConsultPanel({
               <ConsultItem key={c.id} c={c} me={me} now={now} busy={busy} run={run} />
             ))}
           </ol>
-          {canWrite && consultants && (
-            <SendForm encounterId={encounterId} consultants={consultants} me={me} busy={busy} run={run} />
-          )}
+          {canWrite && <SendForm encounterId={encounterId} me={me} busy={busy} run={run} />}
         </section>
-        <TeamCard
-          encounterId={encounterId}
-          team={team}
-          consultants={consultants}
-          me={me}
-          canWrite={canWrite}
-          busy={busy}
-          run={run}
-        />
+        <TeamCard encounterId={encounterId} team={team} me={me} canWrite={canWrite} busy={busy} run={run} />
       </div>
     </div>
   );
@@ -252,13 +240,11 @@ function ConsultItem({
 
 function SendForm({
   encounterId,
-  consultants,
   me,
   busy,
   run,
 }: {
   encounterId: string;
-  consultants: readonly ConsultantOption[];
   me: ConsultMe;
   busy: boolean;
   run: Run;
@@ -266,6 +252,7 @@ function SendForm({
   const id = useId();
   const empty: ApiConsultDraft = { toUserId: '', kind: 'konsultasi', urgency: 'biasa', question: '' };
   const [draft, setDraft] = useState<ApiConsultDraft>(empty);
+  const [target, setTarget] = useState<ConsultantOption | null>(null);
   const [tried, setTried] = useState(false);
   const block = apiSendBlocker(draft, me.role, me.id);
   return (
@@ -280,6 +267,7 @@ function SendForm({
           () => sendConsultApiAction({ encounterId, ...draft }),
           () => {
             setDraft(empty);
+            setTarget(null);
             setTried(false);
           },
         );
@@ -288,23 +276,14 @@ function SendForm({
       <h3 className="m-0 text-small font-semibold">Kirim konsul baru</h3>
       <div className="flex flex-wrap gap-2">
         <div className="flex min-w-0 flex-[2_1_240px] flex-col gap-1">
-          <label htmlFor={`${id}-ke`} className="text-small font-semibold">
-            Dokter konsultan
-          </label>
-          <select
-            id={`${id}-ke`}
-            value={draft.toUserId}
-            onChange={(e) => setDraft({ ...draft, toUserId: e.target.value })}
-            className={SELECT}
-          >
-            <option value="">Pilih konsultan…</option>
-            {consultants.map((c) => (
-              <option key={c.userId} value={c.userId}>
-                {c.nama}
-                {c.units.length > 0 ? ` · ${c.units.join(', ')}` : ''}
-              </option>
-            ))}
-          </select>
+          <ConsultantPicker
+            label="Dokter konsultan"
+            value={target}
+            onChange={(v) => {
+              setTarget(v);
+              setDraft({ ...draft, toUserId: v?.userId ?? '' });
+            }}
+          />
         </div>
         <div className="flex flex-[1_1_160px] flex-col gap-1">
           <label htmlFor={`${id}-jenis`} className="text-small font-semibold">
@@ -366,7 +345,6 @@ function SendForm({
 function TeamCard({
   encounterId,
   team,
-  consultants,
   me,
   canWrite,
   busy,
@@ -374,7 +352,6 @@ function TeamCard({
 }: {
   encounterId: string;
   team: readonly CareTeamMember[];
-  consultants: readonly ConsultantOption[] | null;
   me: ConsultMe;
   canWrite: boolean;
   busy: boolean;
@@ -382,13 +359,13 @@ function TeamCard({
 }) {
   const id = useId();
   const [target, setTarget] = useState('');
+  const [picked, setPicked] = useState<ConsultantOption | null>(null);
   const [reason, setReason] = useState('');
   const [tried, setTried] = useState(false);
   const primary = activePrimary(team);
   const active = team.filter((m) => !m.endedAt).length;
   const block = handoverBlocker(team, me, target, reason);
-  const mayHandover =
-    canWrite && consultants !== null && me.role === 'dokter' && (!primary || primary.user.userId === me.id);
+  const mayHandover = canWrite && me.role === 'dokter' && (!primary || primary.user.userId === me.id);
   return (
     <section aria-label="Tim perawatan" className={cx(CARD, 'flex-[1_1_300px]')}>
       <h2 className="m-0 text-body font-semibold">Tim perawatan</h2>
@@ -418,7 +395,7 @@ function TeamCard({
       <span className="text-caption text-ink-500">
         {active} anggota aktif. Perubahan DPJP utama tercatat sebagai versi baru; akses rekam ikut berpindah.
       </span>
-      {mayHandover && consultants && (
+      {mayHandover && (
         <form
           aria-label="Serah DPJP utama"
           className="flex flex-col gap-2 rounded-control bg-subtle p-3"
@@ -430,6 +407,7 @@ function TeamCard({
               () => changePrimaryApiAction({ encounterId, userId: target, reason }),
               () => {
                 setTarget('');
+                setPicked(null);
                 setReason('');
                 setTried(false);
               },
@@ -437,22 +415,14 @@ function TeamCard({
           }}
         >
           <h3 className="m-0 text-small font-semibold">Serah DPJP utama</h3>
-          <label htmlFor={`${id}-ke`} className="text-small font-semibold">
-            Dokter penerima
-          </label>
-          <select
-            id={`${id}-ke`}
-            value={target}
-            onChange={(e) => setTarget(e.target.value)}
-            className={SELECT}
-          >
-            <option value="">Pilih dokter…</option>
-            {consultants.map((c) => (
-              <option key={c.userId} value={c.userId}>
-                {c.nama}
-              </option>
-            ))}
-          </select>
+          <ConsultantPicker
+            label="Dokter penerima"
+            value={picked}
+            onChange={(v) => {
+              setPicked(v);
+              setTarget(v?.userId ?? '');
+            }}
+          />
           <label htmlFor={`${id}-alasan`} className="text-small font-semibold">
             Alasan (wajib, tercatat) <span className="text-danger">*</span>
           </label>

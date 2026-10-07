@@ -399,8 +399,8 @@ memakai satu pola berversi:
 `apps/api/src/infra/clinical/` (`ClinicalInfraModule`, global) dipakai semua modul klinis. Kerangka modul
 `worklist`, `encounter`, `triage`, `adt`, `assessment`, `cppt`, `diagnosis`, `orders`, `cds`, `consult`, `consent`,
 `nursing`, `discharge`, `summary`, `care-packages`, `results` sudah terdaftar di `AppModule`. Potongan 3.2–3.8 mengisi
-foldernya tanpa mengubah daftar modul (per 7 Okt 2026 3.2–3.5 dan 3.7 sudah terisi; `discharge`, `consult`,
-`care-packages` masih kerangka kosong). Gambaran lintas modul: [Cara kerja backend](./07-cara-kerja-backend.md).
+foldernya tanpa mengubah daftar modul (per 7 Okt 2026 3.2–3.7 sudah terisi; `consult` dan `care-packages` masih
+kerangka kosong). Gambaran lintas modul: [Cara kerja backend](./07-cara-kerja-backend.md).
 
 | Bagian                              | Guna                                                                                                                                                                                                                                                              |
 | ----------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -584,6 +584,35 @@ order, PRN berikutnya butuh pindaian baru. Pemberian memakai kunci per order yan
 Setiap pemberian membuat SATUSEHAT `held` (MedicationAdministration); hanya dosis `given` membuat `billable_events`
 jenis `obat`. Layar Rawat inap/Asuhan keperawatan disambungkan di W4.
 
+### Resume, rekonsiliasi obat, pulang, surat kematian (K13, fase 3 potongan 3.6)
+
+Modul `discharge` (`discharge.service.ts`, `discharge-sources.ts`, `death-certificate.service.ts`,
+`encounter-close.service.ts`, `discharge-gate.service.ts`, `discharge-authority.ts`), kontrak `schemas/discharge.ts`,
+ADR-0093. Endpoint: [Fitur klinis: resume medis](./12-fitur-klinis.md#resume-medis).
+
+- **Draf** = `clinical_drafts` jenis `resume` per penulis, hanya berisi isian DPJP. API draf generik menolak jenis ini
+  (422), jadi konfirmasi rekonsiliasi hanya lewat endpoint yang memvalidasi.
+- **Isi = data sumber** (`discharge-sources.ts`): anamnesis dari S CPPT dokter pertama, fisik dari TTV pertama + terakhir
+  dan O CPPT, penunjang dari observasi + laporan, terapi dari eMAR `given` (rawat inap) atau order obat (rawat jalan),
+  diagnosis/prosedur berkode, surat kontrol. Selalu dihimpun ulang dari versi final terkini; rawat inap ikut membaca
+  kunjungan asal (`source_encounter_id`). Ref sumber per bagian disimpan di `discharge_summary_sources` saat final.
+- **Butir wajib** diperiksa server dengan `resumeCompleteness(checklist, required)`: rawat inap 12 (`RESUME_CHECK_IDS`),
+  rawat jalan 8 (`RESUME_RJ_CHECK_IDS`). Kurang → 422 `RESUME_INCOMPLETE` (`details.missing`).
+- **Rekonsiliasi** (rawat inap): konfirmasi `clinical.sign` oleh DPJP utama/rawat bersama/dokter kunjungan, mengikat
+  hash daftar obat; mengubah daftar membatalkannya.
+- **Final/addendum** lewat `ClinicalRecordService` + `ClinicalSigningService.issueSigned('discharge_summaries', …)`;
+  versi ber-TTE → koreksi 409 `RECORD_LOCKED` (koreksi beralasan hanya bila TTE gagal). Staging SATUSEHAT `held`
+  Composition per versi; event `discharge.signed`.
+- **Surat kematian** (`death_certificates`, migrasi `20261007100000_death_certificates`): tabel berversi baru dengan
+  `app_clinical_guard`, `_current`, append-only, RLS FORCE; sebab kematian diperiksa `app_clinical_code_guard`
+  (ICD-10 dari `ref`); satu rantai per kunjungan. Penulis wajib lolos `DischargeAuthority.mayCertifyDeath` (K-1).
+- **`FullDischargeGate`** menggantikan `BasicDischargeGate` di provider `DISCHARGE_GATE` (`AdtModule`); dipanggil
+  `POST /adt/discharges` dan `POST /encounters/:id/close`. Pelaku tidak berwenang untuk disposisi meninggal →
+  `forbidden` → 403; syarat kurang → 409 `DISCHARGE_BLOCKED` (`details.reasons`).
+- **Tutup kunjungan** (`POST /encounters/:id/close`, `clinical.write`): rawat inap/IGD diteruskan ke
+  `AdtService.discharge`; rawat jalan menyelesaikan kunjungan + tiket poli (`queue.ticket_finished` → task 5 Antrean
+  BPJS; tiket yang belum dimulai dimulai dulu agar task 4 → 5 berurutan) + staging SATUSEHAT `held` Encounter.
+
 ### Persetujuan tindakan tablet + edukasi (K11, fase 3 potongan 3.7)
 
 Modul `consent`, kontrak `schemas/consent.ts`, ADR-0058. Tablet memakai sesi staf (keputusan fase 3 no. 20). Alurnya
@@ -614,7 +643,8 @@ medis; yang menjadi rekam medis berversi adalah entri `consents` saat final/peno
 - PDF lewat `ClinicalSigningService.issueSigned('consents', …)`: dokumen `kind = consent`, TTE dokter pemberi
   penjelasan; versi langsung terkunci (`RECORD_LOCKED`). Event `consent.signed` (`setuju`/`tolak`/`dicabut`).
 - Edukasi pasien = formulir P07 `edukasi_terintegrasi` (seed) diisi dengan `encounterId`, tampil di
-  `GET encounters/:id/assessments`. Final persetujuan menunggu isian terkini bertopik `tindakan` berevaluasi
+  `GET encounters/:id/assessments`. Layar Edukasi mode api membaca `GET encounters/:id/education` (`clinical.read`:
+  formulir terbit, `supportsConsent`, `ready`, riwayat isian) dan menyimpan lewat endpoint isian formulir P07. Final persetujuan menunggu isian terkini bertopik `tindakan` berevaluasi
   `paham` (`consentEducationReady`, aturan yang sama dengan layar Edukasi demo). Seed menaikkan versi formulir edukasi
   lama yang belum punya topik `tindakan` (`upgradePublishedForm`).
 
@@ -623,26 +653,33 @@ medis; yang menjadi rekam medis berversi adalah entri `consents` saat final/peno
 Modul `consult` dan `care-packages`, kontrak `schemas/collaboration.ts`, ADR-0059. Tanpa migrasi baru: tabel 3.0b
 lewat `ClinicalRecordService` dan `CareTeamService`.
 
-| Endpoint `/api/v1/…`                    | Izin                     | Isi                                                                                                         |
-| --------------------------------------- | ------------------------ | ----------------------------------------------------------------------------------------------------------- |
-| `POST consults/requests`                | `clinical.write`         | Konsul (dokter/residen) ke dokter dan/atau unit; berversi (`revision`); dokter tujuan dapat akses 24 jam    |
-| `POST consults/requests/:id/responses`  | `clinical.write`         | Jawaban terstruktur HANYA oleh dokter tujuan (atau dokter unit tujuan); lainnya 403 `CONSULT_NOT_RECIPIENT` |
-| `GET consults/inbox`                    | `clinical.read`          | Konsul terbuka untuk saya / unit saya (bukan kiriman sendiri), dengan `dueAt` (cito 1 jam, biasa 24 jam)    |
-| `GET encounters/:id/consults`           | `clinical.read`          | Konsul kunjungan + jawaban (`followUp` selesai/rawat_bersama/alih_rawat)                                    |
-| `GET encounters/:id/care-team`          | `clinical.read`          | Tim perawatan aktif + riwayat                                                                               |
-| `POST encounters/:id/care-team/primary` | `clinical.write`         | Serah DPJP utama (hanya DPJP utama aktif, alasan ≥ 10): keanggotaan lama diakhiri, yang baru ditambah       |
-| `GET care-packages?setting=`            | `forms.definition.read`  | Paket formulir per setting (`rawat_jalan`, `igd`, `rawat_inap`)                                             |
-| `PUT care-packages/:setting/:formCode`  | `forms.definition.write` | Pasang/ubah butir paket (wajib, urutan, aktif)                                                              |
-| `GET encounters/:id/completeness`       | `clinical.read`          | Kelengkapan asesmen kunjungan menurut paket setting-nya (EP 6b/7a)                                          |
+| Endpoint `/api/v1/…`                         | Izin                     | Isi                                                                                                         |
+| -------------------------------------------- | ------------------------ | ----------------------------------------------------------------------------------------------------------- |
+| `POST consults/requests`                     | `clinical.write`         | Konsul (dokter/residen) ke dokter dan/atau unit; berversi (`revision`); dokter tujuan dapat akses 24 jam    |
+| `POST consults/requests/:id/responses`       | `clinical.write`         | Jawaban terstruktur HANYA oleh dokter tujuan (atau dokter unit tujuan); lainnya 403 `CONSULT_NOT_RECIPIENT` |
+| `GET consults/consultants?q=&unitId=&limit=` | `clinical.write`         | Cari dokter aktif selain pelaku (nama/unit, ≥ 2 huruf) + unit; urut nama → id, bawaan 20, maks. 50          |
+| `GET consults/inbox`                         | `clinical.read`          | Konsul terbuka untuk saya / unit saya (bukan kiriman sendiri), dengan `dueAt` (cito 1 jam, biasa 24 jam)    |
+| `GET encounters/:id/consults`                | `clinical.read`          | Konsul kunjungan + jawaban (`followUp` selesai/rawat_bersama/alih_rawat)                                    |
+| `GET encounters/:id/care-team`               | `clinical.read`          | Tim perawatan aktif + riwayat                                                                               |
+| `POST encounters/:id/care-team/primary`      | `clinical.write`         | Serah DPJP utama (hanya DPJP utama aktif, alasan ≥ 10): keanggotaan lama diakhiri, yang baru ditambah       |
+| `GET care-packages?setting=`                 | `forms.definition.read`  | Paket formulir per setting (`rawat_jalan`, `igd`, `rawat_inap`)                                             |
+| `PUT care-packages/:setting/:formCode`       | `forms.definition.write` | Pasang/ubah butir paket (wajib, urutan, aktif)                                                              |
+| `GET encounters/:id/completeness`            | `clinical.read`          | Kelengkapan asesmen kunjungan menurut paket setting-nya (EP 6b/7a)                                          |
 
 - Jawaban konsul sekali membatasi akses konsultan sampai 24 jam setelah jawaban. Rawat bersama/alih rawat yang
   diterima memakai relasi tim perawatan (berlaku selama dirawat; setelah diakhiri sampai akhir hari berikutnya).
 - Jawaban pertama mencatat biaya `konsultasi` sekali per rantai. Notifikasi permintaan/jawaban tanpa PHI.
 - Dokumen pasien di layar klinis (utang P08): komponen `components/klinis/patient-documents.tsx` (daftar, unggah,
   batal beralasan, minta TTE, unduh) memakai data `lib/server/data/klinis/dokumen.ts`, Server Action
-  `dokumen-actions.ts` (unggah biner lewat `apiUpload`, batas body Server Action 11 MB di `next.config.ts`), dan
-  Route Handler unduh `/klinis/dokumen/:id/unduh` (BFF, token tetap di server). Aturan tombol di
-  `lib/patient-documents.ts`. Dipasang di tab Dokumen layar Rawat inap (W4).
+  `dokumen-actions.ts` (batal, minta TTE), Route Handler unggah `POST /klinis/dokumen/unggah?patientId=` dan unduh
+  `/klinis/dokumen/:id/unduh` (BFF, token tetap di server). Aturan tombol di `lib/patient-documents.ts`. Dipasang di
+  tab Dokumen layar Rawat inap (W4).
+- **Unggah berkas tidak lewat Server Action** (tinjauan keamanan DOC): body Server Action dibaca sebelum sesi
+  diperiksa, jadi batasnya dibiarkan bawaan Next (1 MB). Route Handler unggah memeriksa header `x-simrs-upload: 1` +
+  `sec-fetch-site` (anti-CSRF), sesi (401), dan izin `documents.write` (403) SEBELUM membaca body; lalu membaca body
+  dengan batas 10 MB (413, aliran dihentikan), mengenali jenis dari isi (PDF/PNG/JPEG, selain itu 415), dan meneruskan
+  ke API (`apiUpload`) yang menegakkan ulang semuanya. Tanda tangan tablet (W5a) tetap Server Action tetapi dibatasi
+  256 KB per gambar sehingga muat di 1 MB.
 
 ### Booking (F02, fase 2 potongan 3)
 

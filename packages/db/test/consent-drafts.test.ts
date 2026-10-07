@@ -107,6 +107,8 @@ afterAll(async () => {
 
 const inA = <T>(fn: (tx: TenantTx) => Promise<T>, client: PrismaClient = app) =>
   withTenant(client, A.tenantId, fn);
+const inB = <T>(fn: (tx: TenantTx) => Promise<T>, client: PrismaClient = app) =>
+  withTenant(client, B.tenantId, fn);
 
 const information = Array.from({ length: 7 }, (_, i) => ({ key: `k${i}`, title: `Butir ${i}`, body: 'Isi' }));
 const signer = { name: 'Ny. Uji Persetujuan', relation: null, method: 'nama', imageDocumentId: null };
@@ -281,6 +283,56 @@ describe('consent_drafts (K11)', () => {
         { version: 1, status: 'archived' },
         { version: 2, status: 'published' },
       ],
+    });
+  });
+
+  it('seed tidak mengarsipkan formulir edukasi versi buatan RS walau belum punya topik tindakan', async () => {
+    const local = {
+      ...EDUCATION_FORM_SAMPLE,
+      schema: {
+        sections: EDUCATION_FORM_SAMPLE.schema.sections.map((sec) => ({
+          ...sec,
+          fields: sec.fields.map((f) =>
+            f.key === 'topik' ? { ...f, options: f.options?.filter((o) => o.value !== 'tindakan') } : f,
+          ),
+        })),
+      },
+    };
+    const result = await inB(async (tx) => {
+      // Versi terbit buatan komite RS lewat API P07 (pembuat tercatat), bukan pustaka seed.
+      const now = new Date();
+      await tx.formDefinition.create({
+        data: {
+          id: newId(),
+          tenantId: B.tenantId,
+          code: local.code,
+          version: 1,
+          title: local.title,
+          category: local.category,
+          status: 'published',
+          schema: local.schema,
+          writeRoles: local.writeRoles,
+          changeNote: 'Versi lokal komite RM',
+          createdBy: B.nurse,
+          submittedAt: now,
+          publishedAt: now,
+        },
+      });
+      const r = await upgradePublishedForm(
+        tx,
+        B.tenantId,
+        EDUCATION_FORM_SAMPLE,
+        educationFormSupportsConsent,
+      );
+      const rows = await tx.formDefinition.findMany({
+        where: { code: EDUCATION_FORM_SAMPLE.code },
+        select: { version: true, status: true },
+      });
+      return { r, rows };
+    }, owner);
+    expect(result).toEqual({
+      r: { upgraded: false, skippedLocal: true },
+      rows: [{ version: 1, status: 'published' }],
     });
   });
 });

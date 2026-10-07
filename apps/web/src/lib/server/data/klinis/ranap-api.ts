@@ -2,7 +2,6 @@ import 'server-only';
 import {
   type ActiveWristbandScan,
   type CareTeamMember,
-  type ConsultantOption,
   type ConsultRequestRecord,
   type EncounterCompleteness,
   type PatientDocumentView,
@@ -38,7 +37,7 @@ import { can, type SessionView } from '../../../session-view';
 import { api } from '../../api';
 import { ApiError } from '../../api-core';
 import { patientDocuments } from './dokumen';
-import { careTeam, completeness, consultants, encounterConsults, optional } from './konsul';
+import { careTeam, completeness, encounterConsults, optional } from './konsul';
 
 /**
  * K04/K07/K12 · Data layar Rawat inap mode api (fase 3 layar W4). Satu-satunya pintu layar ini ke API (Data Access
@@ -63,8 +62,6 @@ export interface InpatientExtensions {
   consults: {
     requests: ConsultRequestRecord[];
     team: CareTeamMember[];
-    /** Pilihan dokter tujuan/penerima; null bila sesi tanpa `clinical.write`. */
-    consultants: ConsultantOption[] | null;
   } | null;
   completeness: EncounterCompleteness | null;
   documents: PatientDocumentView[] | null;
@@ -76,15 +73,14 @@ async function loadExtensions(
   patientId: string,
 ): Promise<InpatientExtensions> {
   const read = can(session, 'clinical', 'read');
-  const [requests, team, consultantList, completenessView, documents] = await Promise.all([
+  const [requests, team, completenessView, documents] = await Promise.all([
     read ? optional(() => encounterConsults(encounterId)) : null,
     read ? optional(() => careTeam(encounterId)) : null,
-    can(session, 'clinical', 'write') ? optional(() => consultants()) : null,
     read ? optional(() => completeness(encounterId)) : null,
     can(session, 'documents', 'read') ? optional(() => patientDocuments(patientId)) : null,
   ]);
   return {
-    consults: requests && team ? { requests, team, consultants: consultantList } : null,
+    consults: requests && team ? { requests, team } : null,
     completeness: completenessView,
     documents,
   };

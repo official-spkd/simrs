@@ -61,7 +61,14 @@ test.describe('Konsultasi, tim perawatan, dan dokumen pasien mode api (3.8)', ()
     // Gerbang tertulis sebelum isian lengkap.
     await send.getByRole('button', { name: 'Kirim konsul' }).click();
     await expect(send.getByRole('alert')).toHaveText('Pilih dokter konsultan.');
-    await send.getByLabel('Dokter konsultan').selectOption({ label: konsultan.displayName });
+    // Pemilih konsultan mencari di server (bukan memuat seluruh dokter RS): kata kunci khas tes ini.
+    const picker = send.getByRole('group', { name: 'Dokter konsultan' });
+    await picker.getByLabel('Cari nama dokter atau unit (minimal 2 huruf)').fill(`Jantung ${tag}`);
+    await picker
+      .getByRole('list', { name: 'Hasil pencarian dokter konsultan' })
+      .getByRole('button', { name: new RegExp(konsultan.displayName.replace(/[.,]/g, '.')) })
+      .click();
+    await expect(picker).toContainText(`Dipilih: ${konsultan.displayName}`);
     await send.getByLabel('Jenis').selectOption({ label: 'Rawat bersama' });
     await send.getByLabel('Urgensi').selectOption({ label: 'Cito (≤ 1 jam)' });
     await send
@@ -142,6 +149,46 @@ test.describe('Konsultasi, tim perawatan, dan dokumen pasien mode api (3.8)', ()
       }),
     );
     expect(sig).toBe(1);
+  });
+
+  test('unggah dokumen lewat BFF: tanpa sesi 401, tanpa header asal 403, > 10 MB 413, bukan PDF/PNG/JPEG 415, sah 201', async ({
+    browser,
+    playwright,
+  }) => {
+    const ward = await createWard();
+    const dpjp = await createStaff('dokter', ward.unitId, 'dr. DPJP Unggah E2E, Sp.PD');
+    const p = await admitPatient(ward, dpjp, 'Tn. Unggah Dokumen Fiktif');
+    const url = `/klinis/dokumen/unggah?patientId=${p.patientId}`;
+    const headers = {
+      'content-type': 'application/octet-stream',
+      'x-simrs-upload': '1',
+      'x-document-kind': 'lampiran',
+      'x-document-title': encodeURIComponent('Foto luka fiktif'),
+      'x-document-filename': 'luka.pdf',
+    };
+    // Tanpa sesi: ditolak sebelum body dibaca.
+    const anon = await playwright.request.newContext({ baseURL: test.info().project.use.baseURL });
+    const unauth = await anon.post(url, { headers, data: PDF });
+    expect(unauth.status()).toBe(401);
+    await anon.dispose();
+
+    const page = await as(browser, dpjp, `/klinis/rawat-inap/${p.encounterId}?tab=dokumen`);
+    const req = page.request;
+    expect(
+      (await req.post(url, { headers: { ...headers, 'x-simrs-upload': '0' }, data: PDF })).status(),
+    ).toBe(403);
+    const big = await req.post(url, { headers, data: Buffer.alloc(10 * 1024 * 1024 + 1, 0x25) });
+    expect(big.status()).toBe(413);
+    expect((await big.json()).message).toBe('Berkas maksimal 10 MB.');
+    const html = await req.post(url, { headers, data: Buffer.from('<html><script>x</script></html>') });
+    expect(html.status()).toBe(415);
+    const ok = await req.post(url, { headers, data: PDF });
+    expect(ok.status()).toBe(201);
+    expect((await ok.json()).message).toBe('Dokumen "Foto luka fiktif" tersimpan.');
+    const stored = await inTenant(TENANTS.RSFA, (tx) =>
+      tx.document.count({ where: { patientId: p.patientId, title: 'Foto luka fiktif' } }),
+    );
+    expect(stored).toBe(1);
   });
 
   test('paket layanan: dokter membaca paket per setting; petugas rekam medis menambah dan menonaktifkan butir', async ({

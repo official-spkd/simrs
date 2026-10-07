@@ -1,0 +1,186 @@
+// ═══════════════════════════════════════════════════════════════════════════════════════════════════════════
+// Fase 4 · S07 Gizi, S08 Bank darah (rencana fase 4 §4.0b, keputusan no. 1 dan 22). Tanpa layar: API + cetak HTML.
+// ═══════════════════════════════════════════════════════════════════════════════════════════════════════════
+
+/// S07 · Order diet per kunjungan. Hanya status/akhir yang diubah (order baru = baris baru).
+model DietOrder {
+  id          String    @id @db.Uuid
+  tenantId    String    @map("tenant_id") @db.Uuid
+  encounterId String    @map("encounter_id") @db.Uuid
+  patientId   String    @map("patient_id") @db.Uuid
+  dietTypeId  String    @map("diet_type_id") @db.Uuid
+  /// biasa | lunak | saring | cair | sonde
+  texture     String
+  notes       String?
+  startsOn    DateTime  @map("starts_on") @db.Date
+  /// aktif | selesai
+  status      String    @default("aktif")
+  endedAt     DateTime? @map("ended_at") @db.Timestamptz(3)
+  orderedBy   String    @map("ordered_by") @db.Uuid
+  orderedAt   DateTime  @default(now()) @map("ordered_at") @db.Timestamptz(3)
+
+  tenant    Tenant        @relation(fields: [tenantId], references: [id])
+  encounter Encounter     @relation(fields: [tenantId, encounterId], references: [tenantId, id])
+  patient   Patient       @relation(fields: [tenantId, patientId], references: [tenantId, id])
+  dietType  DietType      @relation(fields: [tenantId, dietTypeId], references: [tenantId, id])
+  orderer   User          @relation("DietOrderer", fields: [tenantId, orderedBy], references: [tenantId, id])
+  meals     MealService[]
+
+  @@unique([tenantId, id])
+  @@index([tenantId, encounterId])
+  @@map("diet_orders")
+}
+
+/// S07 · Layanan makan per jam makan + sisa makanan (append-only).
+model MealService {
+  id          String   @id @db.Uuid
+  tenantId    String   @map("tenant_id") @db.Uuid
+  dietOrderId String   @map("diet_order_id") @db.Uuid
+  /// pagi | selingan_pagi | siang | selingan_sore | malam
+  meal        String
+  servedAt    DateTime @map("served_at") @db.Timestamptz(3)
+  /// habis | sisa_seperempat | sisa_setengah | utuh (null = belum dinilai)
+  leftover    String?
+  recordedBy  String   @map("recorded_by") @db.Uuid
+  recordedAt  DateTime @default(now()) @map("recorded_at") @db.Timestamptz(3)
+
+  tenant    Tenant    @relation(fields: [tenantId], references: [id])
+  dietOrder DietOrder @relation(fields: [tenantId, dietOrderId], references: [tenantId, id])
+  recorder  User      @relation("MealServiceRecorder", fields: [tenantId, recordedBy], references: [tenantId, id])
+
+  @@unique([tenantId, id])
+  @@index([tenantId, dietOrderId, servedAt])
+  @@map("meal_services")
+}
+
+/// S08 · Kantong darah: golongan ABO/Rh, ED, status (hanya status diubah).
+model BloodUnit {
+  id          String   @id @db.Uuid
+  tenantId    String   @map("tenant_id") @db.Uuid
+  bagNo       String   @map("bag_no")
+  componentId String   @map("component_id") @db.Uuid
+  /// A | B | AB | O
+  abo         String
+  /// pos | neg
+  rh          String
+  collectedAt DateTime @map("collected_at") @db.Timestamptz(3)
+  expiresAt   DateTime @map("expires_at") @db.Timestamptz(3)
+  /// tersedia | dicadangkan | dikeluarkan | kedaluwarsa | dimusnahkan
+  status      String   @default("tersedia")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy   String?  @map("created_by") @db.Uuid
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  tenant       Tenant         @relation(fields: [tenantId], references: [id])
+  component    BloodComponent @relation(fields: [tenantId, componentId], references: [tenantId, id])
+  crossmatches Crossmatch[]
+  issue        BloodIssue?
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, bagNo])
+  @@index([tenantId, componentId, abo, rh, status])
+  @@map("blood_units")
+}
+
+/// S08 · Permintaan darah (nomor `BD-YYMM-NNNN`). Hanya status diubah.
+model BloodRequest {
+  id          String   @id @db.Uuid
+  tenantId    String   @map("tenant_id") @db.Uuid
+  requestNo   String   @map("request_no")
+  encounterId String   @map("encounter_id") @db.Uuid
+  patientId   String   @map("patient_id") @db.Uuid
+  componentId String   @map("component_id") @db.Uuid
+  units       Int
+  /// rutin | cito | darurat
+  urgency     String
+  indication  String
+  patientAbo  String?  @map("patient_abo")
+  patientRh   String?  @map("patient_rh")
+  /// diminta | diproses | selesai | batal
+  status      String   @default("diminta")
+  requestedBy String   @map("requested_by") @db.Uuid
+  requestedAt DateTime @default(now()) @map("requested_at") @db.Timestamptz(3)
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  tenant       Tenant         @relation(fields: [tenantId], references: [id])
+  encounter    Encounter      @relation(fields: [tenantId, encounterId], references: [tenantId, id])
+  patient      Patient        @relation(fields: [tenantId, patientId], references: [tenantId, id])
+  component    BloodComponent @relation(fields: [tenantId, componentId], references: [tenantId, id])
+  requester    User           @relation("BloodRequester", fields: [tenantId, requestedBy], references: [tenantId, id])
+  crossmatches Crossmatch[]
+  issues       BloodIssue[]
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, requestNo])
+  @@index([tenantId, encounterId])
+  @@map("blood_requests")
+}
+
+/// S08 · Uji silang (append-only): cocok | tidak_cocok.
+model Crossmatch {
+  id             String   @id @db.Uuid
+  tenantId       String   @map("tenant_id") @db.Uuid
+  bloodRequestId String   @map("blood_request_id") @db.Uuid
+  bloodUnitId    String   @map("blood_unit_id") @db.Uuid
+  result         String
+  method         String
+  testedBy       String   @map("tested_by") @db.Uuid
+  testedAt       DateTime @default(now()) @map("tested_at") @db.Timestamptz(3)
+
+  tenant       Tenant       @relation(fields: [tenantId], references: [id])
+  bloodRequest BloodRequest @relation(fields: [tenantId, bloodRequestId], references: [tenantId, id])
+  bloodUnit    BloodUnit    @relation(fields: [tenantId, bloodUnitId], references: [tenantId, id])
+  tester       User         @relation("CrossmatchTester", fields: [tenantId, testedBy], references: [tenantId, id])
+
+  @@unique([tenantId, id])
+  @@index([tenantId, bloodRequestId, bloodUnitId])
+  @@map("crossmatches")
+}
+
+/// S08 · Pengeluaran kantong (append-only, sekali per kantong). Trigger: ABO/Rh kompatibel, crossmatch cocok, belum
+/// ED; darurat tanpa crossmatch hanya golongan O dengan alasan dokter (keputusan no. 22).
+model BloodIssue {
+  id              String   @id @db.Uuid
+  tenantId        String   @map("tenant_id") @db.Uuid
+  bloodRequestId  String   @map("blood_request_id") @db.Uuid
+  bloodUnitId     String   @map("blood_unit_id") @db.Uuid
+  encounterId     String   @map("encounter_id") @db.Uuid
+  patientId       String   @map("patient_id") @db.Uuid
+  emergencyReason String?  @map("emergency_reason")
+  issuedBy        String   @map("issued_by") @db.Uuid
+  issuedAt        DateTime @default(now()) @map("issued_at") @db.Timestamptz(3)
+
+  tenant       Tenant                @relation(fields: [tenantId], references: [id])
+  bloodRequest BloodRequest          @relation(fields: [tenantId, bloodRequestId], references: [tenantId, id])
+  bloodUnit    BloodUnit             @relation(fields: [tenantId, bloodUnitId], references: [tenantId, id])
+  encounter    Encounter             @relation(fields: [tenantId, encounterId], references: [tenantId, id])
+  patient      Patient               @relation(fields: [tenantId, patientId], references: [tenantId, id])
+  issuer       User                  @relation("BloodIssuer", fields: [tenantId, issuedBy], references: [tenantId, id])
+  reactions    TransfusionReaction[]
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, bloodUnitId])
+  @@index([tenantId, bloodRequestId])
+  @@map("blood_issues")
+}
+
+/// S08 · Reaksi transfusi (append-only).
+model TransfusionReaction {
+  id           String   @id @db.Uuid
+  tenantId     String   @map("tenant_id") @db.Uuid
+  bloodIssueId String   @map("blood_issue_id") @db.Uuid
+  occurredAt   DateTime @map("occurred_at") @db.Timestamptz(3)
+  /// ringan | sedang | berat
+  severity     String
+  description  String
+  reportedBy   String   @map("reported_by") @db.Uuid
+  reportedAt   DateTime @default(now()) @map("reported_at") @db.Timestamptz(3)
+
+  tenant     Tenant     @relation(fields: [tenantId], references: [id])
+  bloodIssue BloodIssue @relation(fields: [tenantId, bloodIssueId], references: [tenantId, id])
+  reporter   User       @relation("TransfusionReactionReporter", fields: [tenantId, reportedBy], references: [tenantId, id])
+
+  @@unique([tenantId, id])
+  @@index([tenantId, bloodIssueId])
+  @@map("transfusion_reactions")
+}

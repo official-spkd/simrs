@@ -76,6 +76,7 @@ describe('izin dan matriks penunjang', () => {
     expect(has('analis_lab', 'lab.result', 'release')).toBeNull();
     expect(has('analis_lab', 'lab.master', 'write')).toBeNull();
     expect(has('dokter', 'lab.result', 'release')).toBe('unit');
+    expect(has('dokter', 'lab.worklist', 'read')).toBe('unit');
     expect(has('dokter', 'surgery', 'override')).toBe('relationship');
     expect(has('radiografer', 'radiology', 'sign')).toBeNull();
     expect(has('perawat', 'lab.specimen', 'collect')).toBe('relationship');
