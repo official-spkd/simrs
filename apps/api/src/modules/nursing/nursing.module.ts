@@ -3,7 +3,7 @@ import { AuthzModule } from '../authz/authz.module';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { VitalsController } from './vitals.controller';
 import { VitalsService } from './vitals.service';
-import { NursingController } from './nursing.controller';
+import { EncounterNursingController, NursingController } from './nursing.controller';
 import { EmarService } from './emar.service';
 import { NursingCareService } from './nursing-care.service';
 import { MedicationSchedulesService } from './medication-schedules.service';
@@ -16,7 +16,7 @@ import { MedicationSchedulesService } from './medication-schedules.service';
  */
 @Module({
   imports: [AuthzModule, NotificationsModule],
-  controllers: [VitalsController, NursingController],
+  controllers: [VitalsController, NursingController, EncounterNursingController],
   providers: [VitalsService, EmarService, NursingCareService, MedicationSchedulesService],
   exports: [VitalsService],
 })

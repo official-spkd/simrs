@@ -119,3 +119,43 @@ export class NursingController {
     return this.care.fluids(id, query.date);
   }
 }
+
+/**
+ * K12 · Alias rute per kunjungan kanonik (`/api/v1/encounters/:id/<sumber>`, keputusan orkestrator W4): papan eMAR,
+ * rencana asuhan, dan balans cairan. Izin, ABAC, dan audit sama persis dengan rute `/nursing/...` (layanan yang sama);
+ * rute lama tetap berlaku.
+ */
+@ApiTags('klinis · keperawatan')
+@TenantScoped()
+@RequireModule('K12')
+@Controller('encounters')
+export class EncounterNursingController {
+  constructor(
+    private readonly emar: EmarService,
+    private readonly care: NursingCareService,
+  ) {}
+
+  @RequirePermission('clinical', 'read')
+  @Get(':id/emar')
+  board(
+    @Param('id', uuid) id: string,
+    @Query(new ZodValidationPipe(emarQuerySchema)) query: { date?: string },
+  ) {
+    return this.emar.board(id, query.date);
+  }
+
+  @RequirePermission('clinical', 'read')
+  @Get(':id/care-plans')
+  plans(@Param('id', uuid) id: string) {
+    return this.care.plans(id);
+  }
+
+  @RequirePermission('clinical', 'read')
+  @Get(':id/fluid-balances')
+  fluids(
+    @Param('id', uuid) id: string,
+    @Query(new ZodValidationPipe(emarQuerySchema)) query: { date?: string },
+  ) {
+    return this.care.fluids(id, query.date);
+  }
+}

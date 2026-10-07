@@ -220,7 +220,12 @@ export class SummaryService {
             encounterId: latestVital.encounterId,
             at: latestVital.occurredAt,
             values: latestVital.values,
-            ews: { ...latestVital.ews, at: latestVital.occurredAt },
+            ews: {
+              score: latestVital.ews.score,
+              maxParam: latestVital.ews.maxParam,
+              risk: latestVital.ews.risk,
+              at: latestVital.occurredAt,
+            },
           }
         : null,
       recentResults,

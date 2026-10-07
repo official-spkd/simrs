@@ -14,6 +14,8 @@ import { testDbUrls } from '@simrs/db/testing';
 import {
   activeWristbandScanSchema,
   doubleCheckViewSchema,
+  emarBoardSchema,
+  fluidBalanceDaySchema,
   inpatientCensusSchema,
   newId,
   type InpatientCensusItem,
@@ -452,5 +454,57 @@ describe('pindaian aktif dan cek ganda dua sesi', () => {
       await as('otherTenant').get(url).expect(404);
       await as('nurse').get(`/nursing/${path}`).expect(400);
     }
+  });
+});
+
+describe('rute eMAR/askep per kunjungan kanonik (alias /encounters/:id/…)', () => {
+  it('rute lama /nursing/… dan rute kanonik memberi jawaban sama dengan izin, ABAC, dan isolasi yang sama', async () => {
+    const enc = await inpatient('MELATI', { name: 'Pasien Alias Fiktif' });
+    const diagnosis = await run(A.id, (tx) =>
+      tx.nursingDiagnosis.findFirstOrThrow({ where: { active: true } }),
+    );
+    await as('nurse')
+      .post('/nursing/care-plans', {
+        encounterId: enc.encounterId,
+        diagnosisId: diagnosis.id,
+        goals: 'Nyeri berkurang dalam 2x24 jam',
+        interventions: ['Kaji skala nyeri tiap 4 jam'],
+        evaluation: null,
+        occurredAt: new Date().toISOString(),
+        revision: { kind: 'baru' },
+      })
+      .expect(201);
+    await as('nurse')
+      .post('/nursing/fluid-balances', {
+        encounterId: enc.encounterId,
+        direction: 'intake',
+        route: 'Infus NaCl 0,9%',
+        volumeMl: 500,
+        note: null,
+        occurredAt: new Date().toISOString(),
+        revision: { kind: 'baru' },
+      })
+      .expect(201);
+    const pairs = [
+      [`/nursing/emar/${enc.encounterId}`, `/encounters/${enc.encounterId}/emar`],
+      [`/nursing/care-plans/${enc.encounterId}`, `/encounters/${enc.encounterId}/care-plans`],
+      [`/nursing/fluid-balances/${enc.encounterId}`, `/encounters/${enc.encounterId}/fluid-balances`],
+    ] as const;
+    for (const [legacy, canonical] of pairs) {
+      const a = await as('nurse').get(legacy).expect(200);
+      const b = await as('nurse').get(canonical).expect(200);
+      expect(b.body, canonical).toEqual(a.body);
+      for (const url of [legacy, canonical]) {
+        await as('anggrekNurse').get(url).expect(403);
+        await as('kasir').get(url).expect(403);
+        await as('otherTenant').get(url).expect(404);
+      }
+    }
+    const fluids = fluidBalanceDaySchema.parse(
+      (await as('nurse').get(`/encounters/${enc.encounterId}/fluid-balances`).expect(200)).body,
+    );
+    expect(fluids.intakeMl).toBe(500);
+    emarBoardSchema.parse((await as('nurse').get(`/encounters/${enc.encounterId}/emar`).expect(200)).body);
+    await as('nurse').get(`/encounters/${enc.encounterId}/emar?date=bukan`).expect(400);
   });
 });
