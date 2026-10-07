@@ -18,7 +18,7 @@ Nomor 0024–0075 sudah dipesan oleh rencana fase di `docs/rencana/` (5 Okt 2026
 | 0042–0045 | Cadangan fase 4–5                                                  | –                                       |
 | 0046–0050 | Fase 6 · pembayaran TPDI × BTN, pembiayaan                         | –                                       |
 | 0051–0057 | Fase 7 · integration hub + SATUSEHAT                               | –                                       |
-| 0058–0059 | Cadangan fase 3–7                                                  | –                                       |
+| 0058–0059 | Cadangan fase 3–7                                                  | 0058 (persetujuan tindakan draf tablet, 3.7), 0059 (konsultasi + paket formulir + dokumen pasien, 3.8) |
 | 0060–0064 | Fase 8 · back office                                               | –                                       |
 | 0065–0069 | Fase 9 · dasbor + aplikasi mobile                                  | –                                       |
 | 0070–0075 | Fase 10 · ketahanan dan pilot (0071 backup, 0072 jangkar audit)    | 0071 (backup 3 lokasi + uji restore), 0072 (jangkar audit), 0073 (CSP ber-nonce + peta refresh web) |
