@@ -119,6 +119,10 @@ test.describe('toko demo bersama', () => {
   }) => {
     const akun = await createAccount({ roles: ['analis_lab'] });
     await loginAs(page, akun, `${API_WEB}/`);
+    // Layar yang hanya punya jalur toko demo: 404 di mode api.
+    for (const route of ['/keuangan/kasir', '/manajemen/sdm']) {
+      expect((await page.goto(`${API_WEB}${route}`))?.status(), route).toBe(404);
+    }
     // Sejak 4.0c layar penunjang hibrida: mode api membuka gerbang layar ("Belum tersambung"/"Akses ditolak"), tidak
     // pernah membaca toko demo.
     for (const route of ['/penunjang/lab', '/penunjang/hasil-kritis']) {
