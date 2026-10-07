@@ -104,6 +104,28 @@ describe('navGroups', () => {
     expect(item(manajemen, 'ranap')).toBeUndefined();
   });
 
+  it('mode api: layar tersambung yang di presentasi hanya dibuka lewat alur (CPOE, Edukasi) punya menu bagi peran berizin', () => {
+    const item = (groups: ReturnType<typeof navGroups>, id: string) =>
+      groups.flatMap((g) => g.items).find((i) => i.id === id);
+    const dokter = navGroups({
+      ...base,
+      role: 'dokter',
+      permissions: ['clinical.read', 'clinical.write', 'order.write', 'consent.write'],
+    });
+    expect(item(dokter, 'order')?.available).toBe(true);
+    expect(item(dokter, 'edukasi')?.available).toBe(true);
+    // Layar tanpa jalur api (CPPT, asesmen) dan layar perangkat (tablet, anjungan) tetap tanpa menu di mode api.
+    for (const id of ['cppt', 'asesmen', 'consent', 'kiosk', 'app-pasien'])
+      expect(item(dokter, id), id).toBeUndefined();
+    // Tanpa izin: tidak tampil.
+    const kasir = navGroups({ ...base, role: 'kasir', permissions: ['patient.read'] });
+    expect(item(kasir, 'order')).toBeUndefined();
+    expect(item(kasir, 'edukasi')).toBeUndefined();
+    // Mode presentasi tidak berubah: posisi biasa tidak mendapat menu tambahan Superadmin demo.
+    const demo = navGroups({ ...base, dataSource: 'demo', role: 'dokter', permissions: [] });
+    expect(item(demo, 'order')).toBeUndefined();
+  });
+
   it('menu antrean staf = Kendali antrean (`queue.read`, mode api); display TV hanya di mode presentasi', () => {
     const item = (groups: ReturnType<typeof navGroups>, id: string) =>
       groups.flatMap((g) => g.items).find((i) => i.id === id);
