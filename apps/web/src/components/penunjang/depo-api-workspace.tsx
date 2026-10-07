@@ -1,6 +1,7 @@
 'use client';
 
 import {
+  formatRupiah,
   formatTanggal,
   formatTanggalWaktu,
   type StockBalance,
@@ -11,7 +12,7 @@ import {
 } from '@simrs/shared';
 import { Alert, Button, Chip, KpiCard, Tabs } from '@simrs/ui';
 import { useState } from 'react';
-import { receiveTransferAction } from '@/app/(staf)/penunjang/depo/actions';
+import { cancelTransferAction, receiveTransferAction } from '@/app/(staf)/penunjang/depo/actions';
 import { depoSummary, expiryLabel, MOVEMENT_KIND_LABEL } from '@/lib/depo-api';
 import { AdjustForm, ReceiptForm, TransferForm } from './depo-api-forms';
 
@@ -92,6 +93,11 @@ function Ledger({ movements }: { movements: readonly StockMovementView[] }) {
               </td>
               <td className={TD}>
                 {m.refNo && <span className="font-mono">{m.refNo}</span>}
+                {m.unitCost && (
+                  <span className="block text-caption text-ink-500">
+                    @ {formatRupiah(BigInt(m.unitCost))} per satuan
+                  </span>
+                )}
                 {m.reason && <span className="block text-caption text-ink-500">{m.reason}</span>}
               </td>
               <td className={TD}>{m.by.nama}</td>
@@ -103,6 +109,15 @@ function Ledger({ movements }: { movements: readonly StockMovementView[] }) {
   );
 }
 
+const STATUS: Record<
+  StockTransferView['status'],
+  { label: string; tone: 'warning' | 'success' | 'neutral' }
+> = {
+  dikirim: { label: 'Dalam perjalanan', tone: 'warning' },
+  diterima: { label: 'Diterima', tone: 'success' },
+  dibatalkan: { label: 'Dibatalkan', tone: 'neutral' },
+};
+
 function Transfers({
   transfers,
   location,
@@ -113,6 +128,8 @@ function Transfers({
   onNotice: (n: Notice) => void;
 }) {
   const [pending, setPending] = useState<string | null>(null);
+  const [cancelling, setCancelling] = useState<string | null>(null);
+  const [reason, setReason] = useState('');
   const mine = transfers.filter((t) => t.from.id === location.id || t.to.id === location.id);
   if (mine.length === 0)
     return <p className="m-0 text-small text-ink-500">Belum ada mutasi untuk depo ini.</p>;
@@ -124,9 +141,7 @@ function Transfers({
             <span className="text-small">
               <span className="font-mono font-semibold">{t.transferNo}</span> · {t.from.name} → {t.to.name}
             </span>
-            <Chip tone={t.status === 'dikirim' ? 'warning' : 'success'}>
-              {t.status === 'dikirim' ? 'Dalam perjalanan' : 'Diterima'}
-            </Chip>
+            <Chip tone={STATUS[t.status].tone}>{STATUS[t.status].label}</Chip>
           </span>
           <span className="text-caption text-ink-700">
             {t.items.map((i) => `${i.drugName} · ${i.batchNo} × ${i.quantity}`).join('; ')}
@@ -135,6 +150,9 @@ function Transfers({
             Dikirim {t.sentBy.nama} · {formatTanggalWaktu(t.sentAt)}
             {t.receivedBy && t.receivedAt
               ? ` · diterima ${t.receivedBy.nama} · ${formatTanggalWaktu(t.receivedAt)}`
+              : ''}
+            {t.cancelledBy && t.cancelledAt
+              ? ` · dibatalkan ${t.cancelledBy.nama} · ${formatTanggalWaktu(t.cancelledAt)} · alasan: ${t.cancelReason ?? ''}`
               : ''}
           </span>
           {t.canReceive && t.to.id === location.id && (
@@ -145,7 +163,7 @@ function Transfers({
               disabled={pending !== null}
               onClick={async () => {
                 setPending(t.id);
-                const r = await receiveTransferAction(t.id);
+                const r = await receiveTransferAction(t.id, crypto.randomUUID());
                 setPending(null);
                 onNotice(
                   r.ok
@@ -156,6 +174,65 @@ function Transfers({
             >
               {pending === t.id ? 'Menerima…' : `Terima ${t.transferNo}`}
             </Button>
+          )}
+          {t.canCancel && t.from.id === location.id && cancelling !== t.id && (
+            <Button
+              size="sm"
+              className="w-fit"
+              disabled={pending !== null}
+              onClick={() => {
+                setCancelling(t.id);
+                setReason('');
+              }}
+            >
+              Batalkan {t.transferNo}
+            </Button>
+          )}
+          {cancelling === t.id && (
+            <form
+              aria-label={`Batalkan ${t.transferNo}`}
+              className="flex flex-col gap-2 rounded-control border border-line bg-card-header p-3"
+              onSubmit={async (e) => {
+                e.preventDefault();
+                if (reason.trim().length < 10) return;
+                setPending(t.id);
+                const r = await cancelTransferAction({ transferId: t.id, reason: reason.trim() });
+                setPending(null);
+                if (r.ok) setCancelling(null);
+                onNotice(
+                  r.ok
+                    ? {
+                        ok: true,
+                        text: `${r.transfer.transferNo} dibatalkan; stok kembali ke ${r.transfer.from.name}.`,
+                      }
+                    : { ok: false, text: r.message },
+                );
+              }}
+            >
+              <label className="flex flex-col gap-1 text-caption font-semibold text-ink-700">
+                Alasan membatalkan (wajib, minimal 10 karakter)
+                <textarea
+                  rows={2}
+                  maxLength={500}
+                  value={reason}
+                  onChange={(e) => setReason(e.target.value)}
+                  className="rounded-control border border-line-strong bg-white px-3 py-2 font-[inherit] text-small font-normal"
+                />
+              </label>
+              <span className="flex flex-wrap gap-2">
+                <Button
+                  type="submit"
+                  variant="danger"
+                  size="sm"
+                  disabled={reason.trim().length < 10 || pending !== null}
+                >
+                  {pending === t.id ? 'Membatalkan…' : 'Batalkan mutasi'}
+                </Button>
+                <Button size="sm" disabled={pending !== null} onClick={() => setCancelling(null)}>
+                  Tutup
+                </Button>
+              </span>
+            </form>
           )}
         </li>
       ))}

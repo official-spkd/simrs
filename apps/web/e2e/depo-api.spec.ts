@@ -96,6 +96,25 @@ test.describe('Depo mode api (4.6a)', () => {
       page.getByRole('status').filter({ hasText: `Penyesuaian ${batchNo} (-5) tersimpan` }),
     ).toBeVisible();
 
+    // 3b. Mutasi yang tersangkut dibatalkan pengirim beralasan (4.6a-2): stok kembali ke gudang.
+    await page.getByRole('tab', { name: /^Mutasi antar depo/ }).click();
+    await send.getByLabel('Depo tujuan').selectOption({ label: 'Depo kamar operasi' });
+    await send.getByLabel('Obat').selectOption(parasetamol);
+    await send.getByLabel('Jumlah').fill('2');
+    await send.getByRole('button', { name: 'Kirim mutasi' }).click();
+    const stuck = page
+      .getByRole('status')
+      .filter({ hasText: /MUT-\d{4}-\d{4} dikirim ke Depo kamar operasi/ });
+    await expect(stuck).toBeVisible();
+    const stuckNo = (await stuck.textContent())?.match(/MUT-\d{4}-\d{4}/)?.[0] ?? '';
+    await page.getByRole('button', { name: `Batalkan ${stuckNo}` }).click();
+    const cancelForm = page.getByRole('form', { name: `Batalkan ${stuckNo}` });
+    await cancelForm.getByLabel(/^Alasan membatalkan/).fill('Jadwal operasi ditunda, obat kembali ke gudang');
+    await cancelForm.getByRole('button', { name: 'Batalkan mutasi' }).click();
+    await expect(
+      page.getByRole('status').filter({ hasText: `${stuckNo} dibatalkan; stok kembali ke Gudang farmasi` }),
+    ).toBeVisible();
+
     // 4. Kartu stok: penerimaan bernomor, mutasi keluar, penyesuaian dengan alasan.
     await page.getByRole('tab', { name: 'Kartu stok' }).click();
     const card = page.getByRole('table', { name: 'Kartu stok' });

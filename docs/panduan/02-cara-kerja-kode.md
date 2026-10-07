@@ -545,16 +545,16 @@ akses perawat unit.
 Modul `orders` (CPOE) dan `cds` (ADR-0030). Kontrak masukan `orderSubmitInputSchema` (`schemas/klinis.ts`), jawaban di
 `schemas/orders.ts`.
 
-| Endpoint                                  | Izin            | Isi                                                                                                                                                      |
-| ----------------------------------------- | --------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `GET /orders/catalog?q=&kind=`            | `order.read`    | Orderable + obat aktif RS (kode LOINC/ICD-9-CM/KFA, zat + golongan, kewaspadaan tinggi); tarif `null` sampai U01                                         |
-| `GET/POST /orders/order-sets`             | `read`/`manage` | Order set institusi; dibuat oleh pemegang `order.manage` (komite farmasi, diberikan lewat layar Akses)                                                   |
-| `POST /orders/evaluate`                   | `order.write`   | Pratinjau CDS server per baris (semua temuan, temuan teratas, `blocked`/`overridden`); tidak menyimpan, baca konteks pasien diaudit                      |
+| Endpoint                                  | Izin            | Isi                                                                                                                                                                                                                                     |
+| ----------------------------------------- | --------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GET /orders/catalog?q=&kind=`            | `order.read`    | Orderable + obat aktif RS (kode LOINC/ICD-9-CM/KFA, zat + golongan, kewaspadaan tinggi); tarif `null` sampai U01                                                                                                                        |
+| `GET/POST /orders/order-sets`             | `read`/`manage` | Order set institusi; dibuat oleh pemegang `order.manage` (komite farmasi, diberikan lewat layar Akses)                                                                                                                                  |
+| `POST /orders/evaluate`                   | `order.write`   | Pratinjau CDS server per baris (semua temuan, temuan teratas, `blocked`/`overridden`); tidak menyimpan, baca konteks pasien diaudit                                                                                                     |
 | `POST /orders/submit` + `Idempotency-Key` | `order.write`   | 201 kiriman baru, 200 ulangan isi sama, 409 kunci dipakai isi lain, 422 `CDS_BLOCKED` (penolakan tetap dicatat `cds_alerts` `diblokir` + audit `denied`), 422 `MEDICATION_ROUTE_INVALID` (rute bertentangan dengan `drugs.dosage_form`) |
-| `POST /orders/:id/cancel`                 | `order.cancel`  | Batal beralasan ≥ 10 (status `dibatalkan` append-only, SATUSEHAT revisi 2, event `order.cancelled`); batal ulang 409                                     |
-| `POST /orders/:id/review`                 | `clinical.sign` | Tinjauan order residen oleh DPJP utama/rawat bersama/DPJP kunjungan: atestasi `review_order` + resep ber-TTE peninjau                                    |
-| `GET /encounters/:encounterId/orders`     | `order.read`    | Semua kiriman kunjungan: isi beku, status terkini, temuan CDS, resep (dokumen + status TTE)                                                              |
-| `GET /cds/overrides?from&to&decision`     | `order.read`    | Laporan tinjauan override/penolakan, hanya lingkup seluruh RS (auditor mutu); pasien lewat RM saja                                                       |
+| `POST /orders/:id/cancel`                 | `order.cancel`  | Batal beralasan ≥ 10 (status `dibatalkan` append-only, SATUSEHAT revisi 2, event `order.cancelled`); batal ulang 409                                                                                                                    |
+| `POST /orders/:id/review`                 | `clinical.sign` | Tinjauan order residen oleh DPJP utama/rawat bersama/DPJP kunjungan: atestasi `review_order` + resep ber-TTE peninjau                                                                                                                   |
+| `GET /encounters/:encounterId/orders`     | `order.read`    | Semua kiriman kunjungan: isi beku, status terkini, temuan CDS, resep (dokumen + status TTE)                                                                                                                                             |
+| `GET /cds/overrides?from&to&decision`     | `order.read`    | Laporan tinjauan override/penolakan, hanya lingkup seluruh RS (auditor mutu); pasien lewat RM saja                                                                                                                                      |
 
 Kiriman yang lolos menulis `order_groups` + order beku + status `aktif` + `cds_alerts`, staging biaya (lab/radiologi/
 tindakan) dan SATUSEHAT `held` (ServiceRequest, MedicationRequest), event `order.activated`. Penulis tanpa
@@ -697,6 +697,11 @@ jawaban lain di `schemas/stock.ts`. Semua mutasi stok = baris `stock_movements`;
 | `POST receipts`                                 | `stock.receive`  | Nomor `TRM-YYMM-NNNN`, batch baru/ulang (ED sama), ledger `receipt`, event `stock.received`; batch ED ditolak |
 | `POST transfers` → `POST transfers/:id/receive` | `stock.transfer` | Kirim (`transfer_out`) lalu terima sekali di tujuan (`transfer_in`); event `stock.transferred` per langkah    |
 | `POST adjustments`                              | `stock.adjust`   | Selisih bertanda + alasan ≥ 10; batch ED hanya dikurangi (`write_off`); event `stock.adjusted`                |
+
+Sejak 4.6a-2: keempat `POST` tulis wajib `Idempotency-Key`; `POST transfers/:id/cancel` (`stock.transfer`, lingkup depo
+asal, alasan ≥ 10) mengembalikan stok ke depo asal; `POST locations/:id/active` (`facility.write`) menolak menonaktifkan
+lokasi bermutasi `dikirim` (409 `STOCK_LOCATION_IN_TRANSIT`); faktur unik per pemasok; `unit_cost` per baris `receipt`
+dan harga pokok batch rata-rata tertimbang (ADR-0036 pembaruan 4.6a-2).
 
 Tes: `apps/api/test/stock.test.ts` (saldo = Σ ledger, penyesuaian serentak tidak pernah negatif, mutasi setengah jalan
 tidak menggandakan stok, batch ED ditolak, lingkup + isolasi), E2E `apps/web/e2e/depo-api.spec.ts`.

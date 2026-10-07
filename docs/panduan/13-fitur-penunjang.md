@@ -419,10 +419,13 @@ logika murni `lib/depo-api.ts`.
    Aman).
 3. **Penerimaan barang**: pemasok, nomor faktur, lalu per baris obat (cari minimal 2 huruf), nomor batch, tanggal
    kedaluwarsa, jumlah, dan harga pokok per satuan. Batch yang sudah kedaluwarsa ditahan ("… sudah kedaluwarsa dan
-   tidak boleh diterima") dan ditolak API (`BATCH_EXPIRED`). Hasilnya nomor `TRM-YYMM-NNNN`.
+   tidak boleh diterima") dan ditolak API (`BATCH_EXPIRED`). Hasilnya nomor `TRM-YYMM-NNNN` beserta harga per baris
+   dan harga pokok batch rata-rata tertimbang. Satu faktur pemasok hanya bisa diterima sekali.
 4. **Mutasi antar depo**: pilih Depo tujuan, Obat, dan Jumlah; layar menulis "Batch FEFO: …" (batch layak ED terdekat
    dulu, batch kedaluwarsa tidak pernah ditawarkan), lalu **Kirim mutasi** (`MUT-YYMM-NNNN`). Petugas berlingkup atas
    depo tujuan menekan **Terima MUT-…**; selama dalam perjalanan stok tidak tercatat di kedua depo.
+   Mutasi yang tersangkut dibatalkan petugas depo asal lewat **Batalkan MUT-…** (alasan minimal 10 karakter); stok
+   kembali ke depo asal. Depo yang masih punya mutasi dalam perjalanan tidak bisa dinonaktifkan.
 5. **Penyesuaian**: pilih batch, isi selisih (negatif = berkurang) dan alasan minimal 10 karakter. Batch kedaluwarsa
    hanya bisa dikurangi (hapus buku).
 6. **Kartu stok**: ledger terbaru dulu dengan jenis, nomor dokumen, alasan, dan petugas.
