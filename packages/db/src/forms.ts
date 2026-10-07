@@ -1,4 +1,4 @@
-import { type CreateFormDefinitionInput, formSchemaSchema, newId } from '@simrs/shared';
+import { type CreateFormDefinitionInput, type FormSchema, formSchemaSchema, newId } from '@simrs/shared';
 import { lockTenantScope } from './authz';
 import type { TenantTx } from './client';
 
@@ -39,4 +39,54 @@ export async function ensurePublishedForm(
     },
   });
   return { id, created: true };
+}
+
+/**
+ * P07 · Naikkan versi formulir pustaka yang sudah terpasang bila versi berlakunya belum memenuhi `isCurrent` (mis.
+ * opsi baru yang dibutuhkan aturan klinis). Versi lama diarsipkan, versi baru = isi pustaka (riwayat versi tetap).
+ * Formulir yang sudah memenuhi `isCurrent` (termasuk versi buatan RS) tidak disentuh. Untuk seed lokal/demo.
+ */
+export async function upgradePublishedForm(
+  tx: TenantTx,
+  tenantId: string,
+  def: CreateFormDefinitionInput,
+  isCurrent: (schema: FormSchema) => boolean,
+): Promise<{ upgraded: boolean }> {
+  const installed = await ensurePublishedForm(tx, tenantId, def);
+  if (installed.created) return { upgraded: false };
+  const published = await tx.formDefinition.findFirst({
+    where: { code: def.code, status: 'published' },
+    select: { id: true, schema: true },
+  });
+  const current = published ? formSchemaSchema.safeParse(published.schema) : null;
+  if (current?.success && isCurrent(current.data)) return { upgraded: false };
+  const last = await tx.formDefinition.findFirst({
+    where: { code: def.code },
+    orderBy: { version: 'desc' },
+    select: { version: true },
+  });
+  const now = new Date();
+  if (published) {
+    await tx.formDefinition.update({
+      where: { id: published.id },
+      data: { status: 'archived', archivedAt: now },
+    });
+  }
+  await tx.formDefinition.create({
+    data: {
+      id: newId(),
+      tenantId,
+      code: def.code,
+      version: (last?.version ?? 0) + 1,
+      title: def.title,
+      category: def.category,
+      status: 'published',
+      schema: formSchemaSchema.parse(def.schema),
+      writeRoles: def.writeRoles,
+      changeNote: def.changeNote,
+      submittedAt: now,
+      publishedAt: now,
+    },
+  });
+  return { upgraded: true };
 }

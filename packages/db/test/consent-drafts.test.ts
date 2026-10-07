@@ -3,7 +3,12 @@
  * medis tetapi tutup-sekali (juga bagi pemilik tabel), tidak dihapus, final wajib tanda tangan + atestasi saksi petugas,
  * batal wajib alasan ≥ 10, waktu tanda tangan/atestasi dari server, RLS/isolasi tenant. Data fiktif.
  */
-import { CONSENT_TEMPLATE_SAMPLE, newId } from '@simrs/shared';
+import {
+  CONSENT_TEMPLATE_SAMPLE,
+  EDUCATION_FORM_SAMPLE,
+  educationFormSupportsConsent,
+  newId,
+} from '@simrs/shared';
 import { PatientCrypto } from '@simrs/shared/node';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
@@ -13,6 +18,7 @@ import {
   insertPatient,
   type PrismaClient,
   seedHospitalStructure,
+  upgradePublishedForm,
   type TenantTx,
   withTenant,
 } from '../src/index';
@@ -233,5 +239,48 @@ describe('consent_drafts (K11)', () => {
         }),
       ),
     ).rejects.toThrow();
+  });
+
+  it('seed: formulir edukasi lama tanpa topik tindakan dinaikkan versinya sekali (syarat final persetujuan)', async () => {
+    const old = {
+      ...EDUCATION_FORM_SAMPLE,
+      schema: {
+        sections: EDUCATION_FORM_SAMPLE.schema.sections.map((sec) => ({
+          ...sec,
+          fields: sec.fields.map((f) =>
+            f.key === 'topik' ? { ...f, options: f.options?.filter((o) => o.value !== 'tindakan') } : f,
+          ),
+        })),
+      },
+    };
+    const versions = await inA(async (tx) => {
+      await ensurePublishedForm(tx, A.tenantId, old);
+      const first = await upgradePublishedForm(
+        tx,
+        A.tenantId,
+        EDUCATION_FORM_SAMPLE,
+        educationFormSupportsConsent,
+      );
+      const again = await upgradePublishedForm(
+        tx,
+        A.tenantId,
+        EDUCATION_FORM_SAMPLE,
+        educationFormSupportsConsent,
+      );
+      const rows = await tx.formDefinition.findMany({
+        where: { code: EDUCATION_FORM_SAMPLE.code },
+        orderBy: { version: 'asc' },
+        select: { version: true, status: true },
+      });
+      return { first: first.upgraded, again: again.upgraded, rows };
+    }, owner);
+    expect(versions).toEqual({
+      first: true,
+      again: false,
+      rows: [
+        { version: 1, status: 'archived' },
+        { version: 2, status: 'published' },
+      ],
+    });
   });
 });

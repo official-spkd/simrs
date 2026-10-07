@@ -6,11 +6,16 @@
  * Staf seed TIDAK punya kata sandi: tidak bisa masuk sampai admin SIM RS mereset sandinya di layar Akses. Akun yang
  * bisa langsung dipakai hanya lewat CLI: `pnpm db:create-admin` / `pnpm db:create-demo` mencetak sandi sementara sekali.
  */
-import { CONSENT_TEMPLATE_SAMPLE, EDUCATION_FORM_SAMPLE, MORSE_FALL_SCALE } from '@simrs/shared';
+import {
+  CONSENT_TEMPLATE_SAMPLE,
+  EDUCATION_FORM_SAMPLE,
+  educationFormSupportsConsent,
+  MORSE_FALL_SCALE,
+} from '@simrs/shared';
 import { loadFieldKeys, PatientCrypto } from '@simrs/shared/node';
 import { ensureSystemRoles } from '../src/authz';
 import { createPrismaClient, type PrismaClient, withTenant } from '../src/client';
-import { ensurePublishedForm } from '../src/forms';
+import { ensurePublishedForm, upgradePublishedForm } from '../src/forms';
 import { detectDuplicates } from '../src/patient-match';
 import { insertPatient } from '../src/patients';
 import { syncRolePermissions } from '../src/permission-sync';
@@ -87,7 +92,8 @@ try {
       // P07: formulir pustaka contoh (Morse dari mockup Formulir), versi 1 berlaku. K11 (fase 3): templat persetujuan
       // tindakan (tujuh butir informasi) dan edukasi terintegrasi.
       await ensurePublishedForm(tx, t.id, CONSENT_TEMPLATE_SAMPLE);
-      await ensurePublishedForm(tx, t.id, EDUCATION_FORM_SAMPLE);
+      // Edukasi: versi lama tanpa topik `tindakan` dinaikkan (syarat final persetujuan, ADR-0058).
+      await upgradePublishedForm(tx, t.id, EDUCATION_FORM_SAMPLE, educationFormSupportsConsent);
       return {
         ...(await ensurePublishedForm(tx, t.id, MORSE_FALL_SCALE)),
         permissionsAdded: sync.added.length,
