@@ -81,7 +81,7 @@ test.describe('smoke', () => {
     await expect(nav.getByText('Rawat inap', { exact: true })).toHaveCount(0);
   });
 
-  test('layar klinis hibrida di mode api: peran berizin melihat "Belum tersambung" (rencana fase 3 potongan 3.0d)', async ({
+  test('layar klinis hibrida di mode api: tersambung (W2–W5a) atau "Belum tersambung" (W1, W5b) bagi peran berizin', async ({
     page,
   }) => {
     // Dokter memegang clinical.read/write, order.write, bed.read, consent.write (matriks bawaan 3.0a).
@@ -104,8 +104,18 @@ test.describe('smoke', () => {
     const demoId = await page.goto(`/klinis/rawat-inap/${ENCOUNTER_ID.hartono}`);
     expect(demoId?.status()).toBe(200);
     await expect(page.getByText('Kunjungan tidak ditemukan')).toBeVisible();
-    // Layar lain yang sudah tersambung API (W2: CPOE, W5a: tablet persetujuan) diperiksa terpisah di bawah.
-    const connected = new Set(['ranap', 'order', 'consent']);
+    // Layar lain yang sudah tersambung API (W2: CPOE, W3: IGD + Tempat tidur, W5a: tablet persetujuan) diperiksa
+    // terpisah di bawah; alurnya di `cpoe.spec.ts`, `igd-ranap.spec.ts`, `persetujuan.spec.ts`.
+    const connected = new Set(['ranap', 'order', 'consent', 'igd', 'bed']);
+    for (const [route, heading] of [
+      ['/klinis/igd', 'Instalasi Gawat Darurat'],
+      ['/klinis/tempat-tidur', 'Manajemen tempat tidur'],
+    ] as const) {
+      expect((await page.goto(route))?.status(), route).toBe(200);
+      await expect(page.getByRole('heading', { name: heading, level: 1 })).toBeVisible();
+      await expect(page.getByText('Belum tersambung', { exact: true })).toHaveCount(0);
+      await expect(page.getByText('Mode presentasi · data fiktif')).toHaveCount(0);
+    }
     const routes = [
       ...clinical.filter((s) => !connected.has(s.id)).map((s) => ({ route: s.route, label: s.label })),
       { route: `/klinis/resume/${ENCOUNTER_ID.hartono}`, label: 'Resume medis' },
@@ -140,8 +150,8 @@ test.describe('smoke', () => {
     const admisi = await createAccount({ roles: ['petugas_pendaftaran'] });
     await loginAs(page, admisi);
     await page.goto('/klinis/igd');
-    await expect(page.getByRole('heading', { name: 'IGD', level: 1 })).toBeVisible();
-    await expect(page.getByText('Belum tersambung', { exact: true })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Instalasi Gawat Darurat', level: 1 })).toBeVisible();
+    await expect(page.getByText('Akses ditolak')).toHaveCount(0);
     await page.goto('/klinis/poli');
     await expect(page.getByText('Akses ditolak')).toBeVisible();
   });
