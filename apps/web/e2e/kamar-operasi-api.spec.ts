@@ -201,7 +201,7 @@ test.describe('Kamar operasi mode api (4.7)', () => {
     await expect(nurse.getByText('Selesai', { exact: true }).first()).toBeVisible();
   });
 
-  test('override insisi sebelum time out: dokter beralasan ≥ 15 karakter, tercatat di peristiwa', async ({
+  test('override insisi sebelum time out (dua jendela, SSE): dokter beralasan ≥ 15 karakter, tercatat di peristiwa', async ({
     browser,
   }) => {
     // Dua sesi (perawat + dokter) dengan login TOTP: lebih lama dari batas bawaan 60 dtk saat mesin sibuk.
@@ -211,15 +211,23 @@ test.describe('Kamar operasi mode api (4.7)', () => {
     const date = randomDate();
     const nurse = await as(browser, perawat, `/penunjang/kamar-operasi?tanggal=${date}`);
     await schedule(nurse, patient, dokter, date, 'Kamar operasi 3', '13.00');
+    // Jendela dokter (operator, anggota tim) terbuka sebelum sign in: perubahan status dari perawat sampai lewat SSE
+    // papan OK (kanal 4.1a) tanpa muat ulang manual.
+    const doc = await as(browser, dokter, `/penunjang/kamar-operasi?tanggal=${date}`);
+    const docCase = doc.getByRole('region', { name: 'Daftar tilik keselamatan' });
+    await expect(docCase.getByText('Terjadwal', { exact: true })).toBeVisible();
+    await expect(doc.locator('[data-live-status="tersambung"]')).toBeVisible();
+
     await checkPhase(nurse, 'sign-in');
     await nurse.getByRole('button', { name: 'Konfirmasi sign in' }).click();
     await expect(nurse.getByText(/Sign in dikonfirmasi/)).toBeVisible();
+    await expect(docCase.getByText('Persiapan (sign in)', { exact: true })).toBeVisible();
     await nurse.getByRole('button', { name: 'Catat induksi' }).click();
     await expect(nurse.getByText('Induksi dicatat.')).toBeVisible();
+    await expect(docCase.getByText('Sedang berlangsung', { exact: true })).toBeVisible();
     // Perawat tidak punya override: formulir override tidak tampil.
     await expect(nurse.getByRole('form', { name: 'Override insisi' })).toHaveCount(0);
 
-    const doc = await as(browser, dokter, `/penunjang/kamar-operasi?tanggal=${date}`);
     const ovr = doc.getByRole('form', { name: 'Override insisi' });
     await ovr.getByLabel(/Override dokter/).fill('pendek');
     await expect(ovr.getByRole('button', { name: 'Catat insisi dengan override' })).toBeDisabled();

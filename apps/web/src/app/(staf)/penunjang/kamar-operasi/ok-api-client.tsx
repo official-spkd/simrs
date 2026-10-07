@@ -1,9 +1,16 @@
 'use client';
 
-import { formatJam, formatTanggal, formatTanggalLahir, type SurgeryBoard } from '@simrs/shared';
+import {
+  formatJam,
+  formatTanggal,
+  formatTanggalLahir,
+  SUPPORT_SSE_EVENTS,
+  type SurgeryBoard,
+} from '@simrs/shared';
 import { Alert, Button, Chip, PatientBanner } from '@simrs/ui';
 import { usePathname, useRouter } from 'next/navigation';
 import { useState } from 'react';
+import { LiveIndicator, useLiveBoard } from '@/components/klinis/live-board';
 import { OkGantt } from '@/components/penunjang/ok-gantt';
 import { API_STATUS_LABEL, ganttRooms } from '@/lib/penunjang-ok-api';
 import {
@@ -26,6 +33,9 @@ export interface OkPermissions {
 }
 
 const SEX_SHORT = { male: 'L', female: 'P' } as const;
+/** Kanal 4.1a hanya mengirim perubahan status kasus (tanpa potret awal); nama potret ini tidak pernah datang. */
+const NO_SNAPSHOT = 'surgery.board.snapshot';
+const CHANGE_EVENTS = [SUPPORT_SSE_EVENTS.surgeryBoard] as const;
 
 function shiftDate(date: string, days: number): string {
   const d = new Date(`${date}T12:00:00+07:00`);
@@ -63,6 +73,11 @@ export function OkApiClient({
 }) {
   const router = useRouter();
   const pathname = usePathname();
+  const live = useLiveBoard(
+    `/penunjang/kamar-operasi/events?tanggal=${board.date}`,
+    NO_SNAPSHOT,
+    CHANGE_EVENTS,
+  );
   const cases = board.rooms.flatMap((r) => r.cases.map((c) => ({ room: r, c })));
   const [selectedId, setSelectedId] = useState<string | null>(initialCaseId);
   const [scheduling, setScheduling] = useState(false);
@@ -123,6 +138,7 @@ export function OkApiClient({
         <Button size="sm" onClick={() => go(shiftDate(board.date, 1))}>
           Hari berikutnya ›
         </Button>
+        <LiveIndicator status={live.status} asOf={formatJam(board.serverNow)} />
         {perms.schedule && (
           <Button variant="primary" onClick={() => setScheduling(true)} disabled={scheduling}>
             + Jadwalkan operasi
