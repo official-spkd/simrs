@@ -54,6 +54,9 @@ type ResponseRow = ClinicalRowLike & {
   acceptComanagement: boolean;
 };
 
+/** Batas penugasan dokter yang dibaca untuk daftar tujuan konsul (RS besar < 2.000 dokter aktif). */
+const CONSULTANT_LIMIT = 2000;
+
 /**
  * K10 · Konsultasi, rawat bersama, dan alih rawat (rencana fase 3 §3.8, ADR-0059):
  * - permintaan berversi oleh dokter/residen ke dokter tertentu dan/atau unit; dokter tujuan langsung mendapat relasi
@@ -238,7 +241,10 @@ export class ConsultService {
     return this.present(rows);
   }
 
-  /** Dokter aktif selain pelaku (tujuan konsul), dengan nama unit penugasan aktifnya; tanpa data pasien. */
+  /**
+   * Dokter aktif selain pelaku (tujuan konsul), dengan nama unit penugasan aktifnya; tanpa data pasien. Paling banyak
+   * `CONSULTANT_LIMIT` penugasan (terbaru dulu), diurutkan nama.
+   */
   async consultants(): Promise<ConsultantOption[]> {
     const me = this.records.author().userId;
     const now = new Date();
@@ -251,7 +257,10 @@ export class ConsultService {
         OR: [{ validUntil: null }, { validUntil: { gt: now } }],
       },
       select: { userId: true, user: { select: { displayName: true } }, unit: { select: { name: true } } },
-      take: 500,
+      // Batas pengaman daftar pilihan; urutan tetap (penugasan terbaru dulu) agar batas tidak memotong secara acak
+      // (tanpa `orderBy` dokter baru bisa hilang dari daftar begitu penugasan dokter > batas).
+      orderBy: [{ createdAt: 'desc' }, { id: 'asc' }],
+      take: CONSULTANT_LIMIT,
     });
     const byUser = new Map<string, ConsultantOption>();
     for (const r of rows) {
