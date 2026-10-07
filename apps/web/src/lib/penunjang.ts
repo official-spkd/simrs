@@ -1,4 +1,5 @@
 import {
+  criticalStage,
   formatJam,
   formatTanggalWaktu,
   isoDateJakarta,
@@ -9,6 +10,9 @@ import {
   type LabSample,
   type LabSampleStatus,
 } from '@simrs/shared';
+
+/** Aturan murni dipindah ke `@simrs/shared` (rencana fase 4 §4.0a); diekspor ulang untuk pemakai lama. */
+export { type CriticalStage, criticalStage, deltaCheck, labFlag } from '@simrs/shared';
 
 /** Jam saja bila di hari `today` (`10.39`), selain itu lengkap (`Sab, 3 Okt 2026 · 22.31`). */
 export function formatWhen(iso: string, today: string): string {
@@ -58,27 +62,6 @@ export function formatRange(ref: LabRange | null, decimals: number): string {
   }
   if (ref.high !== null) return `< ${formatLabNumber(ref.high, decimals)}`;
   return `> ${formatLabNumber(ref.low ?? 0, decimals)}`;
-}
-
-/**
- * Flag hasil: KRITIS bila melewati batas kritis (lebih dari batas atas atau kurang dari batas bawah), H/L bila di
- * luar rentang rujukan, selain itu N. Nilai tepat di batas dianggap masih di dalam rentang.
- */
-export function labFlag(value: number, ref: LabRange | null, critical: LabRange | null): LabFlag {
-  if (critical) {
-    if (critical.high !== null && value > critical.high) return 'KRITIS';
-    if (critical.low !== null && value < critical.low) return 'KRITIS';
-  }
-  if (ref?.high !== null && ref?.high !== undefined && value > ref.high) return 'H';
-  if (ref?.low !== null && ref?.low !== undefined && value < ref.low) return 'L';
-  return 'N';
-}
-
-/** Delta check: selisih absolut terhadap hasil sebelumnya yang terakhir melebihi batas (`limit`). */
-export function deltaCheck(value: number, previous: readonly number[], limit: number | null): boolean {
-  const last = previous.at(-1);
-  if (limit === null || last === undefined) return false;
-  return Math.abs(value - last) > limit + 1e-9;
 }
 
 const FLAG_SR: Record<LabFlag, string> = { N: 'normal', H: 'tinggi', L: 'rendah', KRITIS: 'kritis' };
@@ -181,14 +164,6 @@ export function criticalTimer(elapsedSeconds: number, limitMinutes: number) {
 /** Selisih menit utuh antara dua instan ISO (dibulatkan ke bawah, minimal 0). */
 export function minutesBetween(fromIso: string, toIso: string): number {
   return Math.max(0, Math.floor((Date.parse(toIso) - Date.parse(fromIso)) / 60_000));
-}
-
-export type CriticalStage = 'terbuka' | 'menunggu-read-back' | 'selesai';
-
-/** Laporan baru sah setelah read-back: tanpa read-back, nilai kritis tetap terbuka (menunggu read-back). */
-export function criticalStage(c: Pick<LabCriticalReport, 'reportedAt' | 'readBackAt'>): CriticalStage {
-  if (c.readBackAt) return 'selesai';
-  return c.reportedAt ? 'menunggu-read-back' : 'terbuka';
 }
 
 /** Nilai kritis yang belum sah dilaporkan (belum read-back). */

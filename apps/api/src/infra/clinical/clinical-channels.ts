@@ -1,9 +1,12 @@
 import type { TenantTx } from '@simrs/db';
 import {
+  type BedRequestSseEvent,
+  type BedRequestStatus,
   type BedStatus,
   type BedStatusSseEvent,
   CLINICAL_NOTIFY_CHANNELS,
   CLINICAL_SSE_EVENTS,
+  type EdChangedSseEvent,
   type EdStatus,
   type EdStatusSseEvent,
   type EdZone,
@@ -53,15 +56,41 @@ function edEvent(r: EdRow): SseEvent<EdStatusSseEvent> {
   };
 }
 
-/** Papan IGD: `ed_status_events` (id UUID v7 dari aplikasi, terurut → replay `id > Last-Event-ID`). */
-export const edBoardChannel: SseChannel<EdStatusSseEvent> = {
+/**
+ * Sinyal isi papan IGD selain status alur (ADR-0104): trigger `encounters` (kelas EMER), `triage_assessments`, dan
+ * `bed_requests` mencatat satu baris `board_signals` per perubahan (id baru, jadi perubahan beruntun pada baris sumber
+ * yang sama tidak dibuang sebagai duplikat) lalu mengirim id sinyal itu ke kanal ini.
+ */
+async function loadEdChange(tx: TenantTx, id: string): Promise<SseEvent<EdChangedSseEvent> | null> {
+  const s = await tx.boardSignal.findUnique({ where: { id } });
+  if (!s || s.board !== 'ed' || !s.unitId) return null;
+  return {
+    id,
+    event: CLINICAL_SSE_EVENTS.edChanged,
+    data: {
+      sourceId: s.sourceId,
+      source: s.source as EdChangedSseEvent['source'],
+      encounterId: s.encounterId,
+      unitId: s.unitId,
+      at: s.createdAt.toISOString(),
+    },
+  };
+}
+
+/**
+ * Papan IGD: `ed_status_events` (id UUID v7 dari aplikasi, terurut → replay `id > Last-Event-ID`) + sinyal `ed.changed`
+ * (tanpa replay; potret awal yang dikirim setiap sambung ulang adalah kebenarannya).
+ */
+export const edBoardChannel: SseChannel<EdStatusSseEvent | EdChangedSseEvent> = {
   name: CLINICAL_NOTIFY_CHANNELS.edBoard,
   async load(tx: TenantTx, id: string) {
     const row = await tx.edStatusEvent.findUnique({ where: { id }, select: edSelect });
-    return row ? edEvent(row) : null;
+    return row ? edEvent(row) : loadEdChange(tx, id);
   },
   async replay(tx: TenantTx, afterId: string, limit: number) {
     if (!isUuid(afterId)) return [];
+    // Last-Event-ID sinyal `ed.changed` (id acak): tanpa replay, potret awal sesudahnya adalah kebenarannya.
+    if (!(await tx.edStatusEvent.findUnique({ where: { id: afterId }, select: { id: true } }))) return [];
     const rows = await tx.edStatusEvent.findMany({
       where: { id: { gt: afterId } },
       orderBy: { id: 'asc' },
@@ -103,15 +132,31 @@ function bedEvent(r: BedRow): SseEvent<BedStatusSseEvent> {
   };
 }
 
+/** Permintaan bed (ADR-0104): sinyal `board_signals` papan bed; unit tujuan = bed yang dialokasikan, atau unit diminta. */
+async function loadBedRequest(tx: TenantTx, id: string): Promise<SseEvent<BedRequestSseEvent> | null> {
+  const s = await tx.boardSignal.findUnique({ where: { id } });
+  if (!s || s.board !== 'bed') return null;
+  return {
+    id,
+    event: CLINICAL_SSE_EVENTS.bedRequest,
+    data: {
+      requestId: s.sourceId,
+      unitId: s.unitId,
+      status: s.status as BedRequestStatus,
+      at: s.createdAt.toISOString(),
+    },
+  };
+}
+
 /**
  * Papan bed: `bed_status_events` (ditulis trigger; id acak, jadi replay berurutan menurut waktu ubah + id setelah
- * event `Last-Event-ID`).
+ * event `Last-Event-ID`) + sinyal `bed.request` dari `bed_requests` (tanpa replay; potret awal tiap sambung ulang).
  */
-export const bedBoardChannel: SseChannel<BedStatusSseEvent> = {
+export const bedBoardChannel: SseChannel<BedStatusSseEvent | BedRequestSseEvent> = {
   name: CLINICAL_NOTIFY_CHANNELS.bedBoard,
   async load(tx: TenantTx, id: string) {
     const row = await tx.bedStatusEvent.findUnique({ where: { id }, select: bedSelect });
-    return row ? bedEvent(row) : null;
+    return row ? bedEvent(row) : loadBedRequest(tx, id);
   },
   async replay(tx: TenantTx, afterId: string, limit: number) {
     if (!isUuid(afterId)) return [];

@@ -50,8 +50,8 @@ Sepuluh layar bagan RME memakai pola bersama di `apps/web/src/components/rme/` d
 | -------------------------- | ---------------------------- | ---------------------------------------------------- | ------------- | ------------------------------------------------ |
 | Pemeriksaan poli           | `/klinis/poli`               | dokter, dokter residen, perawat, bidan               | K01, K02      | 🟨 demo; API worklist, CPPT, diagnosis ada       |
 | Order dan resep (CPOE)     | `/klinis/order`              | dokter, dokter residen                               | K09           | ✅ demo + api (W2)                               |
-| IGD                        | `/klinis/igd`                | dokter, dokter residen, perawat, petugas pendaftaran | K03           | 🟨 demo; API triase + papan IGD ada (3.3)        |
-| Tempat tidur               | `/klinis/tempat-tidur`       | perawat, petugas pendaftaran, manajemen              | K05           | 🟨 demo; API ADT + papan bed ada (3.3)           |
+| IGD                        | `/klinis/igd`                | dokter, dokter residen, perawat, petugas pendaftaran | K03           | ✅ demo + api (W3)                               |
+| Tempat tidur               | `/klinis/tempat-tidur`       | perawat, petugas pendaftaran, manajemen              | K05           | ✅ demo + api (W3)                               |
 | Rawat inap                 | `/klinis/rawat-inap`         | dokter, dokter residen, perawat, bidan               | K04, K07, K12 | ✅ demo + api (W4)                               |
 | Resume medis               | `/klinis/resume`             | dokter, dokter residen                               | K13           | 🟨 demo; API ada (3.6); W5b belum                |
 | Persetujuan tindakan       | `/tablet/persetujuan`        | dokter, perawat                                      | K11           | ✅ demo + api (W5a)                              |
@@ -233,7 +233,7 @@ Nominal tidak ditampilkan di mode api sampai master tarif U01. Kunjungan yang ti
 | Rute     | `/klinis/igd` (`?pilih=<encounterId>` = pasien di panel triase)                                                                                                             |
 | Pemakai  | dokter, dokter residen, perawat, petugas pendaftaran                                                                                                                        |
 | Komponen | K03 IGD dan triase                                                                                                                                                          |
-| Status   | demo (mode presentasi); API triase, papan IGD + SSE, status alur, dan SEP IGD ada (3.3), layar belum disambung (W3)                                                         |
+| Status   | demo (mode presentasi) + api (layar W3): papan SSE, pendaftaran IGD, triase saran server, status alur + bed IGD, ambil pasien, permintaan bed, SEP IGD                      |
 | Mockup   | `design/mockups/IGD.dc.html`                                                                                                                                                |
 | Kode web | `apps/web/src/app/(staf)/klinis/igd/` · `apps/web/src/components/rawat-inap/triage-*.tsx` · `apps/web/src/lib/rawat-inap.ts` · `apps/web/src/lib/server/data/klinis/igd.ts` |
 | Kode API | `apps/api/src/modules/triage/` · `apps/api/src/modules/encounter/` (SEP IGD) · mesin triase `packages/shared/src/clinical/triage.ts`                                        |
@@ -282,8 +282,27 @@ ATS) dengan saran sistem dari tanda vital.
 - Lama tinggal ≥ 4 jam ditulis "Lewat 4 jam"; triase 1–2 yang menunggu dokter > 10 menit ditulis "Dokter lewat 10
   menit". Batas 4 jam dari pengaturan `bed.boarding_alert_hours`.
 
-**Mode api.** Izin layar `clinical.read`, agar petugas pendaftaran ikut membuka papan. Aksi klinis diperiksa API
-dengan izin sendiri (triase `triage.write`). Sampai potongan W3 halaman menampilkan "Belum tersambung".
+**Mode api (layar W3).** Izin layar `clinical.read`, agar petugas pendaftaran IGD ikut membuka papan; papan berisi
+pasien unit IGD penugasan (petugas unit lain melihat "Papan IGD hanya untuk petugas yang ditugaskan di IGD"). Setiap
+aksi memakai izinnya sendiri dan ditegakkan ulang API:
+
+1. **+ Daftarkan pasien IGD** (`encounter.write`): cari rekam medis (RM, NIK, BPJS, nama) atau **Pasien tanpa
+   identitas** (jenis kelamin, perkiraan umur, ciri-ciri; rekam medis sementara "Tn. X"/"Ny. X"), cara datang, penjamin
+   umum atau BPJS (diagnosa awal opsional → SEP IGD langsung). Pasien baru tampil di semua jendela IGD tanpa muat ulang.
+2. **Triase ATS** (`triage.write`, juga petugas pendaftaran IGD): isi tanda vital dan keluhan/diskriminator; kotak
+   "Saran sistem (server)" dihitung API (`POST /triage/suggestions`). Level di bawah saran wajib alasan ≥ 10 karakter
+   (tombol simpan nonaktif sampai terisi; server menolak 422 bila dilewati). **Triase ulang** = asesmen baru.
+3. **Ambil pasien** (dokter, `clinical.write` + `clinical.sign`): dokter jaga masuk tim perawatan sebagai penanggung
+   jawab IGD; namanya tampil di kartu papan. Relasi ini dasar resume, surat kematian (K-1), dan dokumen ber-TTE lain
+   tanpa akses darurat. Dokter lain yang mengambil alih menggantikan penanggung jawab lama (serah terima tercatat).
+4. **Status alur dan bed IGD**: status, zona, dan bed IGD (bed lama otomatis kotor). Triase pertama memindah pasien
+   berstatus identifikasi ke "Triase".
+5. **Putuskan rawat inap · minta bed** (`bed.write`): kelas rawat, kebutuhan ruang, isolasi → permintaan muncul di
+   Tempat tidur. Panel menulis status permintaan (menunggu/dialokasikan, "Lewat 4 jam").
+6. **SEP IGD (BPJS)**: status SEP, atau **Buat SEP IGD** dengan diagnosa awal dokter jaga (`coverage.write`).
+7. Region "Bed IGD": status tiap bed IGD; **Tandai siap/dibersihkan/rusak** dengan versi bed (`bed.write`).
+
+Penanda "Langsung · tersambung" di kepala layar menunjukkan aliran SSE (`/klinis/igd/events` → `/triage/board/events`).
 
 ## Tempat tidur
 
@@ -294,7 +313,7 @@ dengan izin sendiri (triase `triage.write`). Sampai potongan W3 halaman menampil
 | Rute     | `/klinis/tempat-tidur` (`?bangsal=<kode>` atau `?bangsal=semua`)                                                                                                   |
 | Pemakai  | perawat, petugas pendaftaran, manajemen                                                                                                                            |
 | Komponen | K05 bed management                                                                                                                                                 |
-| Status   | demo (mode presentasi); API papan bed + SSE, status manual, permintaan dan alokasi bed, admisi, transfer, Aplicare ada (3.3), layar belum disambung (W3)           |
+| Status   | demo (mode presentasi) + api (layar W3): papan SSE, status berversi, alokasi → admisi dari IGD (gelang), transfer, pulang lewat gerbang, Aplicare                  |
 | Mockup   | `design/mockups/BedManagement.dc.html`                                                                                                                             |
 | Kode web | `apps/web/src/app/(staf)/klinis/tempat-tidur/` · `apps/web/src/lib/rawat-inap.ts` (`BED_STATUS_META`, `filterBeds`) · `apps/web/src/lib/server/data/klinis/bed.ts` |
 | Kode API | `apps/api/src/modules/adt/` (`bed-board.service.ts`, `bed-ops.service.ts`, `aplicare-sync.service.ts`, `adt.service.ts`)                                           |
@@ -329,8 +348,23 @@ dan perputaran status bed (pulang, kotor, dibersihkan, siap).
   409 `BED_NOT_AVAILABLE`, dan hunian ganda dicegah constraint EXCLUDE.
 - Setiap perubahan status bed rawat inap ber-kelas memicu outbox Aplicare (`bpjs.aplicare.update`).
 
-**Mode api.** Izin layar `bed.read` (manajemen hanya membaca). Sampai potongan W3 halaman menampilkan "Belum
-tersambung". Detail API ada di
+**Mode api (layar W3).** Izin layar `bed.read` (manajemen hanya membaca; perawat hanya bangsal penugasannya). Peta
+per bangsal rawat inap (label pasien hanya inisial), real-time lewat SSE (`/klinis/tempat-tidur/events`):
+
+1. Pilih bed: status + versi; **Tandai …** mengikuti transisi manual (versi berbeda → pesan konflik, papan dimuat
+   ulang). Bed berpasien: **Gelang identitas pasien** (halaman cetak `/cetak/gelang/<kunjungan>`, cetak ulang wajib
+   alasan), **Pindahkan pasien** (transfer ke bed siap), **Pulangkan pasien**.
+2. **Pulangkan** lewat `DischargeGate` (3.6): bila syarat belum terpenuhi layar menulis "Pasien belum bisa dipulangkan.
+   Lengkapi dulu:" beserta daftar syarat dari server (mis. "Resume medis final dengan TTE DPJP belum ada"). Disposisi
+   meninggal tidak dari layar ini (dokter berelasi, surat kematian ber-TTE).
+3. "Permintaan bed": **Alokasikan** ke bed siap yang cocok (kelas, unit, isolasi) → bed dipesan. Permintaan dari IGD
+   yang sudah dialokasikan: **Admisi · terbitkan gelang** (`encounter.write`: DPJP, persetujuan umum pasien/wali,
+   diagnosa awal untuk SEP rawat inap BPJS) → admisi rawat inap + masuk bed + gelang dalam satu langkah
+   (`POST /registration/emergency-admissions`); pasien hilang dari papan IGD dan tampil di bed. Admisi terencana
+   (SPRI) masuk bed lewat tombol yang sama. **Batalkan permintaan** wajib alasan.
+4. Kepala layar dan region "Aplicare BPJS" menulis status kirim per ruang (Terkirim, Menunggu kirim, Gagal + kode).
+
+Detail API ada di
 [Cara kode bekerja](./02-cara-kerja-kode.md#adt-papan-bed-triase-igd-gelang-aplicare-k03-k04-k05-fase-3-potongan-3-3).
 
 ## Rawat inap

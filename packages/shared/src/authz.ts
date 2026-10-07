@@ -43,9 +43,54 @@ export const PERMISSION_CATALOG = {
   bed: { label: 'Tempat tidur & ADT (admisi, transfer, pulang)', actions: ['read', 'write'] },
   consent: { label: 'Persetujuan tindakan', actions: ['read', 'write', 'sign'] },
   result: { label: 'Hasil penunjang (observasi, laporan)', actions: ['read', 'write'] },
+  // S01–S10 · Penunjang (fase 4, rencana §4.0a)
+  'lab.worklist': { label: 'Worklist laboratorium', actions: ['read'] },
+  'lab.specimen': {
+    label: 'Spesimen laboratorium (ambil, terima, tolak)',
+    actions: ['collect', 'receive', 'reject'],
+  },
+  'lab.result': {
+    label: 'Hasil laboratorium (input, validasi teknis, rilis klinis, koreksi)',
+    actions: ['write', 'verify', 'release', 'correct'],
+  },
+  'lab.qc': { label: 'Kontrol mutu (QC) laboratorium', actions: ['read', 'write'] },
+  'lab.master': { label: 'Master pemeriksaan & rentang rujukan lab', actions: ['write'] },
+  critical_result: {
+    label: 'Nilai kritis (lapor dengan read-back, tinjau)',
+    actions: ['read', 'report', 'review'],
+  },
+  radiology: {
+    label: 'Radiologi (jadwal, pelaksanaan, ekspertise, TTE)',
+    actions: ['read', 'schedule', 'perform', 'report', 'sign'],
+  },
+  'pharmacy.review': { label: 'Telaah resep & intervensi apoteker', actions: ['read', 'write'] },
+  'pharmacy.dispense': {
+    label: 'Penyiapan & penyerahan obat (cek ganda, retur)',
+    actions: ['prepare', 'double_check', 'handover', 'return'],
+  },
+  stock: {
+    label: 'Stok depo (penerimaan, mutasi, penyesuaian)',
+    actions: ['read', 'receive', 'transfer', 'adjust'],
+  },
+  formulary: { label: 'Formularium & profil stok obat', actions: ['write'] },
+  surgery: {
+    label: 'Kamar operasi (jadwal, daftar tilik WHO, hitung kasa, laporan, override insisi)',
+    actions: ['read', 'schedule', 'checklist', 'count', 'report', 'override'],
+  },
+  nutrition: { label: 'Gizi (order diet, layanan makan)', actions: ['read', 'write'] },
+  blood_bank: {
+    label: 'Bank darah (permintaan, crossmatch, pengeluaran)',
+    actions: ['read', 'crossmatch', 'issue'],
+  },
+  diagnostics: {
+    label: 'Diagnostik lain (EKG, USG, echo, endoskopi): laporan + TTE',
+    actions: ['write', 'sign'],
+  },
   // Khusus perangkat terdaftar (lihat DEVICE_ONLY_RESOURCES): tidak pernah bisa diberikan ke peran.
   kiosk: { label: 'Anjungan mandiri (khusus perangkat)', actions: ['use'] },
   'queue.display': { label: 'Display antrean (khusus perangkat)', actions: ['read'] },
+  // S01 · Analyzer lab (fase 4): jenis perangkat `lab_analyzer` + `DEVICE_GRANTS` ditambahkan potongan 4.1a (ingest).
+  'lab.analyzer': { label: 'Kirim hasil analyzer laboratorium (khusus perangkat)', actions: ['ingest'] },
   'dev.tools': { label: 'Alat pengembang (non-produksi)', actions: ['use'] },
   'platform.guide': { label: 'Panduan sistem (operator platform)', actions: ['read'] },
 } as const;
@@ -160,6 +205,8 @@ export const SYSTEM_ROLES = {
   apoteker: 'Apoteker',
   analis_lab: 'Analis laboratorium',
   radiografer: 'Radiografer',
+  /** S07 · PPA gizi (CPPT format ADIME); kode sama dengan peta PPA CPPT fase 3 (`PPA_OF_ROLE`). */
+  ahli_gizi: 'Ahli gizi (nutrisionis)',
   kasir: 'Kasir',
   koder: 'Koder klinis',
   akuntan: 'Akuntan',
@@ -280,6 +327,77 @@ const RESULT_ENTRY: Grant[] = [
 ];
 
 /**
+ * S01–S10 · Penunjang (fase 4, rencana §4.0a). Lingkup `unit` = order yang ditujukan ke unit penugasan (keputusan fase
+ * 4 no. 3). Rilis klinis lab, ekspertise radiologi, dan laporan diagnostik bagi dokter berlingkup `unit`: hanya
+ * bermakna bila penugasannya di unit Lab/Radiologi/Diagnostik (keputusan no. 6).
+ */
+const LAB_ANALYST: Grant[] = [
+  ['lab.worklist', 'read', 'unit'],
+  ['lab.specimen', 'collect', 'unit'],
+  ['lab.specimen', 'receive', 'unit'],
+  ['lab.specimen', 'reject', 'unit'],
+  ['lab.result', 'write', 'unit'],
+  ['lab.result', 'verify', 'unit'],
+  ['lab.result', 'correct', 'unit'],
+  ['lab.qc', 'read', 'unit'],
+  ['lab.qc', 'write', 'unit'],
+  ['critical_result', 'read', 'unit'],
+  ['critical_result', 'report', 'unit'],
+  ['blood_bank', 'read', 'unit'],
+  ['blood_bank', 'crossmatch', 'unit'],
+  ['blood_bank', 'issue', 'unit'],
+];
+
+const RADIOGRAPHER: Grant[] = [
+  ['radiology', 'read', 'unit'],
+  ['radiology', 'schedule', 'unit'],
+  ['radiology', 'perform', 'unit'],
+  ['critical_result', 'read', 'unit'],
+  ['critical_result', 'report', 'unit'],
+];
+
+const DOCTOR_SUPPORT: Grant[] = [
+  ['lab.result', 'release', 'unit'],
+  ['radiology', 'read', 'unit'],
+  ['radiology', 'report', 'unit'],
+  ['radiology', 'sign', 'unit'],
+  ['diagnostics', 'write', 'unit'],
+  ['diagnostics', 'sign', 'unit'],
+  ['critical_result', 'read', 'relationship'],
+  ['surgery', 'read', 'relationship'],
+  ['surgery', 'report', 'relationship'],
+  ['surgery', 'checklist', 'relationship'],
+  ['surgery', 'override', 'relationship'],
+];
+
+/** Apoteker: telaah, dispensing, stok depo penugasannya (penyesuaian hanya depo sendiri), formularium. */
+const PHARMACIST: Grant[] = [
+  ['pharmacy.review', 'read', 'unit'],
+  ['pharmacy.review', 'write', 'unit'],
+  ['pharmacy.dispense', 'prepare', 'unit'],
+  ['pharmacy.dispense', 'double_check', 'unit'],
+  ['pharmacy.dispense', 'handover', 'unit'],
+  ['pharmacy.dispense', 'return', 'unit'],
+  ['stock', 'read', 'unit'],
+  ['stock', 'receive', 'unit'],
+  ['stock', 'transfer', 'unit'],
+  ['stock', 'adjust', 'unit'],
+  ['formulary', 'write', 'unit'],
+];
+
+/** Perawat/bidan: ambil spesimen, terima nilai kritis, gizi, retur obat pasiennya; daftar tilik + hitung di unit OK. */
+const NURSE_SUPPORT: Grant[] = [
+  ['lab.specimen', 'collect', 'relationship'],
+  ['critical_result', 'read', 'relationship'],
+  ['nutrition', 'read', 'relationship'],
+  ['nutrition', 'write', 'relationship'],
+  ['pharmacy.dispense', 'return', 'relationship'],
+  ['surgery', 'read', 'unit'],
+  ['surgery', 'checklist', 'unit'],
+  ['surgery', 'count', 'unit'],
+];
+
+/**
  * Matriks bawaan. Prinsip hak minimum: klinisi hanya pasien berelasi (+ akses darurat berjejak);
  * administrasi tanpa isi klinis; audit/privasi tanpa hak ubah data pasien.
  */
@@ -304,6 +422,9 @@ export const DEFAULT_ROLE_GRANTS: Record<SystemRoleCode, readonly Grant[]> = {
     ['schedule', 'sync', 'all'],
     ['queue', 'read', 'all'],
     ['queue', 'manage', 'all'],
+    // S01/S04 · Master lab dan formularium (fase 4).
+    ['lab.master', 'write', 'all'],
+    ['formulary', 'write', 'all'],
   ],
   petugas_pendaftaran: [
     ['patient', 'read', 'all'],
@@ -326,6 +447,7 @@ export const DEFAULT_ROLE_GRANTS: Record<SystemRoleCode, readonly Grant[]> = {
     ['forms.response', 'correct', 'relationship'],
     ...CLINICAL_FRONT_OFFICE,
     ...NURSE_CLINICAL,
+    ...NURSE_SUPPORT,
   ],
   bidan: [
     ...CLINICAL_READ,
@@ -333,6 +455,7 @@ export const DEFAULT_ROLE_GRANTS: Record<SystemRoleCode, readonly Grant[]> = {
     ['forms.response', 'correct', 'relationship'],
     ...CLINICAL_FRONT_OFFICE,
     ...NURSE_CLINICAL,
+    ...NURSE_SUPPORT,
   ],
   dokter: [
     ...CLINICAL_READ,
@@ -341,20 +464,33 @@ export const DEFAULT_ROLE_GRANTS: Record<SystemRoleCode, readonly Grant[]> = {
     ['documents', 'write', 'relationship'],
     ...CLINICAL_FRONT_OFFICE,
     ...DOCTOR_CLINICAL,
+    ...DOCTOR_SUPPORT,
   ],
   dokter_residen: [...CLINICAL_READ, ['forms.response', 'write', 'relationship'], ...RESIDENT_CLINICAL],
-  apoteker: [...CLINICAL_READ],
+  apoteker: [...CLINICAL_READ, ...PHARMACIST],
   analis_lab: [
     ['patient', 'read', 'unit'],
     ['ref', 'read', 'all'],
     ['facility', 'read', 'all'],
     ...RESULT_ENTRY,
+    ...LAB_ANALYST,
   ],
   radiografer: [
     ['patient', 'read', 'unit'],
     ['ref', 'read', 'all'],
     ['facility', 'read', 'all'],
     ...RESULT_ENTRY,
+    ...RADIOGRAPHER,
+  ],
+  ahli_gizi: [
+    ...CLINICAL_READ,
+    ['forms.response', 'write', 'relationship'],
+    ['clinical', 'read', 'unit'],
+    ['clinical', 'write', 'unit'],
+    ['clinical', 'correct', 'unit'],
+    ['result', 'read', 'unit'],
+    ['nutrition', 'read', 'unit'],
+    ['nutrition', 'write', 'unit'],
   ],
   kasir: [
     ['patient', 'read', 'all'],
@@ -396,6 +532,9 @@ export const DEFAULT_ROLE_GRANTS: Record<SystemRoleCode, readonly Grant[]> = {
     ['schedule', 'read', 'all'],
     // K05 · Papan bed (BOR, kapasitas).
     ['bed', 'read', 'all'],
+    // S09/S05 · Metrik kepatuhan nilai kritis, stok.
+    ['critical_result', 'review', 'all'],
+    ['stock', 'read', 'all'],
   ],
   auditor_mutu: [
     ['audit', 'read', 'all'],
@@ -485,6 +624,7 @@ export function isProtectedRole(code: string | null | undefined): boolean {
 export const DEVICE_ONLY_RESOURCES = [
   'kiosk',
   'queue.display',
+  'lab.analyzer',
 ] as const satisfies readonly PermissionResource[];
 
 export function isDeviceOnlyResource(resource: string): boolean {

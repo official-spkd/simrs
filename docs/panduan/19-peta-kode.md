@@ -386,11 +386,10 @@ Catatan: beberapa layar memakai satu aksi untuk banyak langkah (mis. `claim.writ
 
 ### Peran yang belum ada di katalog
 
-Katalog `SYSTEM_ROLES` berisi 16 peran. Rencana fase menambah peran berikut; sampai itu layar dibuka untuk peran pengganti:
+Katalog `SYSTEM_ROLES` berisi 17 peran (fase 4 menambah `ahli_gizi`, kode sama dengan peta PPA CPPT fase 3, menggantikan rencana `nutrisionis`). Rencana fase menambah peran berikut; sampai itu layar dibuka untuk peran pengganti:
 
 | Peran rencana      | Sumber keputusan                        | Layar terdampak (mode presentasi) | Pengganti sementara di `demoRoles` |
 | ------------------ | --------------------------------------- | --------------------------------- | ---------------------------------- |
-| `nutrisionis`      | rencana fase 4 keputusan #21 (F3-10)    | Gizi                              | perawat, dokter                    |
 | `petugas_logistik` | rencana fase 8 (ADR-0063, direncanakan) | Logistik                          | manajemen, apoteker                |
 | `petugas_sdm`      | rencana fase 8                          | SDM, Penggajian                   | manajemen, akuntan                 |
 | `komite_medik`     | rencana fase 8                          | Kredensial, Pendidikan klinik     | manajemen, dokter                  |

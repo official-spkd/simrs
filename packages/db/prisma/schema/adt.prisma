@@ -258,3 +258,25 @@ model AplicareRoom {
   @@unique([tenantId, roomCode])
   @@map("aplicare_rooms")
 }
+
+/// W3 · Sinyal papan IGD/bed (ADR-0104): satu baris per perubahan kunjungan IGD, triase, atau permintaan bed (ditulis
+/// trigger, append-only), di-`pg_notify` ke kanal `ed_board`/`bed_board`. Muatan hanya id + kode; tanpa nama pasien.
+model BoardSignal {
+  id          String   @id @db.Uuid
+  tenantId    String   @map("tenant_id") @db.Uuid
+  /// ed | bed
+  board       String
+  /// encounter | triage | bed_request | care_team
+  source      String
+  sourceId    String   @map("source_id") @db.Uuid
+  encounterId String   @map("encounter_id") @db.Uuid
+  /// Unit dasar saringan lingkup (IGD: unit kunjungan; bed: unit tujuan, null = mana pun).
+  unitId      String?  @map("unit_id") @db.Uuid
+  status      String
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  @@index([tenantId, createdAt])
+  @@map("board_signals")
+}
