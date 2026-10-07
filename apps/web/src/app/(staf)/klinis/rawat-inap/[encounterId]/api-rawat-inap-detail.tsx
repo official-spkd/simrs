@@ -104,6 +104,8 @@ export async function ApiRawatInapDetail({
   const order = routeOf('order');
   const resume = routeOf('resume');
   const consent = routeOf('consent');
+  const education = routeOf('edukasi');
+  const konsul = routeOf('konsul');
   const tab: ApiTab = API_TABS.find((t) => t === wantedTab) ?? 'cppt';
   const pendingCosign = r.cppt.filter((e) => e.status === 'menunggu_cosign').length;
 
@@ -165,6 +167,8 @@ export async function ApiRawatInapDetail({
             label: `Resume medis${dischargeLabel(r.discharge) ? ` · ${dischargeLabel(r.discharge)}` : ''}`,
             href: resume ? `${resume}/${encounterId}` : null,
           },
+          { label: 'Edukasi pasien', href: education ? `${education}?kunjungan=${encounterId}` : null },
+          { label: 'Konsultasi', href: konsul ? `${konsul}?kunjungan=${encounterId}` : null },
           {
             label: `Persetujuan tindakan · ${r.consents ? `${r.consents.length} dokumen` : 'lihat daftar'}`,
             href: consent && r.consents !== null ? consent : null,
