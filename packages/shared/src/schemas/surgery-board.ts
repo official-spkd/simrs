@@ -3,7 +3,7 @@ import { SIGNATURE_STATUSES } from '../documents';
 import { PATIENT_SEXES } from '../patient';
 import {
   CHECKLIST_PHASES,
-  COUNT_KINDS,
+  type COUNT_KINDS,
   operativeReportInputSchema,
   SURGERY_CASE_STATUSES,
   SURGERY_EVENT_KINDS,
