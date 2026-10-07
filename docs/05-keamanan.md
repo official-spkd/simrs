@@ -85,12 +85,9 @@ izin = { sumber: "cppt", aksi: "write", lingkup: { unit: "melati", relasi: "pera
   host dari `X-Forwarded-Host`/`Host` permintaan masuk dan API mempercayai web (`TRUST_PROXY`). Reverse proxy di depan
   web WAJIB menimpa (bukan menambah) `X-Forwarded-Host` dan `Host`; bila tidak, klien bisa memilih RS lain saat login
   (kredensial RS itu tetap dibutuhkan, tetapi kontrol per subdomain seperti allowlist IP/WAF bisa dilewati).
-- **Pulang/meninggal lewat `bed.write`.** Sampai gerbang tutup kunjungan potongan 3.6 (`DischargeGate`: resume final
-  ber-TTE, surat kematian, surat rujukan) terpasang, peran ber-`bed.write` lingkup `all` (admisi) bisa memulangkan
-  kunjungan IGD/rawat inap dengan disposisi apa pun, termasuk `meninggal`. Tercatat di audit dan event domain.
-  Keputusan pemilik produk 7 Okt 2026 (K-1): disposisi `meninggal` hanya oleh dokter yang berelasi dengan pasien, wajib
-  jam kematian, sebab kematian ICD-10, dan surat keterangan kematian ber-TTE; admisi ditolak. Celah ini tertutup saat
-  `DischargeGate` potongan 3.6 terpasang.
+- **Pulang/meninggal lewat `bed.write`** (ditutup potongan 3.6, ADR-0093). `FullDischargeGate` menolak pulang rawat
+  inap tanpa resume final ber-TTE, rujuk tanpa surat rujukan keluar, dan disposisi `meninggal` oleh pelaku tanpa
+  `clinical.sign` + relasi dengan pasien (admisi → 403, keputusan K-1) atau tanpa surat keterangan kematian ber-TTE.
 - **Infra lokal.** Docker Compose memakai kata sandi lokal yang diketahui, Redis tanpa kata sandi, dan kredensial root
   MinIO juga dipakai aplikasi; semua port hanya di loopback (ADR-0076). Lingkungan bersama/edge wajib memakai rahasia
   sendiri, Redis ber-`requirepass`, dan pengguna MinIO berkebijakan terbatas ke bucket aplikasi.

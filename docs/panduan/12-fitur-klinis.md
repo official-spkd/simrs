@@ -988,15 +988,15 @@ potongan 3.8 merencanakan `GET /api/v1/care-packages?setting=` dan mekanisme pak
 
 ![Kelengkapan rekam medis Ny. Endang Wijaya: daftar periksa 3 dari 7 terpenuhi 43 persen dengan butir co-sign residen dan edukasi pulang belum terpenuhi, serta daftar dokumen pasien dengan status TTE](./gambar/kelengkapan.png)
 
-| Hal      | Isi                                                                                                                                                                                                                                                         |
-| -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Rute     | `/klinis/kelengkapan` (`?pasien=<encounterId>`)                                                                                                                                                                                                             |
-| Pemakai  | dokter, dokter residen, petugas rekam medis                                                                                                                                                                                                                 |
-| Komponen | K13 resume dan dokumen pulang                                                                                                                                                                                                                               |
-| Status   | demo (mode presentasi); backend fase 3 potongan 3.6 dan 3.8 belum dibangun                                                                                                                                                                                  |
-| Mockup   | `design/mockups/Resume.dc.html`                                                                                                                                                                                                                             |
-| Kode web | `apps/web/src/app/(staf)/klinis/kelengkapan/` · data `apps/web/src/lib/demo/fixtures/rme-kelengkapan.ts` · aturan `apps/web/src/lib/rme-kelengkapan.ts` · komponen `apps/web/src/components/rme/kelengkapan-workspace.tsx`                                  |
-| Kode API | kontrak `DischargeGate` + `BasicDischargeGate` sementara di `apps/api/src/modules/adt/discharge-gate.ts` (aturan lengkap 3.6; modul `discharge` masih kerangka); kelengkapan rencana 3.8; dokumen lewat `apps/api/src/modules/documents/` (P08, sudah jadi) |
+| Hal      | Isi                                                                                                                                                                                                                        |
+| -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Rute     | `/klinis/kelengkapan` (`?pasien=<encounterId>`)                                                                                                                                                                            |
+| Pemakai  | dokter, dokter residen, petugas rekam medis                                                                                                                                                                                |
+| Komponen | K13 resume dan dokumen pulang                                                                                                                                                                                              |
+| Status   | demo (mode presentasi); backend fase 3 potongan 3.6 dan 3.8 belum dibangun                                                                                                                                                 |
+| Mockup   | `design/mockups/Resume.dc.html`                                                                                                                                                                                            |
+| Kode web | `apps/web/src/app/(staf)/klinis/kelengkapan/` · data `apps/web/src/lib/demo/fixtures/rme-kelengkapan.ts` · aturan `apps/web/src/lib/rme-kelengkapan.ts` · komponen `apps/web/src/components/rme/kelengkapan-workspace.tsx` |
+| Kode API | `DischargeGate` penuh di `apps/api/src/modules/discharge/discharge-gate.service.ts` (3.6, ADR-0093); kelengkapan rencana 3.8; dokumen lewat `apps/api/src/modules/documents/` (P08, sudah jadi)                            |
 
 **Tujuan.** Daftar periksa DPJP sebelum menutup kunjungan (gerbang tutup encounter, EP 5c) dan daftar dokumen pasien
 per kunjungan dengan status TTE. Dokumen tidak pernah dihapus.
@@ -1038,7 +1038,7 @@ per kunjungan dengan status TTE. Dokumen tidak pernah dihapus.
 - Setelah ditutup, rekam medis kunjungan terkunci; perubahan hanya lewat addendum.
 
 **Rencana backend.** Izin rencana `clinical.sign` (sudah ada di katalog), tetapi petugas rekam medis di `demoRoles`
-tidak memegangnya dan juga tidak memegang `documents.write`. Potongan 3.6 membangun `DischargeGate` (rawat inap =
+tidak memegangnya dan juga tidak memegang `documents.write`. Potongan 3.6 sudah memasang `DischargeGate` (rawat inap =
 disposisi + resume final; meninggal = surat kematian; rujuk = surat rujukan). Untuk disposisi meninggal berlaku
 keputusan K-1 (7 Okt 2026): hanya dokter yang berelasi dengan pasien, wajib jam kematian + sebab kematian ICD-10 +
 surat keterangan kematian ber-TTE, admisi ditolak. Potongan 3.8 membangun
