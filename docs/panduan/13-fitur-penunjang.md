@@ -29,8 +29,8 @@ skenario Simulasi ada di [Simulasi dan operasional](./18-simulasi-dan-operasiona
 | Kamar operasi       | `/penunjang/kamar-operasi` | dokter, perawat                          | S06      | 🟨 demo; API belum (fase 4)              |
 | Pusat hasil kritis  | `/penunjang/hasil-kritis`  | analis lab, radiografer, dokter, perawat | S09      | 🟨 demo tanpa mockup; API belum (fase 4) |
 | Depo & stok farmasi | `/penunjang/depo`          | apoteker                                 | S05      | 🟨 demo tanpa mockup; API belum (fase 4) |
-| Bank darah          | `/penunjang/bank-darah`    | analis lab, perawat, bidan, dokter       | S08      | 🟨 demo tanpa mockup; API belum (fase 4) |
-| Gizi                | `/penunjang/gizi`          | perawat, dokter                          | S07      | 🟨 demo tanpa mockup; API belum (fase 4) |
+| Bank darah          | `/penunjang/bank-darah`    | analis lab, perawat, bidan, dokter       | S08      | ✅ demo + api (4.9)                      |
+| Gizi                | `/penunjang/gizi`          | ahli gizi, perawat, dokter               | S07      | ✅ demo + api (4.9)                      |
 | Mikrobiologi & PA   | `/penunjang/mikrobiologi`  | analis lab, dokter                       | S02      | 🟨 demo tanpa mockup; API belum (fase 4) |
 | Diagnostik lain     | `/penunjang/diagnostik`    | dokter, perawat                          | S10      | 🟨 demo tanpa mockup; API belum (fase 4) |
 
@@ -46,17 +46,17 @@ Sejak fase 4 potongan 4.0c, kesepuluh layar penunjang **hibrida** dengan pola ya
 - Data per layar di `apps/web/src/lib/server/data/penunjang/<layar>.ts` (`lab`, `farmasi`, `radiologi`,
   `kamar-operasi`, `kritis`, `depo`, `bank-darah`, `gizi`, `mikro`, `diagnostik`) + `shared.ts`.
 
-| Layar                           | Izin layar (mode api)  | Pelaksana di matriks bawaan                        |
-| ------------------------------- | ---------------------- | -------------------------------------------------- |
-| Laboratorium, Mikrobiologi & PA | `lab.worklist.read`    | analis lab                                         |
-| Radiologi                       | `radiology.read`       | radiografer, dokter berpenugasan di unit Radiologi |
-| Farmasi                         | `pharmacy.review.read` | apoteker                                           |
-| Kamar operasi                   | `surgery.read`         | perawat unit OK, dokter berelasi                   |
-| Pusat hasil kritis              | `critical_result.read` | analis lab, radiografer, dokter, perawat           |
-| Depo & stok farmasi             | `stock.read`           | apoteker, manajemen                                |
-| Bank darah                      | `blood_bank.read`      | analis lab                                         |
-| Gizi                            | `nutrition.read`       | ahli gizi, perawat                                 |
-| Diagnostik lain                 | `diagnostics.write`    | dokter berpenugasan di unit Diagnostik             |
+| Layar                           | Izin layar (mode api)  | Pelaksana di matriks bawaan                           |
+| ------------------------------- | ---------------------- | ----------------------------------------------------- |
+| Laboratorium, Mikrobiologi & PA | `lab.worklist.read`    | analis lab                                            |
+| Radiologi                       | `radiology.read`       | radiografer, dokter berpenugasan di unit Radiologi    |
+| Farmasi                         | `pharmacy.review.read` | apoteker                                              |
+| Kamar operasi                   | `surgery.read`         | perawat unit OK, dokter berelasi                      |
+| Pusat hasil kritis              | `critical_result.read` | analis lab, radiografer, dokter, perawat              |
+| Depo & stok farmasi             | `stock.read`           | apoteker, manajemen                                   |
+| Bank darah                      | `blood_bank.read`      | analis lab (layanan); perawat/bidan, dokter (ruangan) |
+| Gizi                            | `nutrition.read`       | ahli gizi (layanan); perawat, bidan, dokter (ruangan) |
+| Diagnostik lain                 | `diagnostics.write`    | dokter berpenugasan di unit Diagnostik                |
 
 Server Action mode presentasi mencari rekaman di server (klien hanya mengirim id), memeriksa gerbang, lalu menyimpan
 ke toko demo. Atribut keselamatan seperti
@@ -422,10 +422,10 @@ opname penuh baru di fase 8. Di mode api layar hibrida (4.0c): peran berizin mel
 | Rute     | `/penunjang/bank-darah`                                                                                                                                                                                                                            |
 | Pemakai  | analis lab, perawat, bidan, dokter                                                                                                                                                                                                                 |
 | Komponen | S08 bank darah                                                                                                                                                                                                                                     |
-| Status   | demo (mode presentasi); backend fase 4 potongan 4.9 belum dibangun                                                                                                                                                                                 |
+| Status   | demo (mode presentasi) + api (fase 4 · 4.9, ADR-0105)                                                                                                                                                                                              |
 | Mockup   | tidak ada (gaya mengikuti layar Laboratorium)                                                                                                                                                                                                      |
 | Kode web | `apps/web/src/app/(staf)/penunjang/bank-darah/` · data `apps/web/src/lib/server/data/penunjang/bank-darah.ts` (`getBloodBank`) · aturan `apps/web/src/lib/penunjang-bank-darah.ts` · komponen `apps/web/src/components/penunjang/bank-darah-*.tsx` |
-| Kode API | belum ada (rencana modul `blood-bank`, docs/01-arsitektur.md §2)                                                                                                                                                                                   |
+| Kode API | `apps/api/src/modules/blood-bank/` (`/api/v1/blood/*`) · web api `api-bank-darah.tsx`, `components/penunjang/bank-darah-api.tsx`                                                                                                                   |
 
 **Tujuan.** Mengikuti satu permintaan darah dari penerimaan sampel sampai transfusi selesai: golongan darah,
 crossmatch, pengeluaran kantong dengan cek ganda dua petugas, pindai gelang dan kantong di samping pasien, lalu
@@ -474,10 +474,35 @@ pemantauan reaksi transfusi.
   klien. Server menegakkan komponen, kedaluwarsa, kompatibilitas, dua petugas, kelima butir, dan gelang. Crossmatch dan
   pengeluaran yang terjadi di sesi ini adalah keadaan lokal, jadi server belum memeriksanya.
 
-**Rencana backend.** Izin rencana `blood.write`. Fase 4 potongan 4.9 membangun modul `blood-bank` (stok kantong,
-crossmatch, pengeluaran, reaksi transfusi, event `blood.unit_issued`). Rencana memakai nama izin `blood_bank` untuk
-analis lab dan menetapkan bank darah tanpa layar (keputusan fase 4 #1), jadi layar demo ini mendahului rencana.
-Keputusan #22 (darah darurat golongan O tanpa crossmatch dengan alasan dokter) belum ada di demo. Di mode api layar hibrida (4.0c): peran berizin melihat "Belum tersambung" sampai potongan fase 4 layar ini tergabung.
+**Mode api (fase 4 · 4.9, ADR-0105).** Modul `blood-bank` (`/api/v1/blood/*`) dan layar `api-bank-darah.tsx`.
+Petugas bank darah (analis lab) melihat **tampilan layanan**: semua permintaan aktif + 7 hari dan stok kantong. Perawat,
+bidan, dan dokter melihat **tampilan ruangan**: hanya pasien yang boleh dibukanya (ABAC fase 3).
+
+1. DPJP membuka `?kunjungan=<id>` (atau **Minta darah untuk pasien…**), mengisi komponen, jumlah, urgensi,
+   golongan bila diketahui, dan indikasi, lalu **Kirim permintaan darah**. Nomor `BD-YYMM-NNNN` diberikan server.
+2. Analis menekan **Terima permintaan + sampel (label cocok)**, mengisi golongan pasien (terkunci setelah crossmatch
+   pertama), lalu **Catat crossmatch** pada kantong kandidat. Kandidat = komponen sama, belum ED, tersedia atau
+   dicadangkan untuk permintaan ini.
+3. **Cek ganda dua petugas**: analis pertama memilih kantong ber-crossmatch cocok, mencentang lima butir, lalu
+   **Simpan cek ganda pertama**. Analis LAIN dari sesinya sendiri menekan **Keluarkan kantong … (petugas kedua)**
+   dalam 30 menit. Pemeriksa pertama tidak bisa mengeluarkan sendiri. Jalur darurat: centang "Darurat tanpa
+   crossmatch". Hanya PRC golongan O dengan alasan dokter (O Rh-negatif bila Rh pasien belum diketahui).
+4. **Di samping pasien**: perawat memindai gelang dan nomor kantong lalu mencatat TTV awal (**Cocokkan gelang +
+   kantong dan catat TTV awal**). Gelang pasien lain atau kantong lain ditolak tanpa override, dan penolakan tercatat
+   di audit. Perawat/dokter KEDUA dari sesinya sendiri memindai ulang gelang + kantong (**Verifikasi petugas kedua**).
+   Baru setelah itu transfusi berjalan.
+5. Catat TTV 15 menit/1 jam/selesai dengan gejala bila ada. Dugaan reaksi menghentikan transfusi otomatis, lalu
+   **Kirim laporan reaksi**. **Transfusi selesai** butuh TTV 15 menit.
+
+Gerbang ditegakkan database (trigger `blood_issues`, `transfusions`), tidak hanya API:
+
+- ABO per komponen: PRC sel darah merah, FFP/TC plasma (AB universal; plasma O hanya untuk pasien O), WB identik.
+- Cek ganda ≤ 30 menit oleh dua pengguna berbeda.
+- Pindaian gelang cocok, milik pelaku, dan ≤ `emar.scan_valid_minutes`.
+- Kantong yang dipindai sama dengan kantong yang dikeluarkan.
+- Verifikator ≠ pemasang.
+
+Gelang tidak terbaca → cetak ulang gelang beralasan (ADR-0096); verifikasi manual mode presentasi tidak ada di mode api.
 
 ## Gizi
 
@@ -488,10 +513,10 @@ Keputusan #22 (darah darurat golongan O tanpa crossmatch dengan alasan dokter) b
 | Rute     | `/penunjang/gizi`                                                                                                                                                                                                                  |
 | Pemakai  | perawat, dokter (peran `nutrisionis` belum ada di katalog peran)                                                                                                                                                                   |
 | Komponen | S07 gizi                                                                                                                                                                                                                           |
-| Status   | demo (mode presentasi); backend fase 4 potongan 4.9 belum dibangun                                                                                                                                                                 |
+| Status   | demo (mode presentasi) + api (fase 4 · 4.9, ADR-0105)                                                                                                                                                                              |
 | Mockup   | tidak ada (gaya mengikuti layar penunjang lain)                                                                                                                                                                                    |
 | Kode web | `apps/web/src/app/(staf)/penunjang/gizi/` · data `apps/web/src/lib/server/data/penunjang/gizi.ts` (`getNutrition`) · aturan `apps/web/src/lib/penunjang-gizi.ts` · komponen `apps/web/src/components/penunjang/gizi-workspace.tsx` |
-| Kode API | belum ada (rencana modul `nutrition`, docs/01-arsitektur.md §2)                                                                                                                                                                    |
+| Kode API | `apps/api/src/modules/nutrition/` (`/api/v1/nutrition/*`) · web api `api-gizi.tsx`, `components/penunjang/gizi-api.tsx`, cetak `/cetak/gizi`                                                                                       |
 
 **Tujuan.** Instalasi gizi memverifikasi order diet dari DPJP, melakukan skrining gizi, lalu mendistribusikan makan
 per bangsal dan jam makan dengan label baki, tanpa mengantar makanan beralergen atau makanan untuk pasien puasa.
@@ -530,11 +555,22 @@ per bangsal dan jam makan dengan label baki, tanpa mengantar makanan beralergen 
 - Server Action `recordGiziAction` mencari order di fixture dan menjalankan `deliveryGate` yang sama. Status verifikasi
   dan skrining yang dibuat di sesi ini dikirim klien sebagai tanda boolean, karena belum ada penyimpanan.
 
-**Rencana backend.** Izin rencana `nutrition.write`. Fase 4 potongan 4.9 membangun modul `nutrition` (order diet,
-daftar makan per ruang × jam makan, label, sisa makanan; asuhan gizi lewat formulir P07). Komentar `screens.ts`
-mencatat peran `nutrisionis` (keputusan fase 4 #21) belum ada di katalog, jadi sementara layar dipakai perawat dan
-dokter. Rencana fase 4 #1 menetapkan gizi tanpa layar (cetak HTML); layar demo ini mendahului rencana. Di mode api
-layar hibrida (4.0c) menampilkan "Belum tersambung" bagi peran berizin.
+**Mode api (fase 4 · 4.9, ADR-0105).** Modul `nutrition` (`/api/v1/nutrition/*`) dan layar `api-gizi.tsx`. Ahli
+gizi (`ahli_gizi`) melihat **semua bangsal**. Perawat/bidan (lingkup unit) dan dokter (relasi) hanya melihat
+pasiennya.
+
+1. **Order diet pasien…** (atau `?kunjungan=<id>`; nama pasien di daftar makan juga membuka order): pilih jenis diet,
+   tekstur, tanggal mulai, dan catatan dapur, lalu **Simpan order diet**. Satu diet aktif per kunjungan: order baru
+   menutup yang lama. **Hentikan diet** menutup order aktif. Hanya untuk kunjungan rawat inap/IGD yang berjalan.
+2. "Daftar makan" per tanggal × jam makan (pagi, selingan pagi, siang, selingan sore, malam) × bangsal memuat nama,
+   No. RM, bangsal/bed, diet + tekstur, catatan, dan alergi tercatat.
+3. **Catat diantar** lalu pilih sisa makanan (habis, ¼, ½, utuh) → **Catat sisa**. Catatan append-only; yang terbaru
+   berlaku.
+4. **Cetak daftar + label makanan** membuka `/cetak/gizi`: daftar per bangsal dan label 70 × 35 mm berisi dua pengenal,
+   diet, tekstur, jam makan, catatan, dan ALERGI.
+
+Puasa (NPO), skrining MST, verifikasi order, dan ganti menu alergen di mode presentasi belum punya skema di mode api.
+Asuhan gizi lewat formulir P07 (layar Asesmen).
 
 ## Mikrobiologi & PA
 
