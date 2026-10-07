@@ -16,6 +16,7 @@ import {
 import { testDbUrls } from '@simrs/db/testing';
 import {
   CONSENT_INFORMATION_KEYS,
+  CONSENT_SIGNATURE_MAX_BYTES,
   CONSENT_TEMPLATE_SAMPLE,
   EDUCATION_FORM_SAMPLE,
   newId,
@@ -316,6 +317,40 @@ describe('persetujuan tindakan (K11)', () => {
     const parsed = patientDocumentSchema.array().parse(docs.body);
     expect(parsed.map((x) => x.kind).sort()).toEqual(['consent', 'consent']);
     expect(parsed.find((x) => x.id === doc.id)?.signatures[0]?.status).toBe('pending');
+  });
+
+  it('gambar tanda tangan hanya PNG ≤ 512 KB (SVG 415, besar 413); finalisasi serentak hanya sekali', async () => {
+    const e = await inpatient();
+    const d = await as('perawat')
+      .post(`/encounters/${e.encounterId}/consent-drafts`, draftBody())
+      .expect(201);
+    const url = `/consents/drafts/${d.body.id}/signature-image?slot=signer`;
+    const svg = Buffer.from('<svg xmlns="http://www.w3.org/2000/svg"><script>alert(1)</script></svg>');
+    expect((await as('perawat').binary(url, svg).expect(415)).body.code).toBe('UNSUPPORTED_MEDIA_TYPE');
+    // SVG dengan tipe konten aslinya tidak dibaca sebagai berkas sama sekali.
+    await request(app.getHttpServer())
+      .post(`/api/v1${url}`)
+      .set(bearer(tok.perawat as Tokens))
+      .set('Content-Type', 'image/svg+xml')
+      .send(svg)
+      .expect(415);
+    const big = Buffer.concat([PNG, Buffer.alloc(CONSENT_SIGNATURE_MAX_BYTES)]);
+    const tooBig = await as('perawat').binary(url, big).expect(413);
+    expect(tooBig.body).toMatchObject({ code: 'PAYLOAD_TOO_LARGE', message: 'Berkas maksimal 512 KB' });
+    const docs = await run(A.id, (tx) => tx.document.count({ where: { patientId: e.patientId } }));
+    expect(docs).toBe(0);
+
+    // Dua dokter berelasi menekan "Finalkan" bersamaan: satu entri, satu PDF, yang lain 409 CONSENT_CLOSED.
+    await as('perawat').put(`/consents/drafts/${d.body.id}/signatures`, signaturesBody()).expect(200);
+    await as('perawat').post(`/consents/drafts/${d.body.id}/witness`).expect(201);
+    const results = await Promise.all([
+      as('dokter').post(`/consents/drafts/${d.body.id}/finalize`),
+      as('dokter').post(`/consents/drafts/${d.body.id}/finalize`),
+    ]);
+    expect(results.map((r) => r.status).sort()).toEqual([201, 409]);
+    expect(results.find((r) => r.status === 409)?.body.code).toBe('CONSENT_CLOSED');
+    const consents = await run(A.id, (tx) => tx.consent.count({ where: { encounterId: e.encounterId } }));
+    expect(consents).toBe(1);
   });
 
   it('finalize tanpa tanda tangan/saksi → 422; saksi diri sendiri 422; ubah isi menghapus tanda tangan', async () => {

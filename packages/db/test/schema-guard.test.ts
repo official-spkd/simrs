@@ -64,6 +64,9 @@ const MANUAL_INDEXES = [
   'bed_assignments_one_bed_per_encounter',
   // Fase 3 · 3.1: pasien rahasia (temuan audit EP 10c).
   'patients_confidential',
+  // Fase 3 · 3.6: surat keterangan kematian berversi, satu rantai per kunjungan.
+  'death_certificates_supersedes_once',
+  'death_certificates_one_per_encounter',
 ];
 
 /** Registri tanpa FORCE (dibaca fungsi SECURITY DEFINER; ADR-0008/0011). */

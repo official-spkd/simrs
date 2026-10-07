@@ -124,6 +124,8 @@ export const CLINICAL_ERRORS = {
     status: 409,
     message: 'Syarat pulang belum lengkap (disposisi, resume final, atau surat)',
   },
+  // K13 · Resume medis: butir wajib server (12 butir rawat inap, ringkas rawat jalan) sebelum TTE
+  RESUME_INCOMPLETE: { status: 422, message: 'Resume belum lengkap; lengkapi butir wajib sebelum TTE' },
   // K12 · eMAR
   WRISTBAND_MISMATCH: { status: 422, message: 'Gelang tidak cocok dengan pasien kunjungan ini' },
   WRISTBAND_SCAN_REQUIRED: {
@@ -169,6 +171,7 @@ export const CLINICAL_ERROR_CODES = [
   'BED_NOT_AVAILABLE',
   'BED_VERSION_CONFLICT',
   'DISCHARGE_BLOCKED',
+  'RESUME_INCOMPLETE',
   'WRISTBAND_MISMATCH',
   'WRISTBAND_SCAN_REQUIRED',
   'MEDICATION_ALREADY_GIVEN',

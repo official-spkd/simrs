@@ -2,7 +2,7 @@
 
 Halaman ini menjelaskan SIM RS dari sudut pandang sistem: apa yang dibangun, bagaimana bagian-bagiannya saling bicara, dan pengaman apa yang menjaga data pasien. Detail kode ada di [Cara kode bekerja](./02-cara-kerja-kode.md); langkah praktis ada di [Tutorial](./03-tutorial.md).
 
-> Status (6 Okt 2026): fase 0–2 selesai (fondasi; platform inti: tenant, login + MFA, otorisasi, audit, indeks pasien, data rujukan, formulir, dokumen + TTE, notifikasi, PIN perangkat; front office: jadwal, booking, registrasi + SEP, antrean, anjungan). Fase 3 (klinis RME) berjalan: API potongan 3.1–3.4 sudah tergabung. Semua 80 layar fase 1–10 di registri sudah bisa dicoba di mode presentasi dengan data dummy; backend-nya menyusul per fase. Lihat [Peta fase](#peta-fase) dan [Peta alur semua fase](./20-peta-alur-semua-fase.md).
+> Status (7 Okt 2026): fase 0–2 selesai (fondasi; platform inti: tenant, login + MFA, otorisasi, audit, indeks pasien, data rujukan, formulir, dokumen + TTE, notifikasi, PIN perangkat; front office: jadwal, booking, registrasi + SEP, antrean, anjungan). Fase 3 (klinis RME) berjalan: API potongan 3.1–3.5 dan 3.7 sudah tergabung, dan pemilik produk memutuskan backend dilanjutkan penuh (sisa fase 3, lalu fase 4–10). Semua 80 layar fase 1–10 di registri sudah bisa dicoba di mode presentasi dengan data dummy; backend-nya menyusul per fase. Cara backend bekerja dijelaskan di [Cara kerja backend](./07-cara-kerja-backend.md). Lihat [Peta fase](#peta-fase) dan [Peta alur semua fase](./20-peta-alur-semua-fase.md).
 
 ## Apa yang dibangun
 
@@ -143,7 +143,7 @@ ulang). Kedua alur ini diuji E2E dengan mock (`dod-anjungan.spec.ts`, `downtime-
 
 - **Tidak ada hapus atau timpa untuk data klinis.** Koreksi membuat versi baru dengan alasan (`version`, `supersedes_id`, `correction_reason`). Data yang sudah ditandatangani elektronik hanya bisa ditambah addendum. Aturan ini berlaku mulai fase 3 (ADR-0004).
 - **Audit append-only.** Role aplikasi tidak punya hak `UPDATE`/`DELETE` atas `audit_events`, dan trigger database menolak perubahan dari siapa pun. Setiap entri menyimpan hash entri sebelumnya (hash berantai), jadi baris yang diubah atau dihapus di tengah rantai (mis. oleh admin database yang mematikan trigger) ketahuan saat rantai diperiksa. Tiap jam worker menandatangani kepala rantai tiap RS (jangkar, HMAC dengan kunci terpisah) dan menyimpannya di database serta di bucket WORM yang tidak bisa dihapus siapa pun; karena itu entri terakhir yang dihapus, atau rantai yang ditulis ulang utuh, juga ketahuan. Pemeriksaan di layar mulai dari jangkar terakhir (cepat); "Periksa penuh" menghitung ulang seluruh rantai (ADR-0072).
-- **Layar Audit** (`/sistem/audit`) untuk petugas privasi dan auditor mutu: cari jejak per pasien, pengguna, peran, atau jenis aksi; periksa keutuhan rantai; tinjau **temuan anomali** (gagal masuk atau akses ditolak berulang, akses pasien di luar jam dinas, volume akses tak wajar; hari yang sudah lewat dibaca dari ringkasan harian, hari ini dihitung langsung) beserta riwayat tinjauannya (keputusan terbaru berlaku, yang lama tetap tercatat); tinjau setiap **akses darurat** (alasan wajib, keputusan "akses sah" atau "perlu klarifikasi") dan lihat laporan hariannya; unduh paket bukti akreditasi (CSV). Meninjau, membuka detail, dan mengunduh juga tercatat di audit. Pencatatan otomatis setiap baca data pasien menyusul bersama indeks pasien (P05).
+- **Layar Audit** (`/sistem/audit`) untuk petugas privasi dan auditor mutu: cari jejak per pasien, pengguna, peran, atau jenis aksi; periksa keutuhan rantai; tinjau **temuan anomali** (gagal masuk atau akses ditolak berulang, akses pasien di luar jam dinas, volume akses tak wajar; hari yang sudah lewat dibaca dari ringkasan harian, hari ini dihitung langsung) beserta riwayat tinjauannya (keputusan terbaru berlaku, yang lama tetap tercatat); tinjau setiap **akses darurat** (alasan wajib, keputusan "akses sah" atau "perlu klarifikasi") dan lihat laporan hariannya; unduh paket bukti akreditasi (CSV). Meninjau, membuka detail, dan mengunduh juga tercatat di audit. Setiap pasien yang dibuka atau tampil di daftar/pencarian juga tercatat (`read` per pasien), termasuk data klinis fase 3.
 
 ## Data pasien (MPI)
 
@@ -179,38 +179,40 @@ Ikon lonceng di kanan atas menunjukkan jumlah notifikasi baru; halaman **Notifik
 
 ## Keamanan berlapis
 
-| Lapisan        | Kontrol                                                                                                       | Status     |
-| -------------- | ------------------------------------------------------------------------------------------------------------- | ---------- |
-| Database       | RLS per tenant, galat bila konteks kosong, role tanpa `BYPASSRLS`, audit append-only                          | ✅ fase 0  |
-| API            | Validasi zod (field tak dikenal ditolak), format galat tanpa detail internal, log tanpa PHI                   | ✅ fase 0  |
-| API            | Header keamanan (CSP, nosniff, anti-framing, `no-store`, HSTS di produksi), CORS hanya origin web             | ✅ fase 0  |
-| API            | Rate limit per IP + per pengguna (Redis, bersama antar-server), batas body 1 MB, batas waktu koneksi          | ✅ fase 0  |
-| Konfigurasi    | `APP_ENV` gagal aman: tidak disetel = produksi, fitur pengembangan mati                                       | ✅ fase 0  |
-| Jaringan lokal | API dan mock hanya mendengar di `127.0.0.1`                                                                   | ✅ fase 0  |
-| Web            | CSP ber-nonce per permintaan (tanpa skrip inline), anti-framing; token hanya di cookie httpOnly (BFF)         | ✅ fase 10 |
-| Web            | Refresh sesi sekali per token, dibagi antar-server web lewat Redis; area superadmin khusus operator platform  | ✅ fase 10 |
-| Integrasi      | Outbox + idempotensi + DLQ; tanda tangan BPJS; HMAC webhook TPDI dengan batas umur 5 menit                    | ✅ fase 0  |
-| Identitas      | Login, MFA TOTP wajib, sesi buram berotasi, PIN per perangkat terdaftar, RBAC + ABAC, break-the-glass (API)   | ✅ fase 1  |
-| Audit          | Hash berantai, layar Audit (temuan anomali, laporan akses darurat, ekspor) ✅; audit baca pasien menyusul P05 | 🟨 fase 1  |
-| Data           | Enkripsi kolom identitas (NIK, no. BPJS, IHS, alamat, no. HP) + hash untuk pencarian; tampil tersamar         | ✅ fase 1  |
+| Lapisan        | Kontrol                                                                                                          | Status     |
+| -------------- | ---------------------------------------------------------------------------------------------------------------- | ---------- |
+| Database       | RLS per tenant, galat bila konteks kosong, role tanpa `BYPASSRLS`, audit append-only                             | ✅ fase 0  |
+| API            | Validasi zod (field tak dikenal ditolak), format galat tanpa detail internal, log tanpa PHI                      | ✅ fase 0  |
+| API            | Header keamanan (CSP, nosniff, anti-framing, `no-store`, HSTS di produksi), CORS hanya origin web                | ✅ fase 0  |
+| API            | Rate limit per IP + per pengguna (Redis, bersama antar-server), batas body 1 MB, batas waktu koneksi             | ✅ fase 0  |
+| Konfigurasi    | `APP_ENV` gagal aman: tidak disetel = produksi, fitur pengembangan mati                                          | ✅ fase 0  |
+| Jaringan lokal | API dan mock hanya mendengar di `127.0.0.1`                                                                      | ✅ fase 0  |
+| Web            | CSP ber-nonce per permintaan (tanpa skrip inline), anti-framing; token hanya di cookie httpOnly (BFF)            | ✅ fase 10 |
+| Web            | Refresh sesi sekali per token, dibagi antar-server web lewat Redis; area superadmin khusus operator platform     | ✅ fase 10 |
+| Integrasi      | Outbox + idempotensi + DLQ; tanda tangan BPJS; HMAC webhook TPDI dengan batas umur 5 menit                       | ✅ fase 0  |
+| Identitas      | Login, MFA TOTP wajib, sesi buram berotasi, PIN per perangkat terdaftar, RBAC + ABAC, break-the-glass (API)      | ✅ fase 1  |
+| Audit          | Hash berantai + jangkar WORM, layar Audit (temuan anomali, laporan akses darurat, ekspor), audit baca per pasien | ✅ fase 1  |
+| Data           | Enkripsi kolom identitas (NIK, no. BPJS, IHS, alamat, no. HP) + hash untuk pencarian; tampil tersamar            | ✅ fase 1  |
 
 Rujukan regulasi: KMK 1596/2024 (51 elemen MRMIK), Permenkes 24/2022, UU 27/2022 tentang PDP. Ringkasannya di `docs/03-regulasi-mrmik.md`; terjemahan ke kontrol teknis di `docs/05-keamanan.md`.
 
 ## Lingkungan dan APP_ENV
 
-Variabel `APP_ENV` menentukan fitur pengembangan mana yang hidup. Nilai yang tidak dikenal, kosong, atau tidak disetel dianggap `production`.
+Variabel `APP_ENV` menentukan fitur pengembangan mana yang hidup. Nilainya `local`, `demo`, `staging`, atau `production`; nilai yang tidak dikenal, kosong, atau tidak disetel dianggap `production`. `demo` adalah demo publik ber-data fiktif (runbook operator: `docs/panduan/06-demo-publik.md`): pengamanannya setara produksi, tetapi mode presentasi boleh hidup dan integrasi wajib `mock`.
 
-| Perilaku                                      | `local` / `staging`                                          | `production` (atau tidak disetel)               |
-| --------------------------------------------- | ------------------------------------------------------------ | ----------------------------------------------- |
-| Swagger `/docs` di API                        | aktif                                                        | tidak ada (404)                                 |
-| Endpoint `/api/v1/dev/*`                      | aktif                                                        | tidak terdaftar (404)                           |
-| Tenant dari header `X-Tenant-Id`              | diizinkan                                                    | ditolak `401` sampai login tersedia             |
-| Area superadmin web (panduan ini, Fondasi UI) | hanya operator platform (`superadmin_platform`), lainnya 404 | sama (gerbang peran, bukan `APP_ENV`, ADR-0013) |
-| HSTS                                          | mati                                                         | aktif                                           |
+| Perilaku                                      | `local` / `staging`                                          | `demo`                | `production` (atau tidak disetel)               |
+| --------------------------------------------- | ------------------------------------------------------------ | --------------------- | ----------------------------------------------- |
+| Swagger `/docs` di API                        | aktif (bila `NODE_ENV` bukan `production`)                   | tidak ada (404)       | tidak ada (404)                                 |
+| Endpoint `/api/v1/dev/*`                      | aktif (bila `NODE_ENV` bukan `production`)                   | tidak terdaftar (404) | tidak terdaftar (404)                           |
+| Tenant dari header `X-Tenant-Id`              | hanya `local` + `ALLOW_DEV_TENANT_HEADER=true`               | ditolak               | ditolak (`401` tanpa token login)               |
+| Mode presentasi (`DATA_SOURCE=demo`)          | hanya `local`                                                | boleh                 | tidak                                           |
+| `INTEGRATION_MODE`                            | bebas                                                        | wajib `mock`          | bukan `mock`                                    |
+| Area superadmin web (panduan ini, Fondasi UI) | hanya operator platform (`superadmin_platform`), lainnya 404 | sama                  | sama (gerbang peran, bukan `APP_ENV`, ADR-0013) |
+| HSTS dari API                                 | mati                                                         | mati (HTTPS di proxy) | aktif                                           |
 
 **Penyimpanan berkas dokumen.** `STORAGE_DRIVER=disk` (folder lokal) hanya diterima bila `APP_ENV=local`; staging dan produksi wajib `s3` (MinIO/S3), dan API menolak start bila tidak (ADR-0020).
 
-**Mode presentasi (ADR-0023).** Layar fase 2–10 yang backend-nya belum ada dibangun lebih dulu dengan data dummy fiktif untuk presentasi ke klien dan direksi. Mode ini hanya hidup bila `APP_ENV=local` **dan** `DATA_SOURCE=demo` (jalankan `pnpm dev:demo`); di staging dan produksi layar itu tidak ada (404) dan menunya redup. Selama mode ini aktif, header selalu menampilkan lencana "Mode presentasi · data fiktif". Status tiap layar (`belum`, `demo`, `api`) ada di `apps/web/src/lib/screens.ts`.
+**Mode presentasi (ADR-0023).** Layar fase 2–10 yang backend-nya belum ada dibangun lebih dulu dengan data dummy fiktif untuk presentasi ke klien dan direksi. Mode ini hanya hidup bila `APP_ENV=local` atau `demo` **dan** `DATA_SOURCE=demo` (lokal: jalankan `pnpm dev:demo`); di staging dan produksi layar itu tidak ada (404) dan menunya redup. Selama mode ini aktif, header selalu menampilkan lencana "Mode presentasi · data fiktif". Status tiap layar (`belum`, `demo`, `api`) ada di `apps/web/src/lib/screens.ts`.
 
 ## Mock dan data fiktif
 

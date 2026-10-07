@@ -52,6 +52,14 @@ export const GUIDE_PAGES = [
     group: 'sistem',
   },
   {
+    slug: 'cara-kerja-backend',
+    file: '07-cara-kerja-backend.md',
+    title: 'Cara kerja backend',
+    summary:
+      'Alur layar → BFF → API → database, RLS + ABAC + audit, entri klinis berversi, TTE, staging, SSE, peta modul.',
+    group: 'sistem',
+  },
+  {
     slug: 'fitur-platform',
     file: '10-fitur-platform.md',
     title: 'Fitur platform',
