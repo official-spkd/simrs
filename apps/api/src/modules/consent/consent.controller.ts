@@ -141,6 +141,13 @@ export class EncounterConsentController {
     return this.consent.list(id);
   }
 
+  /** Edukasi terintegrasi kunjungan (K11 edukasi lewat P07) untuk layar Edukasi; syarat final persetujuan. */
+  @RequirePermission('clinical', 'read')
+  @Get(':id/education')
+  education(@Param('id', uuid) id: string) {
+    return this.consent.education(id);
+  }
+
   @RequirePermission('consent', 'read')
   @Get(':id/consent-drafts')
   drafts(@Param('id', uuid) id: string) {
