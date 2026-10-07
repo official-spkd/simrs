@@ -387,10 +387,10 @@ tersambung" (rute detail mode api memberi 200, bukan 404). Endpoint eMAR sudah a
 | Rute     | `/klinis/resume` (daftar) · `/klinis/resume/<encounterId>`                                                                                          |
 | Pemakai  | dokter, dokter residen                                                                                                                              |
 | Komponen | K13 resume dan dokumen pulang                                                                                                                       |
-| Status   | demo (mode presentasi); API belum (potongan 3.6; modul `discharge` masih kerangka), layar belum disambung (W5b)                                     |
+| Status   | demo (mode presentasi); API ✓ (potongan 3.6, ADR-0093); layar mode api W5b                                                                          |
 | Mockup   | `design/mockups/Resume.dc.html`                                                                                                                     |
 | Kode web | `apps/web/src/app/(staf)/klinis/resume/` · `apps/web/src/lib/rawat-inap.ts` (`resumeSignBlocker`) · `apps/web/src/lib/server/data/klinis/resume.ts` |
-| Kode API | `apps/api/src/modules/discharge/` (kerangka) · aturan `packages/shared/src/clinical/resume.ts`                                                      |
+| Kode API | `apps/api/src/modules/discharge/` · kontrak `packages/shared/src/schemas/discharge.ts` · aturan `packages/shared/src/clinical/resume.ts`            |
 
 **Tujuan.** Resume medis pulang yang menarik isi dari rekam medis (asesmen, CPPT, observasi, hasil, eMAR, laporan
 operasi) tanpa input ulang, dengan 12 butir kelengkapan sebelum TTE DPJP.
@@ -422,8 +422,27 @@ operasi) tanpa input ulang, dengan 12 butir kelengkapan sebelum TTE DPJP.
 - Server memeriksa ulang: resume dikenal, sudah disiapkan, belum final, bukan milik pasien skenario, dan 12 butir
   lengkap.
 
-**Mode api.** Izin layar `clinical.write`; TTE resume di API kelak memakai `clinical.sign`. Sampai potongan 3.6 dan
-W5b halaman menampilkan "Belum tersambung".
+**Mode api (potongan 3.6, ADR-0093).** Izin layar `clinical.write`; konfirmasi rekonsiliasi, TTE, dan addendum
+`clinical.sign` (DPJP utama, rawat bersama, atau dokter kunjungan).
+
+| Endpoint                                                                     | Fungsi                                                                                                             |
+| ---------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| `GET /api/v1/encounters/:id/discharge-summary`                               | Resume: final (beku) bila ada, selain itu draf Anda/pratinjau dari sumber terkini, 12 butir, ref sumber per bagian |
+| `POST /api/v1/discharge/summaries` `{encounterId}`                           | Himpun draf dari sumber (usulan obat pulang = order obat aktif)                                                    |
+| `PUT /api/v1/discharge/summaries/:encounterId/draft`                         | Isian DPJP: catatan per bagian, edukasi, instruksi, tindak lanjut, kondisi, cara pulang, obat pulang               |
+| `POST /api/v1/discharge/summaries/:encounterId/reconciliation` `{confirmed}` | Konfirmasi DPJP atas daftar obat saat ini (mengubah daftar membatalkannya)                                         |
+| `POST /api/v1/discharge/summaries/:encounterId/finalize` `{revision}`        | Butir wajib diperiksa server (422 `RESUME_INCOMPLETE`) → versi + PDF + TTE → terkunci                              |
+| `POST /api/v1/discharge/summaries/:id/addenda` `{text}`                      | Addendum ber-TTE atas resume final                                                                                 |
+| `POST /api/v1/encounters/:id/death-certificate`                              | Surat keterangan kematian (jam + sebab ICD-10) ber-TTE dokter (keputusan K-1)                                      |
+| `POST /api/v1/encounters/:id/close` `{disposition}`                          | Tutup kunjungan lewat `DischargeGate` (rawat jalan: tiket poli selesai → task 5)                                   |
+
+Isi bagian sumber tidak bisa ditimpa; DPJP menambah "Catatan DPJP". Resume rawat jalan memakai 8 butir ringkas
+(tanpa rekonsiliasi dan edukasi). Versi ber-TTE tidak bisa dikoreksi (409 `RECORD_LOCKED`); perubahan lewat addendum.
+
+**Gerbang tutup kunjungan (`DischargeGate`).** Rawat inap: resume final ber-TTE dengan cara pulang yang sama. Rawat
+jalan: resume RJ final. Meninggal: hanya dokter ber-`clinical.sign` yang berelasi dengan pasien (DPJP, rawat bersama,
+dokter jaga yang punya akses, termasuk akses darurat) dan surat keterangan kematian ber-TTE; petugas admisi ditolak 403.
+Rujuk: surat rujukan keluar F07. Syarat yang kurang dikembalikan sebagai 409 `DISCHARGE_BLOCKED` berisi alasan.
 
 ## Persetujuan tindakan
 
@@ -969,15 +988,15 @@ potongan 3.8 merencanakan `GET /api/v1/care-packages?setting=` dan mekanisme pak
 
 ![Kelengkapan rekam medis Ny. Endang Wijaya: daftar periksa 3 dari 7 terpenuhi 43 persen dengan butir co-sign residen dan edukasi pulang belum terpenuhi, serta daftar dokumen pasien dengan status TTE](./gambar/kelengkapan.png)
 
-| Hal      | Isi                                                                                                                                                                                                                                                         |
-| -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Rute     | `/klinis/kelengkapan` (`?pasien=<encounterId>`)                                                                                                                                                                                                             |
-| Pemakai  | dokter, dokter residen, petugas rekam medis                                                                                                                                                                                                                 |
-| Komponen | K13 resume dan dokumen pulang                                                                                                                                                                                                                               |
-| Status   | demo (mode presentasi); backend fase 3 potongan 3.6 dan 3.8 belum dibangun                                                                                                                                                                                  |
-| Mockup   | `design/mockups/Resume.dc.html`                                                                                                                                                                                                                             |
-| Kode web | `apps/web/src/app/(staf)/klinis/kelengkapan/` · data `apps/web/src/lib/demo/fixtures/rme-kelengkapan.ts` · aturan `apps/web/src/lib/rme-kelengkapan.ts` · komponen `apps/web/src/components/rme/kelengkapan-workspace.tsx`                                  |
-| Kode API | kontrak `DischargeGate` + `BasicDischargeGate` sementara di `apps/api/src/modules/adt/discharge-gate.ts` (aturan lengkap 3.6; modul `discharge` masih kerangka); kelengkapan rencana 3.8; dokumen lewat `apps/api/src/modules/documents/` (P08, sudah jadi) |
+| Hal      | Isi                                                                                                                                                                                                                        |
+| -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Rute     | `/klinis/kelengkapan` (`?pasien=<encounterId>`)                                                                                                                                                                            |
+| Pemakai  | dokter, dokter residen, petugas rekam medis                                                                                                                                                                                |
+| Komponen | K13 resume dan dokumen pulang                                                                                                                                                                                              |
+| Status   | demo (mode presentasi); backend fase 3 potongan 3.6 dan 3.8 belum dibangun                                                                                                                                                 |
+| Mockup   | `design/mockups/Resume.dc.html`                                                                                                                                                                                            |
+| Kode web | `apps/web/src/app/(staf)/klinis/kelengkapan/` · data `apps/web/src/lib/demo/fixtures/rme-kelengkapan.ts` · aturan `apps/web/src/lib/rme-kelengkapan.ts` · komponen `apps/web/src/components/rme/kelengkapan-workspace.tsx` |
+| Kode API | `DischargeGate` penuh di `apps/api/src/modules/discharge/discharge-gate.service.ts` (3.6, ADR-0093); kelengkapan rencana 3.8; dokumen lewat `apps/api/src/modules/documents/` (P08, sudah jadi)                            |
 
 **Tujuan.** Daftar periksa DPJP sebelum menutup kunjungan (gerbang tutup encounter, EP 5c) dan daftar dokumen pasien
 per kunjungan dengan status TTE. Dokumen tidak pernah dihapus.
@@ -1019,7 +1038,7 @@ per kunjungan dengan status TTE. Dokumen tidak pernah dihapus.
 - Setelah ditutup, rekam medis kunjungan terkunci; perubahan hanya lewat addendum.
 
 **Rencana backend.** Izin rencana `clinical.sign` (sudah ada di katalog), tetapi petugas rekam medis di `demoRoles`
-tidak memegangnya dan juga tidak memegang `documents.write`. Potongan 3.6 membangun `DischargeGate` (rawat inap =
+tidak memegangnya dan juga tidak memegang `documents.write`. Potongan 3.6 sudah memasang `DischargeGate` (rawat inap =
 disposisi + resume final; meninggal = surat kematian; rujuk = surat rujukan). Untuk disposisi meninggal berlaku
 keputusan K-1 (7 Okt 2026): hanya dokter yang berelasi dengan pasien, wajib jam kematian + sebab kematian ICD-10 +
 surat keterangan kematian ber-TTE, admisi ditolak. Potongan 3.8 membangun

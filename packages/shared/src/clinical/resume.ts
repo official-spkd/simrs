@@ -29,15 +29,19 @@ export interface ResumeCompleteness {
   complete: boolean;
 }
 
-/** Kelengkapan dari daftar centang; butir yang tidak ada di daftar dianggap belum. */
+/**
+ * Kelengkapan dari daftar centang; butir yang tidak ada di daftar dianggap belum. `required` = butir wajib (bawaan
+ * 12 butir rawat inap; resume rawat jalan ringkas memakai `RESUME_RJ_CHECK_IDS`).
+ */
 export function resumeCompleteness(
   checklist: ReadonlyArray<{ id: ResumeCheckId; done: boolean }>,
+  required: readonly ResumeCheckId[] = RESUME_CHECK_IDS,
 ): ResumeCompleteness {
   const byId = new Map(checklist.map((c) => [c.id, c.done]));
-  const missingIds = RESUME_CHECK_IDS.filter((id) => !byId.get(id));
+  const missingIds = RESUME_CHECK_IDS.filter((id) => required.includes(id) && !byId.get(id));
   return {
-    done: RESUME_CHECK_IDS.length - missingIds.length,
-    total: RESUME_CHECK_IDS.length,
+    done: required.length - missingIds.length,
+    total: required.length,
     missing: missingIds.map((id) => RESUME_CHECK_LABEL[id].toLowerCase()),
     missingIds,
     complete: missingIds.length === 0,
