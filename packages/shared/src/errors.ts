@@ -228,6 +228,10 @@ export const SUPPORT_ERRORS = {
     message: 'Masih ada peringatan CDS mayor/sedang yang belum ditindaklanjuti',
   },
   STOCK_INSUFFICIENT: { status: 409, message: 'Stok batch di depo ini tidak mencukupi' },
+  STOCK_CONFLICT: {
+    status: 409,
+    message: 'Stok yang sama sedang diubah transaksi lain; muat ulang lalu ulangi aksi',
+  },
   BATCH_EXPIRED: { status: 409, message: 'Batch sudah kedaluwarsa dan tidak boleh dikeluarkan ke pasien' },
   DOUBLE_CHECK_SAME_USER: { status: 409, message: 'Cek ganda harus oleh apoteker lain, bukan penyiap' },
   HIGH_ALERT_DOUBLE_CHECK_REQUIRED: {
@@ -280,6 +284,8 @@ export const ERROR_CODES = [
   'WEBHOOK_SIGNATURE_INVALID',
   'WEBHOOK_TIMESTAMP_EXPIRED',
   'INTEGRATION_UNAVAILABLE',
+  // Basis data sibuk: transaksi tidak bisa dimulai dalam batas tunggu (HTTP 503, aman untuk diulang).
+  'SERVICE_BUSY',
   'INTERNAL_ERROR',
   // Termasuk `BPJS_UNAVAILABLE` (lookup sinkron ADR-0025 gagal/lewat 5 detik, HTTP 503).
   ...FRONT_OFFICE_ERROR_CODES,
