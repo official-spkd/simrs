@@ -11,6 +11,7 @@ import { ApiCpptPanel } from './api-cppt';
 import { ApiEmarPanel } from './api-emar';
 import { ApiObservationTab } from './api-observation';
 import { SummaryPanel } from './inpatient-panels';
+import { consentLabel, dischargeLabel } from './paperwork';
 import type { ApiTab } from './tabs';
 
 export interface Me {
@@ -97,6 +98,12 @@ export function ApiInpatientWorkspace({
               }${c.latestEws ? ` · EWS terakhir ${c.latestEws.score} (${c.latestEws.risk}, ${formatJam(c.latestEws.at)})` : ''}`,
             },
             { label: 'Rencana terakhir', value: soapOf('p') || 'Belum ada rencana di CPPT' },
+            ...(record.discharge
+              ? [{ label: 'Resume medis', value: dischargeLabel(record.discharge) ?? '' }]
+              : []),
+            ...(record.consents
+              ? [{ label: 'Persetujuan tindakan', value: consentLabel(record.consents) ?? '' }]
+              : []),
           ]}
           links={[]}
         />

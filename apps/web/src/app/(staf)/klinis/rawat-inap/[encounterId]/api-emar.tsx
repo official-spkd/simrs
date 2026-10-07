@@ -7,6 +7,7 @@ import {
   type EmarOrder,
   type EmarScheduleSlot,
   formatJam,
+  formatTanggalLahir,
   SAFETY_REASON_MIN,
   type WristbandPrint,
 } from '@simrs/shared';
@@ -117,7 +118,9 @@ export function ApiEmarPanel({
     <section aria-label="eMAR" className="flex min-w-0 flex-col gap-3">
       <div className="flex flex-col gap-3 rounded-card border border-white/95 bg-white/90 px-4 py-3.5 shadow-card">
         <div className="flex flex-wrap items-baseline justify-between gap-2">
-          <h2 className="m-0 text-body font-semibold">eMAR · jadwal pemberian obat {board.date}</h2>
+          <h2 className="m-0 text-body font-semibold">
+            eMAR · jadwal pemberian obat {formatTanggalLahir(board.date)}
+          </h2>
           <span className="text-caption text-ink-500">Sumber: order obat aktif (CPOE)</span>
         </div>
         {!perms.administer ? (
@@ -157,7 +160,7 @@ export function ApiEmarPanel({
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full min-w-[460px] border-collapse text-small">
-              <caption className="sr-only">Jadwal pemberian obat {board.date}</caption>
+              <caption className="sr-only">Jadwal pemberian obat {formatTanggalLahir(board.date)}</caption>
               <thead>
                 <tr className="border-b border-line text-left text-caption text-ink-500">
                   <th scope="col" className="w-[36%] py-2 pr-2 font-semibold">

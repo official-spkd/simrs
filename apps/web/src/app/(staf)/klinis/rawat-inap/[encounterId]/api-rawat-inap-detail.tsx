@@ -7,6 +7,7 @@ import { getInpatientRecord } from '@/lib/server/data/klinis/ranap-api';
 import { can, type SessionView } from '@/lib/session-view';
 import { EwsLive } from '../ews-live';
 import { ApiInpatientWorkspace } from './api-workspace';
+import { dischargeLabel } from './paperwork';
 import { type ApiTab, API_TABS } from './tabs';
 
 const SEX = { male: 'L', female: 'P', unknown: '–' } as const;
@@ -102,6 +103,7 @@ export async function ApiRawatInapDetail({
   const active = c.encounter.status === 'in_progress';
   const order = routeOf('order');
   const resume = routeOf('resume');
+  const consent = routeOf('consent');
   const tab: ApiTab = API_TABS.find((t) => t === wantedTab) ?? 'cppt';
   const pendingCosign = r.cppt.filter((e) => e.status === 'menunggu_cosign').length;
 
@@ -115,7 +117,13 @@ export async function ApiRawatInapDetail({
           c.patient.birthDate ? formatTanggalLahir(c.patient.birthDate) : 'tgl lahir tidak diketahui'
         }
         mrn={c.patient.mrn}
-        allergies={c.allergy.status === 'ada' ? c.allergy.labels : []}
+        allergies={
+          c.allergy.status === 'ada'
+            ? c.allergy.labels
+            : c.allergy.status === 'belum_dikaji'
+              ? ['belum dikaji']
+              : []
+        }
         guarantor={guarantor}
         attending={c.dpjp?.name}
       />
@@ -153,7 +161,14 @@ export async function ApiRawatInapDetail({
       <nav aria-label="Tautan cepat pasien" className="flex flex-wrap gap-2">
         {[
           { label: 'Order & resep (CPOE)', href: order ? `${order}/${encounterId}` : null },
-          { label: 'Resume medis', href: resume ? `${resume}/${encounterId}` : null },
+          {
+            label: `Resume medis${dischargeLabel(r.discharge) ? ` · ${dischargeLabel(r.discharge)}` : ''}`,
+            href: resume ? `${resume}/${encounterId}` : null,
+          },
+          {
+            label: `Persetujuan tindakan · ${r.consents ? `${r.consents.length} dokumen` : 'lihat daftar'}`,
+            href: consent && r.consents !== null ? consent : null,
+          },
         ].flatMap((l) =>
           l.href
             ? [

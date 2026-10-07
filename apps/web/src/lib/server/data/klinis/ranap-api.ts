@@ -1,6 +1,7 @@
 import 'server-only';
 import {
   type ActiveWristbandScan,
+  CONSENT_DECISIONS,
   activeWristbandScanSchema,
   type ConditionRecord,
   conditionRecordSchema,
@@ -63,6 +64,40 @@ async function loadExtensions(_encounterId: string): Promise<InpatientExtensions
   return { consults: null, completeness: null, documents: null };
 }
 
+/**
+ * Status resume medis (3.6) dan persetujuan tindakan (3.7) pasien ini, untuk tautan + status di layar Rawat inap.
+ * Layar Resume (W5b) dan tablet Persetujuan (W5a) milik layar masing-masing; di sini hanya ringkasannya.
+ */
+const dischargeStatusSchema = z.object({
+  state: z.enum(['belum', 'draf', 'final']),
+  final: z
+    .object({
+      recordedAt: z.iso.datetime({ offset: true }),
+      document: z.object({ signatureStatus: z.enum(['pending', 'signed', 'failed']).nullable() }).nullable(),
+    })
+    .nullable(),
+});
+export type DischargeStatus = z.infer<typeof dischargeStatusSchema>;
+
+const consentStatusSchema = z.object({
+  id: z.uuid(),
+  procedure: z.string(),
+  effectiveDecision: z.enum(CONSENT_DECISIONS),
+  occurredAt: z.iso.datetime({ offset: true }),
+  document: z.object({ signatureStatus: z.enum(['pending', 'signed', 'failed']).nullable() }).nullable(),
+});
+export type ConsentStatus = z.infer<typeof consentStatusSchema>;
+
+/** Bacaan pelengkap: 403/404 (izin/modul RS mati) = tidak ditampilkan, bukan galat halaman. */
+async function optional<T>(read: () => Promise<T>): Promise<T | null> {
+  try {
+    return await read();
+  } catch (err) {
+    if (err instanceof ApiError && (err.status === 403 || err.status === 404)) return null;
+    throw err;
+  }
+}
+
 export interface InpatientRecordView {
   context: EncounterContext;
   conditions: ConditionRecord[];
@@ -79,6 +114,9 @@ export interface InpatientRecordView {
   fluids: FluidBalanceDay;
   /** Null bila sesi tanpa `result.read`. */
   results: PatientResults | null;
+  /** Null bila izin/modul tidak ada. */
+  discharge: DischargeStatus | null;
+  consents: ConsentStatus[] | null;
   extensions: InpatientExtensions;
 }
 
@@ -114,6 +152,8 @@ export async function getInpatientRecord(
     nursingDiagnoses,
     fluids,
     results,
+    discharge,
+    consents,
     extensions,
   ] = await Promise.all([
     api(`${enc(encounterId)}/conditions`, { schema: conditionRecordSchema.array() }),
@@ -139,6 +179,10 @@ export async function getInpatientRecord(
           schema: patientResultsSchema,
         })
       : null,
+    optional(() => api(`${enc(encounterId)}/discharge-summary`, { schema: dischargeStatusSchema })),
+    can(session, 'consent', 'read')
+      ? optional(() => api(`${enc(encounterId)}/consents`, { schema: consentStatusSchema.array() }))
+      : null,
     loadExtensions(encounterId),
   ]);
   return {
@@ -156,6 +200,8 @@ export async function getInpatientRecord(
       nursingDiagnoses,
       fluids,
       results,
+      discharge,
+      consents,
       extensions,
     },
   };

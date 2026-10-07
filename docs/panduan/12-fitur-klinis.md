@@ -311,15 +311,15 @@ tersambung". Detail API ada di
 
 ![Daftar pasien rawat inap dengan filter bangsal dan kolom bed, pasien, diagnosis, DPJP, hari rawat, EWS, dan penanda](./gambar/ranap.png)
 
-| Hal      | Isi                                                                                                                                                                                                     |
-| -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Rute     | `/klinis/rawat-inap` (daftar) · `/klinis/rawat-inap/<encounterId>?tab=ringkasan\|cppt\|obs\|askep\|hasil`                                                                                               |
-| Pemakai  | dokter, dokter residen, perawat, bidan                                                                                                                                                                  |
-| Komponen | K04 rawat inap, K07 CPPT dan serah terima, K12 asuhan keperawatan dan eMAR                                                                                                                              |
-| Status   | demo (mode presentasi) + api (layar W4): daftar per unit/bed, CPPT + co-sign + SBAR, TTV + NEWS2 + eskalasi SSE, eMAR dua sesi, askep + balans cairan, hasil                                          |
-| Mockup   | `design/mockups/Ranap.dc.html`                                                                                                                                                                          |
+| Hal      | Isi                                                                                                                                                                                                                                                                                                                    |
+| -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Rute     | `/klinis/rawat-inap` (daftar) · `/klinis/rawat-inap/<encounterId>?tab=ringkasan\|cppt\|obs\|askep\|hasil`                                                                                                                                                                                                              |
+| Pemakai  | dokter, dokter residen, perawat, bidan                                                                                                                                                                                                                                                                                 |
+| Komponen | K04 rawat inap, K07 CPPT dan serah terima, K12 asuhan keperawatan dan eMAR                                                                                                                                                                                                                                             |
+| Status   | demo (mode presentasi) + api (layar W4): daftar per unit/bed, CPPT + co-sign + SBAR, TTV + NEWS2 + eskalasi SSE, eMAR dua sesi, askep + balans cairan, hasil                                                                                                                                                           |
+| Mockup   | `design/mockups/Ranap.dc.html`                                                                                                                                                                                                                                                                                         |
 | Kode web | `apps/web/src/app/(staf)/klinis/rawat-inap/` (demo: `demo-*.tsx`, `cppt-panel.tsx`, `emar-*.tsx`; api: `api-*.tsx`, `[encounterId]/actions-api.ts`, `events/route.ts`, `ews-live.tsx`) · `apps/web/src/lib/rawat-inap.ts` · `apps/web/src/lib/ews-sse.ts` · `apps/web/src/lib/server/data/klinis/{ranap,ranap-api}.ts` |
-| Kode API | `apps/api/src/modules/worklist/inpatient-census.*` (daftar) · `cppt/` · `nursing/` (tanda vital + EWS, eMAR, askep) · `adt/` (gelang) · `summary/` (banner) · mesin `packages/shared/src/clinical/{emar,ews}.ts` |
+| Kode API | `apps/api/src/modules/worklist/inpatient-census.*` (daftar) · `cppt/` · `nursing/` (tanda vital + EWS, eMAR, askep) · `adt/` (gelang) · `summary/` (banner) · mesin `packages/shared/src/clinical/{emar,ews}.ts`                                                                                                       |
 
 **Tujuan.** Rekam rawat inap per pasien dalam lima tab: Ringkasan, CPPT & eMAR, Observasi & EWS, Asuhan keperawatan,
 dan Hasil. Pemberian obat terkunci sampai gelang pasien terpindai.
@@ -402,7 +402,7 @@ memberi "Akses ke pasien ini ditolak" (tercatat di audit).
 6. **eMAR** (perawat/bidan): grid jam dinamis dari order aktif + kolom PRN/stat. Terkunci sampai kode gelang
    dipindai ke kotak "Kode gelang pasien" dan cocok; kode salah ditolak, tercatat, dan diaudit. **Gelang tidak
    terbaca** → verifikasi manual dua identitas + alasan → gelang lama dibatalkan, gelang baru terbit (**Cetak gelang**)
-   dan tetap wajib dipindai (tidak ada jalur melewati pindai, ADR-0058). Pilih satu slot → pindai "Kode label obat"
+   dan tetap wajib dipindai (tidak ada jalur melewati pindai, ADR-0096). Pilih satu slot → pindai "Kode label obat"
    (fase 3: label lokal = ID baris order) → **Diberikan**/**Ditunda**/**Ditolak pasien** (alasan wajib bila
    ditunda/ditolak/terlambat) → catat. Pemberian `given` membuat biaya obat di `billable_events` (tanpa harga).
 7. **Cek ganda obat kewaspadaan tinggi** (dua sesi, ADR-0077): pemberi obat memindai gelang dan label, lalu perawat

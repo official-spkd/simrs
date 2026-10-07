@@ -170,6 +170,10 @@ test.describe('Rawat inap mode api (W4)', () => {
 
     const page = await as(browser, residen, '/klinis/rawat-inap');
     await openRecord(page, p);
+    // Status resume (3.6) dan persetujuan (3.7) tampil sebagai tautan; layarnya milik W5b/W5a.
+    const quick = page.getByRole('navigation', { name: 'Tautan cepat pasien' });
+    await expect(quick.getByRole('link', { name: 'Resume medis · belum dibuat' })).toBeVisible();
+    await expect(quick.getByRole('link', { name: 'Persetujuan tindakan · 0 dokumen' })).toBeVisible();
     const cppt = page.getByRole('region', { name: 'CPPT terintegrasi' });
     await cppt.getByRole('button', { name: '+ Tulis CPPT (SOAP)' }).click();
     const form = page.getByRole('form', { name: 'Tulis CPPT baru' });

@@ -3,6 +3,7 @@
 import {
   type FluidBalanceDay,
   formatJam,
+  formatTanggalLahir,
   type NursingCarePlanRecord,
   type NursingDiagnosisOption,
   SAFETY_REASON_MIN,
@@ -301,7 +302,7 @@ function FluidBalance({
       className="flex flex-col gap-3 rounded-card border border-white/95 bg-white/90 px-4 py-3.5 shadow-card"
     >
       <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <h2 className="m-0 text-body font-semibold">Balans cairan · {fluids.date}</h2>
+        <h2 className="m-0 text-body font-semibold">Balans cairan · {formatTanggalLahir(fluids.date)}</h2>
         <span className="text-small">
           Masuk {ml(fluids.intakeMl)} · keluar {ml(fluids.outputMl)} ·{' '}
           <span className="font-semibold">
