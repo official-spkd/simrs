@@ -14,6 +14,27 @@ test.describe('smoke', () => {
     expect(headers['x-frame-options']).toBe('DENY');
   });
 
+  test('/masuk tanpa galat konsol: favicon tersedia (bukan 404) dan dirujuk dari <head>', async ({
+    page,
+    request,
+  }) => {
+    const errors: string[] = [];
+    page.on('console', (m) => {
+      if (m.type() === 'error') errors.push(m.text());
+    });
+    page.on('pageerror', (e) => errors.push(e.message));
+    await page.goto('/masuk');
+    await expect(page.getByRole('heading', { name: 'Masuk ke SIM RS' })).toBeVisible();
+    const href = await page.locator('link[rel="icon"]').first().getAttribute('href');
+    expect(href).toMatch(/favicon\.ico/);
+    const icon = await request.get(href ?? '/favicon.ico');
+    expect(icon.status()).toBe(200);
+    expect(icon.headers()['content-type']).toContain('image/');
+    expect((await request.get('/favicon.ico')).status()).toBe(200);
+    await page.waitForLoadState('networkidle');
+    expect(errors).toEqual([]);
+  });
+
   test('beranda: menu sesuai peran; menu yang belum dibangun tidak bisa diklik', async ({
     page,
     viewport,

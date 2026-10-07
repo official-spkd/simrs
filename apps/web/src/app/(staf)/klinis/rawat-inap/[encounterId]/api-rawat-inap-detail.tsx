@@ -171,7 +171,8 @@ export async function ApiRawatInapDetail({
           { label: 'Konsultasi', href: konsul ? `${konsul}?kunjungan=${encounterId}` : null },
           {
             label: `Persetujuan tindakan · ${r.consents ? `${r.consents.length} dokumen` : 'lihat daftar'}`,
-            href: consent && r.consents !== null ? consent : null,
+            // Tablet mode api memuat draf + persetujuan kunjungan dari `?kunjungan=` (tanpa itu: pilih ulang kunjungan).
+            href: consent && r.consents !== null ? `${consent}?kunjungan=${encounterId}` : null,
           },
         ].flatMap((l) =>
           l.href

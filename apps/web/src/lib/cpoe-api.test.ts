@@ -14,7 +14,12 @@ import {
 const ENC = '0199a000-0000-7000-8000-0000000000e1';
 const drugLine = (over: Partial<DraftLine> = {}): DraftLine => ({
   ...newDraftLine(
-    { id: '0199a000-0000-7000-8000-0000000000d1', kind: 'obat', name: 'Sefadroksil 500 mg kapsul' },
+    {
+      id: '0199a000-0000-7000-8000-0000000000d1',
+      kind: 'obat',
+      name: 'Sefadroksil 500 mg kapsul',
+      dosageForm: 'kapsul',
+    },
     'a',
   ),
   ...over,
@@ -27,6 +32,29 @@ describe('CPOE mode api · baris order', () => {
     expect(lineProblems(drugLine())).toEqual(['dosis', 'aturan pakai']);
     expect(lineProblems(drugLine({ dose: '500 mg', frequency: '3x1' }))).toEqual([]);
     expect(lineProblems(labLine())).toEqual([]);
+  });
+
+  it('keselamatan resep: rute bawaan oral hanya untuk sediaan oral; injeksi mulai tanpa rute dan wajib dipilih', () => {
+    expect(drugLine().route).toBe('oral');
+    const inj = newDraftLine(
+      {
+        id: '0199a000-0000-7000-8000-0000000000d2',
+        kind: 'obat',
+        name: 'Seftriakson 2 g injeksi',
+        dosageForm: 'injeksi',
+      },
+      'c',
+    );
+    expect(inj.route).toBe('');
+    expect(lineProblems({ ...inj, dose: '2 g', frequency: 'stat' })).toEqual(['rute']);
+    expect(submitInput(ENC, [{ ...inj, dose: '2 g', frequency: 'stat' }], null)).toBeNull();
+    expect(
+      submitInput(ENC, [{ ...inj, dose: '2 g', frequency: 'stat', route: 'intravena' }], null)?.items[0],
+    ).toMatchObject({ route: 'intravena' });
+    // Bentuk sediaan tidak diketahui (mis. order set lama): tidak menebak oral.
+    expect(
+      newDraftLine({ id: '0199a000-0000-7000-8000-0000000000d3', kind: 'obat', name: 'Obat X' }, 'd').route,
+    ).toBe('');
   });
 
   it('pratinjau CDS berjalan untuk isian yang belum lengkap; kirim menunggu isian lengkap', () => {
