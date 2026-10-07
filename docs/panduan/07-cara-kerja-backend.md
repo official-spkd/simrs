@@ -2,7 +2,7 @@
 
 Halaman ini untuk pembaca baru yang ingin memahami **bagaimana backend SIM RS bekerja**: bagian-bagiannya, perjalanan satu permintaan dari layar sampai database, lapisan keamanannya, dan pola bersama yang wajib dipakai ulang setiap modul baru. Gambaran sistem tanpa kode ada di [Cara sistem bekerja](./01-cara-kerja-sistem.md). Rincian per modul dan per potongan ada di [Cara kode bekerja](./02-cara-kerja-kode.md). Letak berkas ada di [Peta kode](./19-peta-kode.md).
 
-> Status 7 Okt 2026: pemilik produk memutuskan backend dilanjutkan penuh. Urutannya: sisa fase 3 (3.6, 3.7, 3.8, W1–W5b, 3.9), lalu fase 4 → 10. Yang sudah ada di `master`: fondasi (fase 0), platform inti (fase 1), front office (fase 2), dan API klinis fase 3 potongan 3.0–3.8. Di mode api seluruh layar klinis fase 3 sudah tersambung (W1 Poli, W2 CPOE, W3 IGD + Tempat tidur, W4 Rawat inap, W5a tablet Persetujuan, W5b Resume); fase 3 tinggal penutup 3.9. Fase 4 sudah punya kontrak bersama (4.0a), sepuluh layar penunjang hibrida (4.0c, mode api "Belum tersambung"), dan mock analyzer LIS (4.1b); modul API penunjang belum. Halaman ini hanya menjelaskan yang sudah ada di kode; rencana ditandai **(rencana)**.
+> Status 7 Okt 2026: pemilik produk memutuskan backend dilanjutkan penuh. Urutannya: sisa fase 3 (3.6, 3.7, 3.8, W1–W5b, 3.9), lalu fase 4 → 10. Yang sudah ada di `master`: fondasi (fase 0), platform inti (fase 1), front office (fase 2), dan API klinis fase 3 potongan 3.0–3.8. Di mode api seluruh layar klinis fase 3 sudah tersambung (W1 Poli, W2 CPOE, W3 IGD + Tempat tidur, W4 Rawat inap, W5a tablet Persetujuan, W5b Resume); fase 3 tinggal penutup 3.9. Fase 4 sudah punya kontrak bersama (4.0a), skema DB dengan gerbang keselamatan di database (4.0b, ADR-0034–0037), sepuluh layar penunjang hibrida (4.0c, mode api "Belum tersambung"), dan mock analyzer LIS (4.1b); modul API penunjang belum. Halaman ini hanya menjelaskan yang sudah ada di kode; rencana ditandai **(rencana)**.
 
 ## Arsitektur ringkas
 
@@ -97,7 +97,7 @@ Rinciannya ada di [Peta kode: satu layar, dua sumber data](./19-peta-kode.md#web
 - Setiap tabel domain punya `tenant_id` dan kebijakan `tenant_isolation` dengan `FORCE ROW LEVEL SECURITY`. `app_current_tenant()` melempar `TENANT_REQUIRED` bila `app.tenant_id` kosong, jadi lupa menyetel tenant langsung ketahuan.
 - Aplikasi memakai role `simrs_app` tanpa `BYPASSRLS`. Hanya `simrs_migrator` yang memiliki tabel, dan role itu tidak dipakai saat aplikasi berjalan.
 - FK komposit `(tenant_id, id)` mencegah baris menunjuk baris RS lain. Saat migrasi menambahkannya, FK itu dibungkus `NO FORCE`/`FORCE`.
-- Worker lintas tenant hanya memakai `app_active_tenant_ids()`, lalu memproses tiap tenant di transaksi bertenant (ADR-0008). Setiap fungsi `SECURITY DEFINER` wajib `SET search_path = <skema>, pg_temp`.
+- Worker lintas tenant hanya memakai `app_active_tenant_ids()`, lalu memproses tiap tenant di transaksi bertenant (ADR-0008). Setiap fungsi `SECURITY DEFINER` wajib `SET search_path = <skema>, pg_temp`, membatasi setiap kueri pada tenant baris pemicu atau `app_current_tenant()`, dan tetap tunduk RLS FORCE (pemilik tabel tanpa `BYPASSRLS`). Dipakai hanya bila role aplikasi sengaja tidak diberi hak yang dibutuhkan, mis. saldo stok `app_stock_apply_movement` (role aplikasi hanya SELECT), penutupan nilai kritis, dan pembersihan `board_signals`.
 
 ### RBAC + ABAC: siapa boleh membuka pasien mana
 
