@@ -84,7 +84,7 @@ izin rencana (`plannedPermission` di `screens.ts`) dan modul API yang menunggu d
 | Rute     | `/klinis/poli` (`?pasien=<id>` = kunjungan yang dibuka)                                                                                                                                              |
 | Pemakai  | dokter, dokter residen, perawat, bidan                                                                                                                                                               |
 | Komponen | K01 worklist klinis, K02 rawat jalan                                                                                                                                                                 |
-| Status   | demo (mode presentasi); API worklist, CPPT, diagnosis, tanda vital, dan ringkasan pasien ada, layar belum disambung (W1)                                                                             |
+| Status   | demo (mode presentasi) + api (W1)                                                                                                                                                                    |
 | Mockup   | `design/mockups/Main.dc.html`                                                                                                                                                                        |
 | Kode web | `apps/web/src/app/(staf)/klinis/poli/` · `apps/web/src/components/klinis/poli-*.tsx`, `soap-*.tsx`, `vitals-card.tsx` · `apps/web/src/lib/server/data/klinis/poli.ts` · `apps/web/src/lib/klinis.ts` |
 | Kode API | `apps/api/src/modules/worklist/` · `cppt/` · `diagnosis/` · `nursing/` (tanda vital) · `summary/` · `assessment/` · `drafts/`                                                                        |
@@ -132,8 +132,25 @@ CPPT dalam format SOAP dengan diagnosis ICD-10, dan rencana tindak lanjut.
 - Pasien skenario Simulasi (Tn. Suryo Adi Nugroho) hanya maju lewat tugas skenario. S/O mengikuti naskah, diagnosis
   dibatasi ke kode skenario, dan Server Action menolak penyimpanan langsung.
 
-**Mode api.** Izin layar `clinical.write`. Peran yang memegangnya melihat "Belum tersambung" sampai potongan W1;
-peran lain melihat "Akses ditolak". TTE CPPT di API tetap memakai izin `clinical.sign`.
+**Mode api (W1).** Izin layar `clinical.write`; peran lain melihat "Akses ditolak". Komponen sama dengan mode
+presentasi; aksi disuntikkan lewat `PoliOps` (`components/klinis/poli-ops.ts`): toko demo atau Server Action
+`app/(staf)/klinis/poli/actions-api.ts`.
+
+1. Antrean poli hari ini untuk unit penugasan: `GET /api/v1/poli/worklist` (status dari tiket + kunjungan). Kunjungan
+   terpilih: `GET /api/v1/encounters/:id/poli-visit` (bentuk kontrak demo + bagian `api`).
+2. **Panggil pasien · PD-0xx** (`POST /queue/tickets/:id/call`), **Mulai periksa** (`…/start`, task 4), dan
+   **Panggil berikutnya** (`POST /queue/services/:id/call-next`).
+3. Perawat: **Ukur ulang tanda vital** meminta napas dan berat badan juga (NEWS2 dihitung server,
+   `POST /encounters/:id/observations`).
+4. Dokter: S/O, diagnosis ICD-10, catatan rencana (P), tindak lanjut/kontrol, kondisi pulang. Draf tersimpan otomatis
+   4 detik setelah berhenti mengetik (`PUT /drafts/:id/soap`, bukan rekam medis).
+5. **Tanda tangani dan selesai**: CPPT SOAP final, diagnosis yang belum tercatat (pertama = utama), resume rawat jalan
+   ringkas ber-TTE (`/discharge/summaries` → finalize), lalu `POST /encounters/:id/close` (tiket poli selesai → task 5).
+   Butir resume yang kurang ditampilkan sebagai pesan; CPPT yang sudah final tidak ditulis ulang, tombolnya menjadi
+   **Selesaikan kunjungan**.
+6. Dokter residen: CPPT menunggu co-sign; DPJP menekan **Setujui co-sign DPJP**, yang sekaligus menandatangani resume
+   dan menutup kunjungan.
+7. Order lewat **Buka CPOE** (layar W2); tautan kasir dan rujukan hanya tampil bila layarnya terbuka di mode api.
 
 ## Order dan resep (CPOE)
 
@@ -387,7 +404,7 @@ tersambung" (rute detail mode api memberi 200, bukan 404). Endpoint eMAR sudah a
 | Rute     | `/klinis/resume` (daftar) · `/klinis/resume/<encounterId>`                                                                                          |
 | Pemakai  | dokter, dokter residen                                                                                                                              |
 | Komponen | K13 resume dan dokumen pulang                                                                                                                       |
-| Status   | demo (mode presentasi); API ✓ (potongan 3.6, ADR-0093); layar mode api W5b                                                                          |
+| Status   | demo (mode presentasi) + api (potongan 3.6 + W5b, ADR-0093)                                                                                         |
 | Mockup   | `design/mockups/Resume.dc.html`                                                                                                                     |
 | Kode web | `apps/web/src/app/(staf)/klinis/resume/` · `apps/web/src/lib/rawat-inap.ts` (`resumeSignBlocker`) · `apps/web/src/lib/server/data/klinis/resume.ts` |
 | Kode API | `apps/api/src/modules/discharge/` · kontrak `packages/shared/src/schemas/discharge.ts` · aturan `packages/shared/src/clinical/resume.ts`            |
@@ -422,8 +439,12 @@ operasi) tanpa input ulang, dengan 12 butir kelengkapan sebelum TTE DPJP.
 - Server memeriksa ulang: resume dikenal, sudah disiapkan, belum final, bukan milik pasien skenario, dan 12 butir
   lengkap.
 
-**Mode api (potongan 3.6, ADR-0093).** Izin layar `clinical.write`; konfirmasi rekonsiliasi, TTE, dan addendum
-`clinical.sign` (DPJP utama, rawat bersama, atau dokter kunjungan).
+**Mode api (potongan 3.6 + layar W5b, ADR-0093).** Izin layar `clinical.write`; konfirmasi rekonsiliasi, TTE, dan
+addendum `clinical.sign` (DPJP utama, rawat bersama, atau dokter kunjungan). Daftar `/klinis/resume` = pasien yang saya
+rawat (`GET /worklist?view=dpjp`). Di resume: **Himpun resume** (draf dari sumber), isian DPJP (cara dan rencana pulang,
+kondisi, catatan per bagian, edukasi, instruksi, tindak lanjut, obat pulang), **Simpan draf resume**, **Konfirmasi
+DPJP**, kelengkapan dari server, **Tanda tangani resume (TTE)**, **Cetak PDF resume** (`/klinis/resume/<id>/pdf/<dokumen>`,
+diteruskan dari `GET /documents/:id/content`), dan addendum ber-TTE.
 
 | Endpoint                                                                     | Fungsi                                                                                                             |
 | ---------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |

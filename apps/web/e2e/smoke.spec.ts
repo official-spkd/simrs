@@ -82,7 +82,7 @@ test.describe('smoke', () => {
     await expect(nav.getByText('Rawat inap', { exact: true })).toHaveCount(0);
   });
 
-  test('layar klinis hibrida di mode api: peran berizin melihat "Belum tersambung" (rencana fase 3 potongan 3.0d)', async ({
+  test('layar klinis hibrida di mode api: peran berizin melihat "Belum tersambung" atau layar api (W1/W5b)', async ({
     page,
   }) => {
     // Dokter memegang clinical.read/write, order.write, bed.read, consent.write (matriks bawaan 3.0a).
@@ -98,11 +98,12 @@ test.describe('smoke', () => {
       'ranap',
       'resume',
     ]);
+    // Layar yang sudah tersambung API (W1 poli, W5b resume) diuji di `klinis-poli.spec.ts` / `klinis-resume.spec.ts`.
+    const CONNECTED = ['poli', 'resume'];
     const routes = [
-      ...clinical.map((s) => ({ route: s.route, label: s.label })),
+      ...clinical.filter((s) => !CONNECTED.includes(s.id)).map((s) => ({ route: s.route, label: s.label })),
       { route: `/klinis/order/${ENCOUNTER_ID.suryo}`, label: 'Order & resep (CPOE)' },
       { route: `/klinis/rawat-inap/${ENCOUNTER_ID.hartono}`, label: 'Rawat inap' },
-      { route: `/klinis/resume/${ENCOUNTER_ID.hartono}`, label: 'Resume medis' },
       { route: `/tablet/persetujuan/${CONSENT_ID.hartono}`, label: 'Persetujuan tindakan' },
     ];
     for (const r of routes) {
@@ -113,6 +114,15 @@ test.describe('smoke', () => {
       await expect(page.getByText('Akses ditolak')).toHaveCount(0);
       await expect(page.getByText('Mode presentasi · data fiktif')).toHaveCount(0);
     }
+
+    // Tersambung API: dokter tanpa unit poli melihat antrean kosong; daftar resume kosong; id demo di rute resume → 404.
+    await page.goto('/klinis/poli');
+    await expect(page.getByRole('heading', { name: 'Pemeriksaan pasien', level: 1 })).toBeVisible();
+    await expect(page.getByText('Antrean kosong')).toBeVisible();
+    await page.goto('/klinis/resume');
+    await expect(page.getByRole('heading', { name: 'Resume medis', level: 1 })).toBeVisible();
+    await expect(page.getByText('Belum ada pasien')).toBeVisible();
+    expect((await page.goto(`/klinis/resume/${ENCOUNTER_ID.hartono}`))?.status()).toBe(404);
 
     // Petugas pendaftaran (admisi IGD): papan IGD terbuka (`clinical.read`), Pemeriksaan poli tidak.
     await page.context().clearCookies();

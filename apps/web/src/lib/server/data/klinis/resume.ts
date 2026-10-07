@@ -1,5 +1,15 @@
 import 'server-only';
-import { type DischargeSummary, dischargeSummarySchema } from '@simrs/shared';
+import {
+  type DischargeSummary,
+  dischargeSummarySchema,
+  type DischargeSummaryView,
+  dischargeSummaryViewSchema,
+  type EncounterContext,
+  encounterContextSchema,
+  type Worklist,
+  worklistSchema,
+} from '@simrs/shared';
+import { api } from '../../api';
 import { ENCOUNTER_ID } from '../../../demo/fixtures/ids';
 import { patientByEncounterId } from '../../../demo/fixtures/pasien';
 import { demoEndangResume, demoInpatients } from '../../../demo/fixtures/rawat-inap';
@@ -14,8 +24,8 @@ import { notImplemented } from '../not-implemented';
 
 /**
  * K13 · Data layar Resume medis. Mode presentasi: resume fiktif + keadaan toko demo (`resume-medis`) + draf resume
- * pasien skenario, divalidasi kontrak yang sama dengan API kelak; mode api menunggu backend fase 3 (potongan 3.6, layar W5b; halaman menampilkan "Belum
- * tersambung").
+ * pasien skenario, divalidasi kontrak yang sama dengan API (`summary` di `dischargeSummaryViewSchema`). Mode api (W5b):
+ * `GET /api/v1/encounters/:id/discharge-summary` + banner `GET /api/v1/encounters/:id/context`.
  */
 
 export type DischargeLookup =
@@ -67,4 +77,23 @@ export async function getDischargeSummary(
     return inpatient ? { kind: 'belum-disiapkan', patientId: inpatient.summary.patientId } : null;
   }
   return notImplemented('resume medis');
+}
+
+/** Mode api · resume kunjungan (final beku, atau draf/pratinjau dari sumber terkini). */
+export function getDischargeSummaryApi(encounterId: string): Promise<DischargeSummaryView> {
+  return api(`/api/v1/encounters/${encodeURIComponent(encounterId)}/discharge-summary`, {
+    schema: dischargeSummaryViewSchema,
+  });
+}
+
+/** Mode api · banner pasien kunjungan. */
+export function getEncounterContextApi(encounterId: string): Promise<EncounterContext> {
+  return api(`/api/v1/encounters/${encodeURIComponent(encounterId)}/context`, {
+    schema: encounterContextSchema,
+  });
+}
+
+/** Mode api · pasien yang saya rawat sebagai DPJP/rawat bersama (pintu daftar resume). */
+export function getResumeWorklistApi(): Promise<Worklist> {
+  return api('/api/v1/worklist?view=dpjp', { schema: worklistSchema });
 }

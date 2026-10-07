@@ -54,3 +54,19 @@ Satu tabel baru (`death_certificates`) dan satu kode galat (`RESUME_INCOMPLETE`)
 dibuat modul `referral` (fase 2) tanpa PDF ber-TTE; gerbang hanya memeriksa keberadaannya. TTE gagal untuk surat
 kematian/resume diulang lewat koreksi beralasan (versi baru) atau `POST /documents/:id/signatures`. Resume rawat inap
 yang belum final setelah pulang tetap muncul di worklist (`resume_overdue`) sebagai jaring pengaman.
+
+## Layar mode api (W1 Poli, W5b Resume)
+
+- **Poli (W1).** Dua endpoint baca penyusun bentuk layar di modul `encounter`: `GET /api/v1/poli/worklist` (antrean poli
+  hari ini untuk unit penugasan; lingkup `unit` = kunjungan unit itu, `relationship` = pasien berelasi) dan
+  `GET /api/v1/encounters/:id/poli-visit` (bentuk `poliEncounterSchema` + bagian `api`). Penulisan tetap lewat endpoint
+  domainnya (TTV, CPPT, diagnosis, draf, antrean, resume, tutup kunjungan).
+- **Komponen sama, aksi disuntikkan.** `PoliOps` (`components/klinis/poli-ops.ts`) memisahkan aksi dari tampilan:
+  `useDemoPoliOps` (toko demo, perilaku presentasi tidak berubah) dan ops api di `api-poli-client.tsx`.
+- **"Tanda tangani dan selesai"** = CPPT final + diagnosis + resume rawat jalan ringkas ber-TTE + tutup kunjungan
+  (task 5). Langkah yang sudah selesai dilewati saat diulang. Co-sign DPJP atas CPPT residen menjalankan langkah yang
+  sama.
+- **Kontrak demo dilonggarkan dua hal** (tanpa memecah data demo): `klinisPatientSchema.sex` menerima `-` (tidak
+  diketahui) dan `birthDate` boleh null; `PatientBanner` menerima `-`.
+- **Resume (W5b)** memakai `ResumeSections` yang sama; cetak PDF lewat Route Handler BFF yang meneruskan
+  `GET /api/v1/documents/:id/content`.
