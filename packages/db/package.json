@@ -33,7 +33,7 @@
   ],
   "scripts": {
     "generate": "prisma generate",
-    "build": "prisma generate && tsup",
+    "build": "prisma generate && node --max-old-space-size=8192 node_modules/tsup/dist/cli-default.js",
     "dev": "tsup --watch",
     "lint": "eslint .",
     "typecheck": "prisma generate && tsc --noEmit",

@@ -167,7 +167,9 @@ describe('konsultasi (K10)', () => {
     expect(ids).not.toContain(users.dokter);
     expect(ids).not.toContain(users.dokterB);
     expect(ids).not.toContain(users.perawat);
-    expect(opts.body.find((o: { userId: string }) => o.userId === users.konsultan).units).toEqual(['Poli Jantung']);
+    expect(opts.body.find((o: { userId: string }) => o.userId === users.konsultan).units).toEqual([
+      'Poli Jantung',
+    ]);
     await as('rm').get('/consults/consultants').expect(403);
     const r = await as('dokter').post('/consults/requests', ask(e.encounterId)).expect(201);
     expect(r.body).toMatchObject({ state: 'menunggu', toUser: { userId: users.konsultan }, responses: [] });
@@ -234,6 +236,66 @@ describe('konsultasi (K10)', () => {
       }),
     );
     await as('konsultan').get(`/encounters/${e.encounterId}/consults`).expect(403);
+  });
+
+  it('pencarian konsultan: > 500 penugasan dokter tidak membuat dokter hilang; cari nama/unit, urutan stabil, batas jelas', async () => {
+    // 520 dokter fiktif + 1 dokter bernama khas di Poli Saraf (lebih dari batas lama 500 penugasan).
+    const saraf = await run(A.id, (tx) => tx.unit.findFirstOrThrow({ where: { code: 'POLI-SARAF' } }));
+    const special = newId();
+    await owner(A.id, async (tx) => {
+      const role = await tx.role.findFirstOrThrow({ where: { code: 'dokter' } });
+      const ids = Array.from({ length: 520 }, () => newId());
+      await tx.user.createMany({
+        data: [
+          ...ids.map((id, i) => ({
+            id,
+            tenantId: A.id,
+            username: `dr.massal.${id.slice(-12)}`,
+            displayName: `dr. Massal ${String(i).padStart(3, '0')} Fiktif`,
+          })),
+          {
+            id: special,
+            tenantId: A.id,
+            username: `dr.khas.${special.slice(-12)}`,
+            displayName: 'dr. Zulkarnain Khas Fiktif, Sp.N',
+          },
+        ],
+      });
+      await tx.staffAssignment.createMany({
+        data: [...ids, special].map((userId) => ({
+          id: newId(),
+          tenantId: A.id,
+          userId,
+          roleId: role.id,
+          unitId: userId === special ? saraf.id : (units.MELATI as string),
+        })),
+      });
+    });
+    // Tanpa kata kunci: dibatasi bawaan 20, urut nama lalu id (stabil antar-panggilan).
+    const first = await as('dokter').get('/consults/consultants').expect(200);
+    const again = await as('dokter').get('/consults/consultants').expect(200);
+    expect(first.body).toHaveLength(20);
+    expect(first.body).toEqual(again.body);
+    const names = first.body.map((o: { nama: string }) => o.nama);
+    expect(names).toEqual([...names].sort((a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0)));
+    // Dokter yang urutannya jauh di belakang tetap ditemukan lewat nama (tidak peka huruf besar) atau unit.
+    const byName = await as('dokter').get('/consults/consultants?q=zulkarnain').expect(200);
+    expect(byName.body).toEqual([
+      { userId: special, nama: 'dr. Zulkarnain Khas Fiktif, Sp.N', units: ['Poli Saraf'] },
+    ]);
+    const byUnit = await as('dokter').get('/consults/consultants?q=saraf').expect(200);
+    expect(byUnit.body.map((o: { userId: string }) => o.userId)).toEqual([special]);
+    const inUnit = await as('dokter').get(`/consults/consultants?unitId=${saraf.id}`).expect(200);
+    expect(inUnit.body.map((o: { userId: string }) => o.userId)).toEqual([special]);
+    const many = await as('dokter').get('/consults/consultants?q=massal&limit=50').expect(200);
+    expect(many.body).toHaveLength(50);
+    expect(many.body[0].nama).toBe('dr. Massal 000 Fiktif');
+    // Batas jelas: kata kunci < 2 huruf dan limit > 50 ditolak.
+    await as('dokter').get('/consults/consultants?q=z').expect(400);
+    await as('dokter').get('/consults/consultants?limit=51').expect(400);
+    // Tenant lain tidak melihat dokter RS ini.
+    const other = await as('dokterB').get('/consults/consultants?q=zulkarnain').expect(200);
+    expect(other.body).toEqual([]);
   });
 
   it('konsul ke unit: dokter unit tujuan menjawab; pengirim harus dokter; tujuan bukan diri sendiri', async () => {

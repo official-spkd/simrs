@@ -25,6 +25,7 @@ import { seedRefSamples } from '../src/seed-ref';
 import { seedClinicalHistory, seedClinicalMasters } from '../src/seed-clinical';
 import { seedFrontOffice } from '../src/seed-front-office';
 import { seedStaff } from '../src/seed-staff';
+import { seedSupportMasters, seedSupportStock } from '../src/seed-support';
 import { seedHospitalStructure } from '../src/seed-structure';
 
 const url = process.env.MIGRATOR_DATABASE_URL;
@@ -92,8 +93,19 @@ try {
       // P07: formulir pustaka contoh (Morse dari mockup Formulir), versi 1 berlaku. K11 (fase 3): templat persetujuan
       // tindakan (tujuh butir informasi) dan edukasi terintegrasi.
       await ensurePublishedForm(tx, t.id, CONSENT_TEMPLATE_SAMPLE);
-      // Edukasi: versi lama tanpa topik `tindakan` dinaikkan (syarat final persetujuan, ADR-0058).
-      await upgradePublishedForm(tx, t.id, EDUCATION_FORM_SAMPLE, educationFormSupportsConsent);
+      // Edukasi: versi pustaka lama tanpa topik `tindakan` dinaikkan (syarat final persetujuan, ADR-0058). Versi
+      // buatan RS tidak ditimpa; operator diberi tahu agar komite RM menambah topik itu lewat Formulir klinis.
+      const education = await upgradePublishedForm(
+        tx,
+        t.id,
+        EDUCATION_FORM_SAMPLE,
+        educationFormSupportsConsent,
+      );
+      if (education.skippedLocal) {
+        console.warn(
+          `${t.code}: formulir ${EDUCATION_FORM_SAMPLE.code} versi buatan RS belum punya topik "tindakan"; persetujuan tindakan akan tertahan CONSENT_EDUCATION_REQUIRED sampai komite menerbitkan versi baru`,
+        );
+      }
       return {
         ...(await ensurePublishedForm(tx, t.id, MORSE_FALL_SCALE)),
         permissionsAdded: sync.added.length,
@@ -107,6 +119,16 @@ try {
     // K · Master klinis fase 3 (bed, obat, order set, KB CDS, singkatan, paket formulir) + riwayat fiktif.
     const clinical = await withTenant(prisma, t.id, (tx) => seedClinicalMasters(tx, t.id));
     const history = await seedClinicalHistory(prisma, t.id);
+    // S01–S10 · Master penunjang fase 4 + stok awal fiktif (penerima barang = staf seed apoteker).
+    const support = await withTenant(prisma, t.id, async (tx) => {
+      const masters = await seedSupportMasters(tx, t.id);
+      const pharmacist = await tx.staffAssignment.findFirst({
+        where: { role: { code: 'apoteker' } },
+        select: { userId: true },
+      });
+      const stock = pharmacist ? await seedSupportStock(tx, t.id, pharmacist.userId) : null;
+      return { ...masters, stockBatches: stock?.batches ?? 0 };
+    });
     console.warn(
       `Tenant siap: ${t.code} · ${t.name} (struktur RS: ${SEED_UNITS.length} unit, formulir Morse: ${form.created ? 'dipasang v1' : 'sudah ada'}, pasien fiktif baru: ${patients.created}, kandidat duplikat terbuka: ${patients.candidates}, staf fiktif baru: ${staff.created}, sudah ada: ${staff.existing})`,
     );
@@ -115,6 +137,9 @@ try {
     );
     console.warn(
       `  klinis baru: ${clinical.beds} status bed, ${clinical.drugs} obat, ${clinical.orderables} item order, ${clinical.orderSets} order set, ${clinical.cdsRules} aturan CDS; riwayat fiktif ${history} kunjungan`,
+    );
+    console.warn(
+      `  penunjang baru: ${support.labTests} tes lab, ${support.modalities} modalitas, ${support.stockLocations} depo, ${support.orRooms} kamar OK, ${support.stockBatches} batch obat`,
     );
   }
   const p = SEED_PLATFORM_TENANT;

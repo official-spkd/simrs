@@ -5,13 +5,7 @@ import { ConsultPanel } from '@/components/klinis/consult-panel';
 import { API_CONSULT_KIND_LABEL } from '@/lib/konsul-api';
 import { formatTglJam } from '@/lib/rawat-inap';
 import { ApiError } from '@/lib/server/api-core';
-import {
-  careTeam,
-  consultants,
-  consultInbox,
-  encounterConsults,
-  encounterContext,
-} from '@/lib/server/data/klinis/konsul';
+import { careTeam, consultInbox, encounterConsults, encounterContext } from '@/lib/server/data/klinis/konsul';
 import { can, type SessionView } from '@/lib/session-view';
 
 const SEX = { male: 'L', female: 'P', unknown: '–' } as const;
@@ -51,11 +45,7 @@ export async function ApiKonsultasi({
   const canWrite = can(session, 'clinical', 'write');
   const detail =
     encounterId && found?.kind === 'ok'
-      ? await Promise.all([
-          encounterConsults(encounterId),
-          careTeam(encounterId),
-          canWrite ? consultants() : null,
-        ])
+      ? await Promise.all([encounterConsults(encounterId), careTeam(encounterId)])
       : null;
 
   return (
@@ -148,7 +138,6 @@ export async function ApiKonsultasi({
             encounterId={encounterId}
             consults={detail[0]}
             team={detail[1]}
-            consultants={detail[2]}
             me={{ id: session.user.id, role: session.role?.code ?? null, unitId: session.unit?.id ?? null }}
             now={now}
             canWrite={canWrite}

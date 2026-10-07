@@ -410,41 +410,55 @@ model BpjsQueueTask {
 /// F03 · Kunjungan (FHIR Encounter): rawat jalan AMB, IGD EMER, rawat inap IMP. Nomor dari P08, tidak bisa diubah;
 /// setiap perubahan status dicatat di `encounter_status_history`.
 model Encounter {
-  id                 String    @id @db.Uuid
-  tenantId           String    @map("tenant_id") @db.Uuid
+  labOrders             LabOrder[]
+  labResults            LabResult[]
+  criticalResults       CriticalResult[]
+  imagingStudies        ImagingStudy[]
+  imagingReports        ImagingReport[]
+  paReports             PaReport[]
+  stockMovements        StockMovement[]
+  pharmacyPrescriptions PharmacyPrescription[]
+  dispenses             Dispense[]
+  surgeryCases          SurgeryCase[]
+  operativeReports      OperativeReport[]
+  dietOrders            DietOrder[]
+  bloodRequests         BloodRequest[]
+  bloodIssues           BloodIssue[]
+  id                    String                 @id @db.Uuid
+  tenantId              String                 @map("tenant_id") @db.Uuid
   /// `RJ-2610-000123`, `IGD-…`, `RI-…`.
-  number             String
-  patientId          String    @map("patient_id") @db.Uuid
+  number                String
+  patientId             String                 @map("patient_id") @db.Uuid
   /// AMB | EMER | IMP
-  encounterClass     String    @map("class")
+  encounterClass        String                 @map("class")
   /// planned | arrived | in_progress | finished | cancelled
-  status             String
-  unitId             String    @map("unit_id") @db.Uuid
-  serviceId          String?   @map("service_id") @db.Uuid
+  status                String
+  unitId                String                 @map("unit_id") @db.Uuid
+  serviceId             String?                @map("service_id") @db.Uuid
   /// DPJP.
-  practitionerId     String?   @map("practitioner_id") @db.Uuid
-  appointmentId      String?   @map("appointment_id") @db.Uuid
-  queueTicketId      String?   @map("queue_ticket_id") @db.Uuid
-  arrivedAt          DateTime? @map("arrived_at") @db.Timestamptz(3)
-  startedAt          DateTime? @map("started_at") @db.Timestamptz(3)
-  endedAt            DateTime? @map("ended_at") @db.Timestamptz(3)
-  cancelReason       String?   @map("cancel_reason")
+  practitionerId        String?                @map("practitioner_id") @db.Uuid
+  appointmentId         String?                @map("appointment_id") @db.Uuid
+  queueTicketId         String?                @map("queue_ticket_id") @db.Uuid
+  arrivedAt             DateTime?              @map("arrived_at") @db.Timestamptz(3)
+  startedAt             DateTime?              @map("started_at") @db.Timestamptz(3)
+  endedAt               DateTime?              @map("ended_at") @db.Timestamptz(3)
+  cancelReason          String?                @map("cancel_reason")
   /// IGD: datang_sendiri | ambulans | rujukan | diantar_polisi | lainnya (wajib untuk EMER, tetap).
-  arrivalMode        String?   @map("arrival_mode")
+  arrivalMode           String?                @map("arrival_mode")
   /// IGD tanpa identitas: ciri-ciri untuk identifikasi kemudian (tanpa diagnosis).
-  identificationNote String?   @map("identification_note")
+  identificationNote    String?                @map("identification_note")
   /// Admisi rawat inap (`IMP`, status `planned`): rencana masuk.
-  plannedAt          DateTime? @map("planned_at") @db.Timestamptz(3)
+  plannedAt             DateTime?              @map("planned_at") @db.Timestamptz(3)
   /// Admisi: kunjungan RJ/IGD asal (tetap).
-  sourceEncounterId  String?   @map("source_encounter_id") @db.Uuid
+  sourceEncounterId     String?                @map("source_encounter_id") @db.Uuid
   /// Admisi: SPRI dasar (tetap; satu admisi aktif per SPRI).
-  referralId         String?   @map("referral_id") @db.Uuid
+  referralId            String?                @map("referral_id") @db.Uuid
   /// Cara keluar kunjungan (pulang, rujuk, pulang paksa, meninggal, pindah rawat; IGD → `rawat_inap`). Fase 3.
-  disposition        String?
-  createdAt          DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
-  createdBy          String?   @map("created_by") @db.Uuid
-  updatedAt          DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
-  updatedBy          String?   @map("updated_by") @db.Uuid
+  disposition           String?
+  createdAt             DateTime               @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy             String?                @map("created_by") @db.Uuid
+  updatedAt             DateTime               @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy             String?                @map("updated_by") @db.Uuid
 
   tenant          Tenant                   @relation(fields: [tenantId], references: [id])
   patient         Patient                  @relation(fields: [tenantId, patientId], references: [tenantId, id])

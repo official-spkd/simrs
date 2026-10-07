@@ -44,22 +44,26 @@ export async function ensurePublishedForm(
 /**
  * P07 · Naikkan versi formulir pustaka yang sudah terpasang bila versi berlakunya belum memenuhi `isCurrent` (mis.
  * opsi baru yang dibutuhkan aturan klinis). Versi lama diarsipkan, versi baru = isi pustaka (riwayat versi tetap).
- * Formulir yang sudah memenuhi `isCurrent` (termasuk versi buatan RS) tidak disentuh. Untuk seed lokal/demo.
+ * Formulir yang sudah memenuhi `isCurrent` tidak disentuh. Versi berlaku buatan RS (lewat API P07: `created_by` terisi,
+ * melewati alur komite) juga TIDAK pernah diarsipkan seed; hasilnya `{ upgraded: false, skippedLocal: true }` agar
+ * pemanggil bisa memberi tahu operator. Untuk seed lokal/demo.
  */
 export async function upgradePublishedForm(
   tx: TenantTx,
   tenantId: string,
   def: CreateFormDefinitionInput,
   isCurrent: (schema: FormSchema) => boolean,
-): Promise<{ upgraded: boolean }> {
+): Promise<{ upgraded: boolean; skippedLocal?: true }> {
   const installed = await ensurePublishedForm(tx, tenantId, def);
   if (installed.created) return { upgraded: false };
   const published = await tx.formDefinition.findFirst({
     where: { code: def.code, status: 'published' },
-    select: { id: true, schema: true },
+    select: { id: true, schema: true, createdBy: true },
   });
   const current = published ? formSchemaSchema.safeParse(published.schema) : null;
   if (current?.success && isCurrent(current.data)) return { upgraded: false };
+  // Versi buatan RS (komite rekam medis) tidak ditimpa seed walau belum memenuhi `isCurrent`.
+  if (published?.createdBy) return { upgraded: false, skippedLocal: true };
   const last = await tx.formDefinition.findFirst({
     where: { code: def.code },
     orderBy: { version: 'desc' },

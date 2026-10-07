@@ -1,6 +1,8 @@
-import { Body, Controller, Get, Param, ParseUUIDPipe, Post } from '@nestjs/common';
+import { Body, Controller, Get, Param, ParseUUIDPipe, Post, Query } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import {
+  type ConsultantSearchQuery,
+  consultantSearchQuerySchema,
   type ConsultRequestInput,
   consultRequestInputSchema,
   type ConsultResponseInput,
@@ -44,8 +46,8 @@ export class ConsultController {
 
   @RequirePermission('clinical', 'write')
   @Get('consultants')
-  consultants() {
-    return this.consult.consultants();
+  consultants(@Query(new ZodValidationPipe(consultantSearchQuerySchema)) q: ConsultantSearchQuery) {
+    return this.consult.consultants(q);
   }
 
   @RequirePermission('clinical', 'read')

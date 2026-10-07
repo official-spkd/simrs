@@ -5,8 +5,6 @@ import {
   carePackageItemSchema,
   type CareTeamMember,
   careTeamMemberSchema,
-  type ConsultantOption,
-  consultantOptionSchema,
   type ConsultInboxItem,
   consultInboxItemSchema,
   type ConsultRequestRecord,
@@ -39,10 +37,6 @@ export async function optional<T>(read: () => Promise<T>): Promise<T | null> {
 
 export function consultInbox(): Promise<ConsultInboxItem[]> {
   return api('/api/v1/consults/inbox', { schema: consultInboxItemSchema.array() });
-}
-
-export function consultants(): Promise<ConsultantOption[]> {
-  return api('/api/v1/consults/consultants', { schema: consultantOptionSchema.array() });
 }
 
 export function encounterConsults(encounterId: string): Promise<ConsultRequestRecord[]> {
