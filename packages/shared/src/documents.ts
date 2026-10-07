@@ -68,6 +68,42 @@ export const voidDocumentSchema = z.strictObject({
   reason: z.string().trim().min(10, 'Alasan minimal 10 karakter').max(500),
 });
 
+/**
+ * Bentuk jawaban dokumen pasien (`GET /patients/:id/documents`, `GET /documents/:id`, unggah, batal, minta TTE);
+ * dipakai BFF web untuk memvalidasi respons API (komponen dokumen pasien klinis, utang P08 fase 3 · 3.8).
+ */
+export const patientDocumentSchema = z.strictObject({
+  id: z.uuid(),
+  patientId: z.uuid(),
+  kind: z.enum(DOCUMENT_KIND_IDS),
+  title: z.string(),
+  fileName: z.string(),
+  mimeType: z.string(),
+  sizeBytes: z.int().min(0),
+  sha256: z.string(),
+  createdAt: z.iso.datetime({ offset: true }),
+  createdBy: z.string().nullable(),
+  voided: z
+    .strictObject({
+      at: z.iso.datetime({ offset: true }),
+      by: z.string().nullable(),
+      reason: z.string().nullable(),
+    })
+    .nullable(),
+  signatures: z.array(
+    z.strictObject({
+      id: z.uuid(),
+      signer: z.string().nullable(),
+      status: z.enum(['pending', 'signed', 'failed']),
+      requestedAt: z.iso.datetime({ offset: true }),
+      signedAt: z.iso.datetime({ offset: true }).nullable(),
+      certificate: z.string().nullable(),
+      verifyUrl: z.string(),
+    }),
+  ),
+});
+export type PatientDocumentView = z.infer<typeof patientDocumentSchema>;
+
 // ---------------------------------------------------------------------------------------------------------
 // TTE (P08 → I05 penyelenggara sertifikasi elektronik; lokal: apps/mock `/tte/sign`)
 // ---------------------------------------------------------------------------------------------------------

@@ -144,6 +144,11 @@ export const CLINICAL_ERRORS = {
     message:
       'Persetujuan wajib tanda tangan pasien/wali dan atestasi saksi petugas (orang lain dari dokter yang memfinalkan)',
   },
+  CONSENT_EDUCATION_REQUIRED: {
+    status: 422,
+    message:
+      'Edukasi tindakan belum terverifikasi paham; catat edukasi terintegrasi (topik tindakan, evaluasi paham) lebih dulu',
+  },
   CONSENT_CLOSED: {
     status: 409,
     message: 'Draf persetujuan sudah final, ditolak, atau dibatalkan; tidak bisa diubah',
@@ -178,6 +183,7 @@ export const CLINICAL_ERROR_CODES = [
   'DOUBLE_CHECK_REQUIRED',
   'LATE_REASON_REQUIRED',
   'CONSENT_SIGNATURES_REQUIRED',
+  'CONSENT_EDUCATION_REQUIRED',
   'CONSENT_CLOSED',
   'CONSULT_NOT_RECIPIENT',
 ] as const satisfies readonly ClinicalErrorCode[];
