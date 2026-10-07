@@ -37,7 +37,7 @@ export const PANEL_HTML = /* html */ `<!doctype html>
   <header class="row" style="justify-content:space-between">
     <div>
       <h1>Panel mock integrasi</h1>
-      <span class="muted">BPJS · E-Klaim · SATUSEHAT · Dukcapil · TTE · TPDI · BTN — data fiktif, lokal saja</span>
+      <span class="muted">BPJS · E-Klaim · SATUSEHAT · Dukcapil · TTE · TPDI · BTN · Analyzer LIS — data fiktif, lokal saja</span>
     </div>
     <div class="row">
       <span id="updated" class="muted" role="status"></span>
@@ -76,6 +76,23 @@ export const PANEL_HTML = /* html */ `<!doctype html>
     <h2 id="h-aplicare">BPJS · Aplicare (ketersediaan tempat tidur)</h2>
     <table><thead><tr><th>PPK</th><th>Kelas</th><th>Ruang</th><th>Kapasitas</th><th>Tersedia</th><th>Pria · wanita · campur</th><th>Diperbarui</th></tr></thead>
     <tbody id="aplicare"><tr><td colspan="7" class="muted">Belum ada ruang terdaftar.</td></tr></tbody></table>
+  </section>
+
+  <section class="card" aria-labelledby="h-lis">
+    <h2 id="h-lis">Analyzer laboratorium (HL7 ORU^R01)</h2>
+    <p class="muted" id="lis-target"></p>
+    <form id="lis-form" class="row" style="flex-wrap:wrap;gap:8px;align-items:end">
+      <label>Barcode spesimen<br><input id="lis-barcode" required minlength="4" maxlength="30" placeholder="L2610070001-01"></label>
+      <label>Templat<br><select id="lis-template"><option value="dl">Darah lengkap</option><option value="kimia">Kimia klinik</option><option value="elektrolit">Elektrolit</option><option value="lipid">Profil lipid</option></select></label>
+      <label>Skenario<br><select id="lis-scenario"><option value="normal">Normal</option><option value="kritis">Kritis (kalium 6,8)</option><option value="delta-kreatinin">Delta kreatinin (2,4)</option><option value="sebagian-tertunda">Sebagian tertunda</option></select></label>
+      <label>Latensi (ms)<br><input id="lis-latency" type="number" min="0" max="60000" value="0" style="width:110px"></label>
+      <label><input type="checkbox" id="lis-dup" style="height:auto"> Kirim ganda</label>
+      <label><input type="checkbox" id="lis-badsig" style="height:auto"> Tanda tangan salah</label>
+      <label><input type="checkbox" id="lis-unknown" style="height:auto"> Barcode tak dikenal</label>
+      <button class="primary" type="submit">Kirim ORU</button>
+    </form>
+    <table><thead><tr><th>Jam</th><th>MSH-10</th><th>Barcode</th><th>Templat · skenario</th><th>Kirim</th><th>HTTP</th><th>ACK</th></tr></thead>
+    <tbody id="lis"><tr><td colspan="7" class="muted">Belum ada hasil terkirim.</td></tr></tbody></table>
   </section>
 
   <section class="card" aria-labelledby="h-tpdi">
@@ -143,6 +160,18 @@ document.getElementById('invoices').addEventListener('click', (e) => {
   const a = e.target.getAttribute && e.target.getAttribute('data-act'); if (!a) return;
   const [id, act] = a.split('|'); post('/_panel/api/tpdi/invoices/' + encodeURIComponent(id) + '/' + act);
 });
+document.getElementById('lis-form').addEventListener('submit', (e) => {
+  e.preventDefault();
+  post('/_panel/api/lis/send', {
+    barcode: document.getElementById('lis-barcode').value,
+    template: document.getElementById('lis-template').value,
+    scenario: document.getElementById('lis-scenario').value,
+    latencyMs: Number(document.getElementById('lis-latency').value) || 0,
+    duplicate: document.getElementById('lis-dup').checked,
+    badSignature: document.getElementById('lis-badsig').checked,
+    unknownBarcode: document.getElementById('lis-unknown').checked,
+  });
+});
 async function refresh() {
   const s = await fetch('/_panel/api/state').then((r) => r.json());
   renderSystems(s.systems);
@@ -187,6 +216,12 @@ async function refresh() {
     '</span></td><td>' + b.kapasitas + '</td><td><span class="chip ' + (b.tersedia === 0 ? 'bad' : 'ok') + '">' + b.tersedia + '</span></td><td>' +
     b.tersediapria + ' · ' + b.tersediawanita + ' · ' + b.tersediapriawanita + '</td><td>' + esc(b.lastupdate) + '</td></tr>').join('')
     : '<tr><td colspan="7" class="muted">Belum ada ruang terdaftar.</td></tr>');
+  document.getElementById('lis-target').textContent = 'ORU dikirim ke ' + s.lis.target + ' (token perangkat + HMAC X-Device-Signature)';
+  setHtml('lis', s.lis.deliveries.length ? s.lis.deliveries.map((d) =>
+    '<tr><td>' + jam(d.at) + '</td><td class="mono">' + esc(d.controlId) + '</td><td class="mono">' + esc(d.barcode) + '</td><td>' + esc(d.template) + ' · ' + esc(d.scenario) +
+    '</td><td>' + d.attempt + (d.attempt > 1 ? ' <span class="chip warn">ganda</span>' : '') + (d.signatureValid ? '' : ' <span class="chip bad">tanda tangan salah</span>') +
+    '</td><td>' + statusChip(d.status) + '</td><td>' + (d.ack ? '<span class="chip ' + (d.ack === 'AA' ? 'ok' : 'bad') + '">' + esc(d.ack) + '</span>' : '—') + '</td></tr>').join('')
+    : '<tr><td colspan="7" class="muted">Belum ada hasil terkirim.</td></tr>');
   setHtml('log', s.log.map((l) =>
     '<tr><td>' + jam(l.at) + '</td><td>' + esc(l.system) + '</td><td>' + esc(l.method) + '</td><td class="mono">' + esc(l.path) + '</td><td>' + statusChip(l.status) + '</td><td>' + l.durationMs + ' ms</td></tr>').join(''));
   document.getElementById('updated').textContent = 'Diperbarui ' + jam(new Date().toISOString());
