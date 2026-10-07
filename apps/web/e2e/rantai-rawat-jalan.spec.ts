@@ -186,7 +186,12 @@ test('rantai rawat jalan (api): booking → anjungan → loket → pendaftaran �
     await loginAs(doc, doctor, '/klinis/poli');
     await expect(doc.getByRole('heading', { level: 1 }).first()).toBeVisible();
     await expect(doc.getByText('Akses ditolak')).toHaveCount(0);
-    await doc.goto('/klinis/order');
+    // Pintu masuk CPOE dari menu (mode api, selama worklist dan Pemeriksaan poli belum tersambung).
+    await doc
+      .getByRole('navigation', { name: 'Navigasi utama' })
+      .getByRole('link', { name: 'Order & resep (CPOE)' })
+      .click();
+    await expect(doc).toHaveURL(/\/klinis\/order$/);
     const row = doc
       .getByRole('region', { name: 'Kunjungan berjalan' })
       .getByRole('link')
