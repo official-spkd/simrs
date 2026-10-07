@@ -165,7 +165,7 @@ Jadi aturan tetap berlaku walau ada bug di service.
 
 **Konkurensi.** `lockVersion()` (advisory lock per versi) menyerialkan koreksi dengan permintaan TTE atas versi yang sama. Satu diagnosis utama per kunjungan dijaga kunci per kunjungan (`PRIMARY_DIAGNOSIS_EXISTS`).
 
-**Rute.** Bacaan per kunjungan memakai bentuk kanonik `/api/v1/encounters/:id/<sumber>` (mis. `observations`, `cppt`, `conditions`, `assessments`, `context`). Tulisan memakai awalan modul (`/api/v1/cppt/entries`, `/api/v1/diagnosis/conditions`). Rute eMAR 3.5 masih berbentuk `/api/v1/nursing/emar/:encounterId`.
+**Rute.** Bacaan per kunjungan memakai bentuk kanonik `/api/v1/encounters/:id/<sumber>` (mis. `observations`, `cppt`, `conditions`, `assessments`, `context`). Tulisan memakai awalan modul (`/api/v1/cppt/entries`, `/api/v1/diagnosis/conditions`). Rute eMAR, rencana asuhan, dan balans cairan 3.5 juga punya alias kanonik `/api/v1/encounters/:id/{emar,care-plans,fluid-balances}` (W4); rute `/api/v1/nursing/...` lama tetap berlaku.
 
 **Draf** (`/api/v1/drafts/:encounterId/:kind`) bukan rekam medis. Draf hanya milik penulisnya, boleh diubah dan dihapus, dan dibersihkan job worker 48 jam setelah kunjungan selesai atau batal.
 
@@ -276,7 +276,7 @@ Perubahan yang perlu tampil seketika dialirkan dengan Server-Sent Events (ADR-00
 | Papan antrean TV | `GET /api/v1/queue/displays/:id/events` | perangkat display                                   | Display antrean (mode api) |
 | Papan IGD        | `GET /api/v1/triage/board/events`       | `clinical.read`                                     | belum (W3)                 |
 | Papan bed        | `GET /api/v1/adt/beds/events`           | `bed.read`, disaring unit untuk lingkup bukan `all` | belum (W3)                 |
-| Eskalasi EWS     | `GET /api/v1/clinical/streams/ews`      | `clinical.read`                                     | belum (W4)                 |
+| Eskalasi EWS     | `GET /api/v1/clinical/streams/ews`      | `clinical.read`                                     | Rawat inap (W4)            |
 
 Berlangganan aliran staf dicatat di audit (`read`).
 
@@ -301,7 +301,7 @@ Semua modul ada di `apps/api/src/modules/<modul>/` dan didaftarkan sekali di `Ap
 | 0 Fondasi       | `src/common`, `src/infra` (sesi, audit, RLS, outbox, SSE, event domain, lookup, penyimpanan objek, batas laju); `dev-tools`                                               | Selesai                                                      |
 | 1 Platform      | `tenancy`, `facility`, `auth`, `iam`, `authz`, `devices`, `audit`, `mpi`, `ref`, `forms`, `documents`, `numbering`, `notifications`, `settings`                           | Selesai, dipakai layar mode api                              |
 | 2 Front office  | `scheduling`, `booking`, `registration`, `queue`, `kiosk`, `sep`, `referral`, `patient-portal-gateway`                                                                    | Selesai. `booking` belum punya layar web; dipakai lewat API. |
-| 3 Klinis RME    | `encounter`, `drafts`, `diagnosis`, `results`, `summary`, `nursing`, `cppt`, `assessment`, `worklist`, `adt`, `triage`, `orders`, `cds`, `discharge`, `consent`           | API jadi (3.1–3.7). Layar mode api menyusul W1–W5b.          |
+| 3 Klinis RME    | `encounter`, `drafts`, `diagnosis`, `results`, `summary`, `nursing`, `cppt`, `assessment`, `worklist`, `adt`, `triage`, `orders`, `cds`, `discharge`, `consent`           | API jadi (3.1–3.7). Layar mode api: W4 Rawat inap tersambung; W1–W3, W5 menyusul. |
 | 3 Klinis RME    | `consult`, `care-packages` (3.8)                                                                                                                                          | Kerangka modul kosong; menyusul 3.8.                         |
 | 4–9             | belum ada modul. Nama rencana di `docs/01-arsitektur.md` §2 dan [Peta kode](./19-peta-kode.md#lapisan-berikutnya-fase-4-9)                                                | Layar hanya mode presentasi                                  |
 | 10 (lebih awal) | bukan modul API: backup terenkripsi (`infra/backup`), jangkar audit (`apps/worker/src/audit`), rotasi kunci kolom (`apps/worker/src/key-rotation`, `pnpm db:rotate-keys`) | Selesai                                                      |

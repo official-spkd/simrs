@@ -22,6 +22,6 @@ Nomor 0024–0075 sudah dipesan oleh rencana fase di `docs/rencana/` (5 Okt 2026
 | 0060–0064 | Fase 8 · back office                                               | –                                       |
 | 0065–0069 | Fase 9 · dasbor + aplikasi mobile                                  | –                                       |
 | 0070–0075 | Fase 10 · ketahanan dan pilot (0071 backup, 0072 jangkar audit)    | 0071 (backup 3 lokasi + uji restore), 0072 (jangkar audit), 0073 (CSP ber-nonce + peta refresh web) |
-| 0076+     | Di luar rencana fase (nomor bebas berikutnya)                      | 0076 (gerbang keamanan statis rute API + integrasi gagal tertutup), 0077 (eMAR cek ganda terikat dosis), 0085 (toko keadaan demo bersama, CD-1), 0093 (resume, gerbang pulang, surat kematian K-1) |
+| 0076+     | Di luar rencana fase (nomor bebas berikutnya)                      | 0076 (gerbang keamanan statis rute API + integrasi gagal tertutup), 0077 (eMAR cek ganda terikat dosis), 0085 (toko keadaan demo bersama, CD-1), 0093 (resume, gerbang pulang, surat kematian K-1), 0096 (layar Rawat inap api: ganti gelang beralasan, cek ganda dua sesi, W4) |
 
 Rincian tiap nomor yang dipesan ada di rencana fasenya (`docs/rencana/fase-<n>-*.md`). Bila sebuah nomor ternyata tidak dibutuhkan, biarkan kosong; jangan dipakai ulang untuk topik lain.

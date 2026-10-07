@@ -22,8 +22,8 @@ import { scenarioSteps } from './shared';
 /**
  * K04/K07/K12 · Data layar Rawat inap (daftar pasien + rekam rawat inap: CPPT, eMAR, EWS). Mode presentasi: rekam
  * fiktif + rekam tersimpan di toko demo (`rekam-medis`, ADR-0085) + proyeksi pasien skenario (Tn. Hartono, Ny. Ratna),
- * divalidasi kontrak yang sama dengan API kelak; mode api
- * menunggu backend fase 3 (potongan 3.2b/3.5, layar W4; halaman menampilkan "Belum tersambung").
+ * divalidasi kontrak yang sama dengan API kelak. Mode api (layar W4) ada di `ranap-api.ts`; fungsi di sini hanya
+ * untuk mode presentasi.
  */
 
 /**

@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
-import { ScreenAccessDenied, ScreenNotConnected } from '@/components/screen-gate';
+import { ScreenAccessDenied } from '@/components/screen-gate';
 import { requireScreen } from '@/lib/server/screen-guard';
+import { ApiRawatInapDetail } from './api-rawat-inap-detail';
 import { DemoRawatInapDetail } from './demo-rawat-inap-detail';
 
 export const metadata: Metadata = { title: 'Rawat inap' };
@@ -11,7 +12,7 @@ type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 /**
  * K04/K07/K12 · Rekam rawat inap satu pasien (mockup `Ranap.dc.html`): CPPT, eMAR, EWS, askep, hasil. Layar hibrida
  * (`requireScreen`): mode presentasi memakai data fiktif (`demo-rawat-inap-detail.tsx`, dibekukan); mode api untuk
- * peran ber-izin `clinical.write`, jalur API diisi layar W4 (sampai itu "Belum tersambung"). `?tab=` = tab awal.
+ * peran ber-izin `clinical.write` (`api-rawat-inap-detail.tsx`, layar W4). `?tab=` = tab awal.
  */
 export default async function RawatInapDetailPage({
   params,
@@ -21,16 +22,11 @@ export default async function RawatInapDetailPage({
   searchParams: SearchParams;
 }) {
   const access = await requireScreen('ranap');
+  const [{ encounterId }, sp] = await Promise.all([params, searchParams]);
+  const tab = typeof sp.tab === 'string' ? sp.tab : null;
   if (access.mode === 'demo') {
-    const [{ encounterId }, sp] = await Promise.all([params, searchParams]);
-    return (
-      <DemoRawatInapDetail
-        access={access}
-        encounterId={encounterId}
-        tab={typeof sp.tab === 'string' ? sp.tab : null}
-      />
-    );
+    return <DemoRawatInapDetail access={access} encounterId={encounterId} tab={tab} />;
   }
   if (!access.allowed) return <ScreenAccessDenied screen={access.screen} />;
-  return <ScreenNotConnected screen={access.screen} role={access.session.role?.code ?? null} />;
+  return <ApiRawatInapDetail session={access.session} encounterId={encounterId} tab={tab} />;
 }
