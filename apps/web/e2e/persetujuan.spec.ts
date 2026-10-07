@@ -52,26 +52,6 @@ async function encounterWithTeam(patientId: string, team: { dpjp: string; perawa
         },
       });
     }
-    // Syarat final persetujuan (3.8, `CONSENT_EDUCATION_REQUIRED`): edukasi tindakan terkini terverifikasi paham,
-    // dicatat perawat PJ lewat formulir P07 `edukasi_terintegrasi` di kunjungan ini.
-    const education = await tx.formDefinition.findFirstOrThrow({
-      where: { code: 'edukasi_terintegrasi', status: 'published' },
-      select: { id: true },
-    });
-    const responseId = newId();
-    await tx.formResponse.create({
-      data: {
-        id: responseId,
-        tenantId: TENANTS.RSFA,
-        patientId,
-        definitionId: education.id,
-        formCode: 'edukasi_terintegrasi',
-        rootId: responseId,
-        answers: { topik: ['tindakan'], sasaran: 'keduanya', evaluasi: 'paham' },
-        createdBy: team.perawat,
-        encounterId: id,
-      },
-    });
     return id;
   });
 }
