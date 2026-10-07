@@ -45,8 +45,10 @@ skema atau rencana fase 4 §4.7:
   mendapat izin jadwal.
 - Dokter tim terlihat di tim perawatan kunjungan dan mendapat akses relasi selama kasus aktif. Ini disengaja: operator
   perlu membaca rekam medis pasien yang dioperasi.
-- Belum di 4.7: asesmen pra-anestesi dan catatan anestesi lewat formulir P07, order PA (S02) dari spesimen di laporan
-  (baru penanda), dan SSE papan `surgery.board:<tanggal>`, yang menunggu infrastruktur 4.1a. Layar memuat ulang data
-  setelah setiap aksi.
+- Layar berlangganan SSE papan OK dari 4.1a (`/support/streams/surgery-board?date=`, lewat BFF
+  `/penunjang/kamar-operasi/events`). Kanal itu hanya dipicu `surgery_case_status_history`, jadi centang butir dan
+  hitung dari jendela lain baru tampil saat papan dimuat ulang berikutnya.
+- Belum di 4.7: asesmen pra-anestesi dan catatan anestesi lewat formulir P07, dan order PA (S02) dari spesimen di
+  laporan (baru penanda).
 - Status registri layar `ok` tetap `demo`, sama dengan layar hibrida lain (IGD, Depo). Menu mode api mengikuti izin
   `surgery.read`.

@@ -118,41 +118,7 @@ melaporkan nilai kritis dengan read-back dalam batas waktu, lalu memvalidasi has
   dalam rentang. Status tidak hanya lewat warna.
 - Koreksi setelah rilis hanya lewat hasil revisi berversi.
 
-**Mode api (4.7, ADR-0105).** Layar memakai `/api/v1/surgery`. Data fiktif yang dipakai contoh di bawah dibuat oleh
-E2E `e2e/kamar-operasi-api.spec.ts`.
-
-1. Buka **Kamar operasi**. Papan memuat Gantt kamar berjenis `ruang` di unit OK untuk tanggal `?tanggal=YYYY-MM-DD`
-   (bawaan hari ini WIB), KPI dari server (utilisasi, on-time start, pembatalan), dan daftar tunggu 14 hari.
-2. Perawat unit OK (izin `surgery.schedule`) menekan **+ Jadwalkan operasi**. Isi "No. RM atau nomor kunjungan
-   aktif", tekan **Cari kunjungan**, pilih kunjungan, lalu isi Kamar, "Tanggal operasi", "Jam mulai (WIB, HH.MM)",
-   "Durasi (menit)", "Kode ICD-9-CM (opsional)", "Nama tindakan", "Operator", tim lain (opsional), dan **Simpan
-   jadwal**. Kamar yang bentrok ditolak (409 `ROOM_OVERLAP`, constraint EXCLUDE). Dokter tim (operator, asisten,
-   anestesi) otomatis masuk tim rawat kunjungan sebagai rawat bersama, sehingga operator bisa menulis laporan.
-3. Pilih kasus di Gantt. Banner pasien menampilkan alergi dan penjamin. Kotak persetujuan menulis persetujuan tindakan
-   (3.7) final ber-TTE yang berlaku, atau peringatan merah bila belum ada atau sudah dicabut.
-4. **Sign in**: centang butir manual, lalu **Konfirmasi sign in**. Butir "Persetujuan tindakan bertanda tangan" diisi
-   sistem saat konfirmasi; tanpa persetujuan berlaku, konfirmasi ditolak "Persetujuan tindakan bertanda tangan belum
-   ada; sign in tertahan".
-5. **Catat induksi** (butuh sign in). **Time out**: centang semua butir lalu konfirmasi. Persetujuan diperiksa ulang;
-   bila sudah dicabut setelah sign in, time out tertahan. Sebelum time out, tombol insisi nonaktif dengan alasan
-   "Time out belum lengkap (N butir tersisa). Insisi terkunci sampai time out dikonfirmasi."
-6. **Catat insisi**, lalu isi "Hitung kasa": hitung awal (Kasa, Jarum, Instrumen), tambahan bila ada, hitung akhir.
-   Selisih memunculkan "Hitung akhir kasa/instrumen belum cocok…" dan formulir tindak lanjut per butir.
-7. **Catat luka ditutup**, lengkapi **Sign out** (butir hitung diisi sistem setelah semua cocok atau ditindaklanjuti),
-   lalu **Catat pasien keluar kamar**. Status menjadi Selesai.
-8. BHP/implan dari stok DEPO-OK dicatat di panel BHP (stok berkurang lewat ledger, FEFO dan kedaluwarsa ditegakkan DB).
-9. Operator menulis "Laporan operasi" (diagnosa pra/pasca ICD-10, ICD-9-CM, temuan, komplikasi, perdarahan, spesimen)
-   dan menekan **Simpan dan tanda tangani (TTE operator)**. Laporan berversi: API menerima koreksi dan adendum (`revision`), layar 4.7 baru menulis versi pertama.
-
-Gerbang yang ditegakkan server dan DB (trigger 4.0b): urutan sign in, time out, sign out; semua butir lengkap;
-induksi butuh sign in; insisi butuh time out kecuali **Override insisi** oleh pemegang `surgery.override` (dokter
-berelasi) dengan alasan minimal setelan RS (bawaan 15 karakter). Override tercatat di peristiwa, diaudit, dan
-memberi notifikasi `surgery_override` ke auditor mutu dan manajemen. Sign out butuh insisi dan hitung cocok; pasien
-keluar butuh sign out. Kasir dan apoteker tidak punya izin `surgery.*` (403).
-
-Belum di 4.7: asesmen pra-anestesi dan catatan anestesi lewat formulir P07, order PA (S02) dari spesimen laporan,
-dan pembaruan papan lewat SSE (`surgery.board:<tanggal>`, menunggu infrastruktur 4.1a). Layar dimuat ulang setelah
-setiap aksi.
+**Mode api.** Layar hibrida (4.0c): peran berizin melihat "Belum tersambung" sampai potongan fase 4 layar ini tergabung.
 
 ## Radiologi
 
@@ -198,41 +164,7 @@ dengan templat yang ditandatangani radiolog.
 - Di mode presentasi, posisi radiografer menjalankan TTE atas nama radiolog fiktif di data dummy. Pemisahan peran
   radiografer dan radiolog dibangun di fase 4.
 
-**Mode api (4.7, ADR-0105).** Layar memakai `/api/v1/surgery`. Data fiktif yang dipakai contoh di bawah dibuat oleh
-E2E `e2e/kamar-operasi-api.spec.ts`.
-
-1. Buka **Kamar operasi**. Papan memuat Gantt kamar berjenis `ruang` di unit OK untuk tanggal `?tanggal=YYYY-MM-DD`
-   (bawaan hari ini WIB), KPI dari server (utilisasi, on-time start, pembatalan), dan daftar tunggu 14 hari.
-2. Perawat unit OK (izin `surgery.schedule`) menekan **+ Jadwalkan operasi**. Isi "No. RM atau nomor kunjungan
-   aktif", tekan **Cari kunjungan**, pilih kunjungan, lalu isi Kamar, "Tanggal operasi", "Jam mulai (WIB, HH.MM)",
-   "Durasi (menit)", "Kode ICD-9-CM (opsional)", "Nama tindakan", "Operator", tim lain (opsional), dan **Simpan
-   jadwal**. Kamar yang bentrok ditolak (409 `ROOM_OVERLAP`, constraint EXCLUDE). Dokter tim (operator, asisten,
-   anestesi) otomatis masuk tim rawat kunjungan sebagai rawat bersama, sehingga operator bisa menulis laporan.
-3. Pilih kasus di Gantt. Banner pasien menampilkan alergi dan penjamin. Kotak persetujuan menulis persetujuan tindakan
-   (3.7) final ber-TTE yang berlaku, atau peringatan merah bila belum ada atau sudah dicabut.
-4. **Sign in**: centang butir manual, lalu **Konfirmasi sign in**. Butir "Persetujuan tindakan bertanda tangan" diisi
-   sistem saat konfirmasi; tanpa persetujuan berlaku, konfirmasi ditolak "Persetujuan tindakan bertanda tangan belum
-   ada; sign in tertahan".
-5. **Catat induksi** (butuh sign in). **Time out**: centang semua butir lalu konfirmasi. Persetujuan diperiksa ulang;
-   bila sudah dicabut setelah sign in, time out tertahan. Sebelum time out, tombol insisi nonaktif dengan alasan
-   "Time out belum lengkap (N butir tersisa). Insisi terkunci sampai time out dikonfirmasi."
-6. **Catat insisi**, lalu isi "Hitung kasa": hitung awal (Kasa, Jarum, Instrumen), tambahan bila ada, hitung akhir.
-   Selisih memunculkan "Hitung akhir kasa/instrumen belum cocok…" dan formulir tindak lanjut per butir.
-7. **Catat luka ditutup**, lengkapi **Sign out** (butir hitung diisi sistem setelah semua cocok atau ditindaklanjuti),
-   lalu **Catat pasien keluar kamar**. Status menjadi Selesai.
-8. BHP/implan dari stok DEPO-OK dicatat di panel BHP (stok berkurang lewat ledger, FEFO dan kedaluwarsa ditegakkan DB).
-9. Operator menulis "Laporan operasi" (diagnosa pra/pasca ICD-10, ICD-9-CM, temuan, komplikasi, perdarahan, spesimen)
-   dan menekan **Simpan dan tanda tangani (TTE operator)**. Laporan berversi: API menerima koreksi dan adendum (`revision`), layar 4.7 baru menulis versi pertama.
-
-Gerbang yang ditegakkan server dan DB (trigger 4.0b): urutan sign in, time out, sign out; semua butir lengkap;
-induksi butuh sign in; insisi butuh time out kecuali **Override insisi** oleh pemegang `surgery.override` (dokter
-berelasi) dengan alasan minimal setelan RS (bawaan 15 karakter). Override tercatat di peristiwa, diaudit, dan
-memberi notifikasi `surgery_override` ke auditor mutu dan manajemen. Sign out butuh insisi dan hitung cocok; pasien
-keluar butuh sign out. Kasir dan apoteker tidak punya izin `surgery.*` (403).
-
-Belum di 4.7: asesmen pra-anestesi dan catatan anestesi lewat formulir P07, order PA (S02) dari spesimen laporan,
-dan pembaruan papan lewat SSE (`surgery.board:<tanggal>`, menunggu infrastruktur 4.1a). Layar dimuat ulang setelah
-setiap aksi.
+**Mode api.** Layar hibrida (4.0c): peran berizin melihat "Belum tersambung" sampai potongan fase 4 layar ini tergabung.
 
 ## Farmasi
 
@@ -286,41 +218,7 @@ obat dengan cek ganda untuk obat high alert, lalu menyerahkan obat dan mengurang
   tangan penerima.
 - Stok di bawah minimum ditandai "di bawah minimum".
 
-**Mode api (4.7, ADR-0105).** Layar memakai `/api/v1/surgery`. Data fiktif yang dipakai contoh di bawah dibuat oleh
-E2E `e2e/kamar-operasi-api.spec.ts`.
-
-1. Buka **Kamar operasi**. Papan memuat Gantt kamar berjenis `ruang` di unit OK untuk tanggal `?tanggal=YYYY-MM-DD`
-   (bawaan hari ini WIB), KPI dari server (utilisasi, on-time start, pembatalan), dan daftar tunggu 14 hari.
-2. Perawat unit OK (izin `surgery.schedule`) menekan **+ Jadwalkan operasi**. Isi "No. RM atau nomor kunjungan
-   aktif", tekan **Cari kunjungan**, pilih kunjungan, lalu isi Kamar, "Tanggal operasi", "Jam mulai (WIB, HH.MM)",
-   "Durasi (menit)", "Kode ICD-9-CM (opsional)", "Nama tindakan", "Operator", tim lain (opsional), dan **Simpan
-   jadwal**. Kamar yang bentrok ditolak (409 `ROOM_OVERLAP`, constraint EXCLUDE). Dokter tim (operator, asisten,
-   anestesi) otomatis masuk tim rawat kunjungan sebagai rawat bersama, sehingga operator bisa menulis laporan.
-3. Pilih kasus di Gantt. Banner pasien menampilkan alergi dan penjamin. Kotak persetujuan menulis persetujuan tindakan
-   (3.7) final ber-TTE yang berlaku, atau peringatan merah bila belum ada atau sudah dicabut.
-4. **Sign in**: centang butir manual, lalu **Konfirmasi sign in**. Butir "Persetujuan tindakan bertanda tangan" diisi
-   sistem saat konfirmasi; tanpa persetujuan berlaku, konfirmasi ditolak "Persetujuan tindakan bertanda tangan belum
-   ada; sign in tertahan".
-5. **Catat induksi** (butuh sign in). **Time out**: centang semua butir lalu konfirmasi. Persetujuan diperiksa ulang;
-   bila sudah dicabut setelah sign in, time out tertahan. Sebelum time out, tombol insisi nonaktif dengan alasan
-   "Time out belum lengkap (N butir tersisa). Insisi terkunci sampai time out dikonfirmasi."
-6. **Catat insisi**, lalu isi "Hitung kasa": hitung awal (Kasa, Jarum, Instrumen), tambahan bila ada, hitung akhir.
-   Selisih memunculkan "Hitung akhir kasa/instrumen belum cocok…" dan formulir tindak lanjut per butir.
-7. **Catat luka ditutup**, lengkapi **Sign out** (butir hitung diisi sistem setelah semua cocok atau ditindaklanjuti),
-   lalu **Catat pasien keluar kamar**. Status menjadi Selesai.
-8. BHP/implan dari stok DEPO-OK dicatat di panel BHP (stok berkurang lewat ledger, FEFO dan kedaluwarsa ditegakkan DB).
-9. Operator menulis "Laporan operasi" (diagnosa pra/pasca ICD-10, ICD-9-CM, temuan, komplikasi, perdarahan, spesimen)
-   dan menekan **Simpan dan tanda tangani (TTE operator)**. Laporan berversi: API menerima koreksi dan adendum (`revision`), layar 4.7 baru menulis versi pertama.
-
-Gerbang yang ditegakkan server dan DB (trigger 4.0b): urutan sign in, time out, sign out; semua butir lengkap;
-induksi butuh sign in; insisi butuh time out kecuali **Override insisi** oleh pemegang `surgery.override` (dokter
-berelasi) dengan alasan minimal setelan RS (bawaan 15 karakter). Override tercatat di peristiwa, diaudit, dan
-memberi notifikasi `surgery_override` ke auditor mutu dan manajemen. Sign out butuh insisi dan hitung cocok; pasien
-keluar butuh sign out. Kasir dan apoteker tidak punya izin `surgery.*` (403).
-
-Belum di 4.7: asesmen pra-anestesi dan catatan anestesi lewat formulir P07, order PA (S02) dari spesimen laporan,
-dan pembaruan papan lewat SSE (`surgery.board:<tanggal>`, menunggu infrastruktur 4.1a). Layar dimuat ulang setelah
-setiap aksi.
+**Mode api.** Layar hibrida (4.0c): peran berizin melihat "Belum tersambung" sampai potongan fase 4 layar ini tergabung.
 
 ## Kamar operasi
 
@@ -412,9 +310,13 @@ berelasi) dengan alasan minimal setelan RS (bawaan 15 karakter). Override tercat
 memberi notifikasi `surgery_override` ke auditor mutu dan manajemen. Sign out butuh insisi dan hitung cocok; pasien
 keluar butuh sign out. Kasir dan apoteker tidak punya izin `surgery.*` (403).
 
-Belum di 4.7: asesmen pra-anestesi dan catatan anestesi lewat formulir P07, order PA (S02) dari spesimen laporan,
-dan pembaruan papan lewat SSE (`surgery.board:<tanggal>`, menunggu infrastruktur 4.1a). Layar dimuat ulang setelah
-setiap aksi.
+Papan diperbarui langsung lewat SSE `GET /api/v1/support/streams/surgery-board?date=` (kanal 4.1a, BFF
+`/penunjang/kamar-operasi/events`), dengan penanda "Langsung · tersambung". Kanal hanya mengirim perubahan status
+kasus (terjadwal, persiapan, berjalan, selesai, batal); centang butir dan hitung dari jendela lain tampil saat papan
+dimuat ulang berikutnya. Setiap aksi sendiri juga memuat ulang papan.
+
+Belum di 4.7: asesmen pra-anestesi dan catatan anestesi lewat formulir P07, dan order PA (S02) dari spesimen
+laporan.
 
 ## Pusat hasil kritis
 
@@ -808,11 +710,19 @@ E2E mode presentasi (Playwright):
   dan depo tanpa scroll horizontal di tablet 768 px.
 - `apps/web/e2e/demo/semua-layar.spec.ts`: jaring pengaman semua layar dan QA visual.
 
+E2E mode api:
+
+- `apps/web/e2e/kamar-operasi-api.spec.ts` (4.7): jadwal → sign in → time out (insisi terkunci) → selisih hitung
+  ditindaklanjuti → sign out → laporan ber-TTE operator → selesai; override insisi oleh dokter di jendela kedua yang
+  menerima perubahan status lewat SSE.
+- `apps/web/e2e/penunjang-gerbang.spec.ts`: layar penunjang hibrida; Depo dan Kamar operasi sudah tersambung.
+
 Unit:
 
 - `apps/web/src/lib/penunjang.test.ts`, `penunjang-farmasi.test.ts`, `penunjang-radiologi.test.ts`,
   `penunjang-skenario.test.ts` (gerbang server per aksi dan skenario).
 - `apps/web/src/lib/penunjang-ok.test.ts` (gerbang time out, hitung kasa).
+- `apps/web/src/lib/penunjang-ok-api.test.ts` (pemetaan papan OK api: fase aktif, gerbang peristiwa, jam WIB).
 - `apps/web/src/lib/penunjang-kritis.test.ts`, `penunjang-depo.test.ts`, `penunjang-bank-darah.test.ts`,
   `penunjang-gizi.test.ts`, `penunjang-mikro.test.ts`, `penunjang-diagnostik.test.ts`, `penunjang-anestesi.test.ts`
   (gerbang murni layar penunjang lanjutan).
