@@ -468,6 +468,26 @@ export function cpptNoteId(encounterId: string, n: number): string {
   return `${encounterId}-cppt-${n}`;
 }
 
+/** Kasus kamar operasi (`?pilih=` di Kamar operasi; jadwal `KAMAR_OK`, catatan anestesi). */
+export const OR_CASE_ID = {
+  /** Kamar OK 1 · Ny. Maria Ulfa */
+  maria: '01a107e0-0000-7510-bf58-52412ca7cd4d',
+  /** Kamar OK 1 · Tn. Yusuf Hidayat */
+  yusuf: '01a107e0-03e8-71c0-8fe2-0579890f6f1e',
+  /** Kamar OK 2 · Tn. Fajar Nugraha */
+  fajar: '01a107e0-07d0-7f4e-8b6d-13b4076ae14a',
+  /** Kamar OK 2 · Ny. Ratna Sari (skenario elektif TPDI × BTN) */
+  ratna: '01a107e0-0bb8-74a9-b145-187a9a33318e',
+  /** Kamar OK 2 · Ny. Sumarni Pakpahan */
+  sumarni: '01a107e0-0fa0-7cfd-abfa-e5bd253285f7',
+  /** Kamar OK 3 · Ny. Wulan Sari Dewi */
+  wulan: '01a107e0-1388-7792-aebb-c93f45dcfc2e',
+  /** Kamar OK 3 · Ny. Anisa Rahmadani */
+  anisa: '01a107e0-1770-78e7-903b-8f17be8db11c',
+  /** Kamar OK 4 · Tn. Rizky Ramadhan */
+  rizky: '01a107e0-1b58-7b6c-aeba-849b3331a628',
+} as const;
+
 /**
  * Peringatan CDS farmasi (tindak lanjut apoteker dikirim ke Server Action). Bukan UUID: nomor resep + jenis
  * peringatan, tetap tanpa nama pasien. Obat dalam resep memakai pola yang sama (`r0884-omeprazol`).

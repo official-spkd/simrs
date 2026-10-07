@@ -4,7 +4,7 @@ import type { OrCase } from '@simrs/shared';
 import { Button, SafetyGate } from '@simrs/ui';
 import { useId } from 'react';
 import { formatWhen } from '@/lib/btn';
-import { incisionGate, type OkLocal, OVERRIDE_REASON_MIN } from '@/lib/btn-ok';
+import { incisionGate, type OkLocal, OVERRIDE_REASON_MIN } from '@/lib/penunjang-ok';
 
 /**
  * Gerbang time out (CLAUDE.md §4.9): "Mulai insisi" terkunci sampai time out dikonfirmasi. Jalan lain hanya override

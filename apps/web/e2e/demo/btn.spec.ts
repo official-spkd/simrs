@@ -1,4 +1,5 @@
 import { expect, type Page, test } from '@playwright/test';
+import { OR_CASE_ID } from '../../src/lib/demo/fixtures/ids';
 import { createAccount, loginAs } from '../support/accounts';
 
 /**
@@ -64,7 +65,7 @@ test.describe('kamar operasi', () => {
 
     // Kasus lain lewat Gantt: blok terjadwal belum punya daftar tilik yang terisi.
     await jadwal.getByRole('button', { name: /Ny\. Anisa Rahmadani/ }).click();
-    await expect(page).toHaveURL(/pilih=ok3-1/);
+    await expect(page).toHaveURL(new RegExp(`pilih=${OR_CASE_ID.anisa}`));
     await expect(page.getByRole('heading', { name: 'OK 3 · Seksio sesarea cito', level: 2 })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Mulai insisi', exact: true })).toBeDisabled();
     await expectNoHorizontalOverflow(page);

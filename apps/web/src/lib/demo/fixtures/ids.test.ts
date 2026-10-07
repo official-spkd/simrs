@@ -20,7 +20,8 @@ import {
 import { advanceTo, runScenario } from '../engine/run';
 import type { RunResult, ScenarioId } from '../engine/types';
 import { SCENARIO_ORDER, SCENARIOS } from '../skenario';
-import { CICILAN, KAMAR_OK, REFUND, REKONSILIASI, TRANSAKSI } from './btn';
+import { CICILAN, REFUND, REKONSILIASI, TRANSAKSI } from './btn';
+import { KAMAR_OK } from './kamar-operasi';
 import {
   demoQueueBoard,
   demoRegistrationDesk,

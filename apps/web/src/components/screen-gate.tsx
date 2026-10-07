@@ -16,8 +16,9 @@ interface Copy {
 }
 
 /**
- * Teks "Belum tersambung" hanya untuk layar yang jalur api-nya belum dibangun. Layar yang sudah tersambung (front office
- * fase 2, CPOE W2, IGD + Tempat tidur W3, Rawat inap W4, tablet Persetujuan W5a) dihapus dari sini; layar tanpa entri memakai kalimat umum.
+ * Teks "Belum tersambung" hanya untuk layar hibrida yang jalur api-nya belum dibangun (Poli W1, Resume W5b, penunjang
+ * fase 4). Layar yang sudah tersambung (front office fase 2, W2, W3, W4, W5a) tidak ada di sini; layar tanpa entri
+ * memakai kalimat umum.
  */
 const NOT_CONNECTED: Readonly<Record<string, Copy>> = {
   // Layar klinis fase 3 yang belum tersambung: Poli (W1), Resume (W5b).
@@ -26,6 +27,37 @@ const NOT_CONNECTED: Readonly<Record<string, Copy>> = {
   },
   resume: {
     body: 'Resume medis pulang, rekonsiliasi obat, dan TTE DPJP akan tersedia di sini setelah modul resume tersambung ke server SIM RS. Sementara itu, ikuti prosedur resume cadangan rumah sakit.',
+  },
+  // Layar penunjang fase 4 (potongan 4.0c): jalur api diisi potongan 4.2–4.9 setelah modul API penunjangnya tergabung.
+  lab: {
+    body: 'Worklist laboratorium, penerimaan spesimen, input hasil, validasi, dan pelaporan nilai kritis akan tersedia di sini setelah modul laboratorium tersambung ke server SIM RS. Sementara itu, ikuti prosedur cadangan laboratorium.',
+  },
+  rad: {
+    body: 'Jadwal modalitas, pelaksanaan pemeriksaan, dan ekspertise radiologi ber-TTE akan tersedia di sini setelah modul radiologi tersambung ke server SIM RS. Sementara itu, ikuti prosedur cadangan radiologi.',
+  },
+  farmasi: {
+    body: 'Telaah resep, penyiapan dengan cek ganda, dan serah terima obat akan tersedia di sini setelah modul farmasi tersambung ke server SIM RS. Sementara itu, layani resep dengan prosedur cadangan farmasi.',
+  },
+  ok: {
+    body: 'Jadwal kamar operasi, daftar tilik keselamatan WHO, hitung kasa, dan laporan operasi akan tersedia di sini setelah modul kamar operasi tersambung ke server SIM RS. Sementara itu, gunakan daftar tilik kertas sesuai prosedur rumah sakit.',
+  },
+  kritis: {
+    body: 'Nilai kritis lintas unit dengan batas waktu lapor, read-back, dan eskalasi akan tersedia di sini setelah modul nilai kritis tersambung ke server SIM RS. Sementara itu, laporkan nilai kritis lewat telepon dengan read-back sesuai prosedur.',
+  },
+  depo: {
+    body: 'Stok depo per batch dan kedaluwarsa, mutasi antardepo, dan penyesuaian stok akan tersedia di sini setelah modul stok tersambung ke server SIM RS. Sementara itu, catat mutasi stok dengan prosedur cadangan farmasi.',
+  },
+  'bank-darah': {
+    body: 'Permintaan darah, crossmatch, dan pengeluaran kantong dengan cek ganda akan tersedia di sini setelah modul bank darah tersambung ke server SIM RS. Sementara itu, ikuti prosedur cadangan bank darah.',
+  },
+  gizi: {
+    body: 'Order diet, skrining gizi, dan distribusi makan per bangsal akan tersedia di sini setelah modul gizi tersambung ke server SIM RS. Sementara itu, ikuti prosedur cadangan instalasi gizi.',
+  },
+  mikro: {
+    body: 'Kultur, uji kepekaan, dan ekspertise patologi anatomi akan tersedia di sini setelah modul mikrobiologi dan PA tersambung ke server SIM RS. Sementara itu, ikuti prosedur cadangan laboratorium.',
+  },
+  diagnostik: {
+    body: 'Order, jadwal, dan laporan diagnostik lain (EKG, ekokardiografi, endoskopi) ber-TTE akan tersedia di sini setelah modulnya tersambung ke server SIM RS. Sementara itu, ikuti prosedur cadangan unit diagnostik.',
   },
 };
 

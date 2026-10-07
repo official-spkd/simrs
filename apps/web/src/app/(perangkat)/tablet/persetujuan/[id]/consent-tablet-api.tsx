@@ -20,7 +20,7 @@ import {
   refuseConsentApiAction,
   saveConsentSignaturesAction,
 } from '../actions';
-import { DraftStatusChip, MISSING_LABEL, TteChip } from '../consent-status';
+import { DraftStatusChip, educationHref, MISSING_LABEL, TteChip } from '../consent-status';
 import { TABLET_CARD, TabletShell } from '../tablet-shell';
 import { RefusalForm } from './consent-body';
 
@@ -37,7 +37,8 @@ const FIELD = 'min-h-12 rounded-control border border-line-strong bg-white px-3 
 function initialStep(d: ConsentDraft): number {
   if (d.status !== 'draf') return 3;
   if (!d.signer) return 0;
-  return d.missing.length === 0 ? 3 : 2;
+  // Hanya edukasi tindakan yang tersisa: langsung ke langkah TTE (tautan ke layar Edukasi tampil di sana).
+  return d.missing.every((m) => m === 'edukasi_tindakan') ? 3 : 2;
 }
 
 const toInput = (s: SignatureValue, relation: string | null) => ({
@@ -152,6 +153,7 @@ export function ConsentTabletApi({
     );
   };
 
+  const eduMissing = draft.missing.includes('edukasi_tindakan');
   let canNext = false;
   let nextLabel = 'Lanjut';
   let hint = '';
@@ -171,10 +173,12 @@ export function ConsentTabletApi({
           : 'Pasien/wali belum menandatangani.';
     }
   } else if (step === 2) {
-    canNext = saved && draft.missing.length === 0;
+    // Edukasi tindakan tidak menghalangi lanjut ke langkah TTE: di sana tautan ke layar Edukasi ditampilkan.
+    const signing = draft.missing.filter((m) => m !== 'edukasi_tindakan');
+    canNext = saved && signing.length === 0;
     nextLabel = 'Lanjut ke TTE dokter';
     if (!saved) hint = 'Simpan tanda tangan dulu.';
-    else if (draft.missing.length > 0) hint = `Menunggu ${MISSING_LABEL[draft.missing[0]!]}.`;
+    else if (signing.length > 0) hint = `Menunggu ${MISSING_LABEL[signing[0]!]}.`;
   } else {
     canNext = canSign && !iAmWitness && draft.missing.length === 0;
     nextLabel = 'Tanda tangani (TTE)';
@@ -230,6 +234,14 @@ export function ConsentTabletApi({
             <span id={`${id}-hint`} className="flex-1 text-right text-[13px] font-semibold text-warning">
               {hint}
             </span>
+            {eduMissing && (
+              <Link
+                href={educationHref(draft)}
+                className="inline-flex min-h-[52px] items-center rounded-control border border-line-strong bg-white px-4 text-[15px] font-semibold text-ink-900 no-underline"
+              >
+                Isi edukasi tindakan
+              </Link>
+            )}
             <button
               type="button"
               disabled={step === 0 || pending}

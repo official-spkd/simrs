@@ -13,7 +13,7 @@ vi.mock('next/navigation', () => ({
     throw new Error(`redirect ${url}`);
   },
 }));
-const { validateLabAction } = await import('@/app/(staf)/penunjang/lab/actions');
+const { validateLabAction } = await import('@/app/(staf)/penunjang/lab/actions-demo');
 const { processHl7Action } = await import('@/app/(staf)/sistem/integrasi/perangkat/actions');
 const { apiClientAction } = await import('@/app/(staf)/sistem/integrasi/api-publik/actions');
 const { readDomain, resetDemoData } = await import('./server/demo/state');

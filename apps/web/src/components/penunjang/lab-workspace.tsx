@@ -3,9 +3,13 @@
 import { type LabSample } from '@simrs/shared';
 import { KpiCard } from '@simrs/ui';
 import { useMemo, useState } from 'react';
-import { receiveLabAction, resampleLabAction, validateLabAction } from '@/app/(staf)/penunjang/lab/actions';
+import {
+  receiveLabAction,
+  resampleLabAction,
+  validateLabAction,
+} from '@/app/(staf)/penunjang/lab/actions-demo';
 import { useStoreAction } from '@/lib/demo/store/client';
-import type { StoredLabWorklist } from '@/lib/server/data/penunjang';
+import type { StoredLabWorklist } from '@/lib/server/data/penunjang/lab';
 import {
   applyLabLocal,
   criticalOpen,

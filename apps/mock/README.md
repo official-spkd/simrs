@@ -12,6 +12,7 @@ Mock semua integrasi eksternal (ADR-0006) di `http://localhost:4100`, dengan pan
 | `/tpdi/v1`         | TPDI                      | Invoice VA/QRIS idempotent, laporan transaksi, refund; webhook HMAC dari panel        |
 | `/btn/v1`          | BTN                       | Mutasi rekening dari invoice lunas; kerangka pembiayaan                               |
 | `/<sistem>/_echo`  | semua                     | Penerima pesan outbox contoh, dedup per `Idempotency-Key`                             |
+| (panel → SIM RS)   | Analyzer LIS              | Mengirim HL7 ORU^R01 ber-HMAC perangkat ke `LIS_HL7_TARGET` (lihat bagian LIS)        |
 
 `pnpm dev` (tsx watch, membaca `../../.env`), `pnpm test`.
 
@@ -54,13 +55,36 @@ Kontrak kabel (path, body, amplop, kode penolakan) ada di `@simrs/shared` → `i
 - SEP IGD (ASUMSI `VCLAIM_POLI_IGD` = `IGD`): rawat jalan tanpa rujukan, `dpjpLayan` boleh kosong (bila diisi harus dokter dikenal), satu per kartu per tanggal;
 - HFIS awal = jadwal minggu demo; perbedaan yang disemai: dr. Bagus (99003) tetap praktik Rabu 09:00–12:00 di HFIS, padahal cuti di jadwal RS Rabu 7 Okt 2026.
 
+## Analyzer laboratorium (S01, fase 4 §4.1b)
+
+Analyzer "tanpa merek" yang **mengirim** hasil ke SIM RS (arah masuk, bukan tujuan outbox), pola webhook TPDI:
+`POST LIS_HL7_TARGET` (bawaan `http://localhost:4000/api/v1/devices/lis/hl7`) dengan `Content-Type:
+application/hl7-v2`, `Authorization: Bearer <LIS_DEVICE_TOKEN>` (token prinsipal perangkat `dv1…`, ADR-0027),
+`X-Device-Timestamp` (detik epoch) dan `X-Device-Signature` = hex(HMAC-SHA256(`timestamp.body`, `LIS_DEVICE_SECRET`))
+(`lisSignature`, `@simrs/shared/node`). Isi dibangun `buildOru` (`@simrs/shared`): MSH-10 unik (`MOCKLIS…`), OBR-3 =
+barcode spesimen, **tanpa PID**, OBX LOINC (`LN`) dari `SEED_REF_SAMPLES` saja dengan nilai fiktif.
+
+| Templat      | Isi                                      |
+| ------------ | ---------------------------------------- |
+| `dl`         | Hemoglobin, leukosit, trombosit          |
+| `kimia`      | Glukosa sewaktu, ureum, kreatinin, CRP   |
+| `elektrolit` | Natrium, kalium, klorida                 |
+| `lipid`      | Kolesterol total, HDL, LDL, trigliserida |
+
+Skenario: `normal`; `kritis` (kalium 6,8, ditambahkan bila templat tanpa kalium); `delta-kreatinin` (kreatinin 2,4);
+`sebagian-tertunda` (separuh hasil terakhir OBX-11 `P` tanpa nilai). Gangguan per kirim: `duplicate` (dua kali, MSH-10
+sama), `badSignature` (HMAC dengan kunci salah), `unknownBarcode` (barcode acak `XX…`), `latencyMs` (jeda sebelum
+kirim). Balasan ACK dibaca (MSA-1 `AA`/`AE`/`AR`) dan tampil di panel bersama status HTTP.
+
 ## Panel dan API skenario
 
-Panel HTML: skenario per sistem, enkripsi BPJS, antrean BPJS + task ID per kode booking, SEP (+ tanggal pulang), rujukan keluar, Aplicare, tagihan TPDI, pesan outbox, kotak masuk, 50 request terakhir, reset. API-nya (juga untuk helper E2E):
+Panel HTML: skenario per sistem, enkripsi BPJS, antrean BPJS + task ID per kode booking, SEP (+ tanggal pulang), rujukan keluar, Aplicare, kirim hasil analyzer LIS, tagihan TPDI, pesan outbox, kotak masuk, 50 request terakhir, reset. API-nya (juga untuk helper E2E):
 
 | Metode + path                            | Body → respons                                                                                                                                                                                                              |
 | ---------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `GET /_panel/api/state`                  | → `{ systems[{ id, label, scenario }], bpjsEncryption, invoices, echoes, log, messages, bpjs }`                                                                                                                             |
+| `GET /_panel/api/state`                  | → `{ systems[{ id, label, scenario }], bpjsEncryption, invoices, echoes, log, messages, bpjs, lis: { target, templates, scenarios, deliveries } }`                                                                          |
+| `POST /_panel/api/lis/send`              | `{ barcode, template: dl\|kimia\|elektrolit\|lipid, scenario?, duplicate?, badSignature?, unknownBarcode?, latencyMs? }` → `{ controlId, barcode, message, deliveries[{ attempt, status, ack, signatureValid }] }`; 400     |
+| `POST /_panel/api/lis/reset`             | → riwayat kirim analyzer dikosongkan (`POST /_panel/api/reset` juga)                                                                                                                                                        |
 | `POST /_panel/api/scenario`              | `{ system, mode: normal\|lambat\|gagal\|acak\|timeout, latencyMs?, failStatus?, timeoutMs? }` → `{ mode, latencyMs, failStatus, timeoutMs }`; 400 bila tidak sah                                                            |
 | `POST /_panel/api/reset`                 | tanpa body → reset semua; `{ system }` → reset satu sistem (skenario + data) → `{ ok: true, system }`                                                                                                                       |
 | `POST /_panel/api/bpjs-encryption`       | `{ enabled }` → `{ bpjsEncryption }`                                                                                                                                                                                        |

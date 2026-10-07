@@ -3,7 +3,7 @@
 import type { OrCase, OrCaseStatus, OrRoom } from '@simrs/shared';
 import { cx } from '@simrs/ui';
 import { formatTanggalPendek } from '@/lib/btn';
-import { CASE_STATUS_LABEL, ganttBox, minutesLabel, scenarioCaseNote } from '@/lib/btn-ok';
+import { CASE_STATUS_LABEL, ganttBox, minutesLabel, scenarioCaseNote } from '@/lib/penunjang-ok';
 
 const BLOCK: Record<OrCaseStatus, string> = {
   berjalan: 'border-transparent bg-nav-active text-white shadow-[0_6px_16px_rgba(23,32,46,0.18)]',

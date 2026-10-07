@@ -1,41 +1,18 @@
-import { formatTanggalWaktu } from '@simrs/shared';
 import type { Metadata } from 'next';
-import Link from 'next/link';
-import { DemoAccessDenied } from '@/components/demo-access-denied';
-import { DepoWorkspace } from '@/components/penunjang/depo-workspace';
-import { ScenarioBanner } from '@/components/scenario-banner';
-import { getDepoData } from '@/lib/server/data/penunjang-lanjut';
-import { requireDemoScreen } from '@/lib/server/demo-guard';
+import { ScreenAccessDenied, ScreenNotConnected } from '@/components/screen-gate';
+import { requireScreen } from '@/lib/server/screen-guard';
+import { DemoDepo } from './demo-depo';
 
 export const metadata: Metadata = { title: 'Depo & stok farmasi' };
 
 /**
- * S05 · Depo dan stok farmasi: stok per depo dengan batch/ED, FEFO, mutasi antar depo dua langkah, stok opname, dan
- * peringatan kedaluwarsa. Mode presentasi: data dummy fiktif (ADR-0023).
+ * S05 · Layar hibrida Depo & stok farmasi (rencana fase 4 potongan 4.0c, pola 3.0d klinis): mode presentasi memakai data dummy
+ * (`demo-depo.tsx` + `actions-demo.ts`, dibekukan); mode api untuk peran yang memegang izin layar, jalur API diisi
+ * potongan 4.6a (sampai itu "Belum tersambung").
  */
 export default async function DepoPage() {
-  const { session, screen, allowed } = await requireDemoScreen('depo');
-  if (!allowed) return <DemoAccessDenied screen={screen} />;
-  const data = await getDepoData();
-  return (
-    <div className="flex flex-col gap-4">
-      <header className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex flex-col gap-0.5">
-          <span className="text-caption text-ink-500">
-            Penunjang / Farmasi / Depo dan stok · S05 · {session.tenant.name} · data per{' '}
-            {formatTanggalWaktu(data.asOf)}
-          </span>
-          <h1 className="m-0 text-h1 font-bold tracking-[-0.02em]">Depo & stok farmasi</h1>
-        </div>
-        <Link
-          href="/penunjang/farmasi"
-          className="inline-flex h-11 items-center rounded-control border border-[rgba(23,32,46,0.12)] bg-white/95 px-4 font-semibold text-ink-900 no-underline hover:shadow-[0_6px_16px_rgba(23,32,46,0.12)]"
-        >
-          Antrean resep
-        </Link>
-      </header>
-      <ScenarioBanner session={session} screen="depo" />
-      <DepoWorkspace userId={session.user.id} data={data} userName={session.user.displayName} />
-    </div>
-  );
+  const access = await requireScreen('depo');
+  if (access.mode === 'demo') return <DemoDepo access={access} />;
+  if (!access.allowed) return <ScreenAccessDenied screen={access.screen} />;
+  return <ScreenNotConnected screen={access.screen} role={access.session.role?.code ?? null} />;
 }

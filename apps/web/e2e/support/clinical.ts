@@ -2,12 +2,12 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
   ensurePublishedForm,
-  upgradePublishedForm,
   insertPatient,
   type PrismaClient,
   seedClinicalMasters,
   seedHospitalStructure,
   type TenantTx,
+  upgradePublishedForm,
   withTenant,
 } from '@simrs/db';
 import {
@@ -85,9 +85,9 @@ export async function ensureClinicalFixtures(prisma: PrismaClient, tenantId: str
   const fixtures = await withTenant(prisma, tenantId, async (tx) => {
     await seedHospitalStructure(tx, tenantId);
     await seedClinicalMasters(tx, tenantId);
-    // K11: templat persetujuan tindakan (tujuh butir) untuk tablet persetujuan mode api.
+    // K11: templat persetujuan tindakan (tujuh butir) untuk tablet persetujuan mode api, dan edukasi terintegrasi
+    // bertopik tindakan (syarat final persetujuan; versi lama tanpa topik itu dinaikkan seperti seed).
     await ensurePublishedForm(tx, tenantId, CONSENT_TEMPLATE_SAMPLE);
-    // K11 (3.8): edukasi terintegrasi bertopik tindakan = syarat final persetujuan (`CONSENT_EDUCATION_REQUIRED`).
     await upgradePublishedForm(tx, tenantId, EDUCATION_FORM_SAMPLE, educationFormSupportsConsent);
     const accounts = {
       dpjp: await account(tx, tenantId, 'dokter', 'MELATI', 'dr. DPJP E2E Fiktif, Sp.PD'),

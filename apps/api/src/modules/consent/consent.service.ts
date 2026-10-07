@@ -12,6 +12,8 @@ import {
   CONSENT_WITNESS_VALID_MINUTES,
   type ConsentDecision,
   consentEducationReady,
+  educationFormSupportsConsent,
+  type EncounterEducation,
   type ConsentDraft,
   type ConsentDraftCancelInput,
   type ConsentDraftCreateInput,
@@ -842,6 +844,53 @@ export class ConsentService {
     return new Set(
       encounterIds.filter((e) => consentEducationReady(rows.filter((r) => r.encounterId === e))),
     );
+  }
+
+  /** Edukasi terintegrasi kunjungan (layar Edukasi mode api): formulir terbit, status syarat persetujuan, riwayat. */
+  async education(encounterId: string): Promise<EncounterEducation> {
+    const enc = await clinicalEncounter(this.db, this.access, encounterId, 'read');
+    const tx = this.db.tx();
+    const [def, rows] = await Promise.all([
+      tx.formDefinition.findFirst({
+        where: { code: CONSENT_EDUCATION_FORM, status: 'published' },
+        select: { code: true, title: true, version: true, schema: true },
+      }),
+      tx.formResponse.findMany({
+        where: {
+          encounterId: enc.id,
+          formCode: CONSENT_EDUCATION_FORM,
+          status: 'final',
+          supersededBy: { none: {} },
+        },
+        orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+        select: { id: true, version: true, createdAt: true, createdBy: true, answers: true },
+      }),
+    ]);
+    const schema = def ? formSchemaSchema.safeParse(def.schema) : null;
+    const names = await this.records.userNames(rows.flatMap((r) => (r.createdBy ? [r.createdBy] : [])));
+    this.db.audit({
+      action: 'read',
+      resourceType: 'form_response',
+      patientId: enc.patientId,
+      details: { encounterId: enc.id, form: CONSENT_EDUCATION_FORM, count: rows.length },
+    });
+    return {
+      encounterId: enc.id,
+      patientId: enc.patientId,
+      form:
+        def && schema?.success
+          ? { code: def.code, title: def.title, version: def.version, schema: schema.data }
+          : null,
+      supportsConsent: schema?.success ? educationFormSupportsConsent(schema.data) : false,
+      ready: consentEducationReady(rows),
+      records: rows.map((r) => ({
+        id: r.id,
+        version: r.version,
+        createdAt: r.createdAt.toISOString(),
+        author: r.createdBy ? (names.get(r.createdBy) ?? null) : null,
+        answers: r.answers as FormAnswers,
+      })),
+    };
   }
 
   private async presentDrafts(rows: DraftRow[]): Promise<ConsentDraft[]> {

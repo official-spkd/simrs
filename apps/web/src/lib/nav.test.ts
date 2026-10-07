@@ -27,7 +27,10 @@ describe('navGroups', () => {
   it('menu berizin hanya tampil bila peran memegang izinnya', () => {
     const perawat = navGroups({ ...base, permissions: ['patient.read'] });
     expect(ids(perawat)).not.toContain('akses');
-    expect(ids(perawat)).toContain('lab');
+    // Layar tanpa izin api (mode presentasi saja) tetap tampil redup; layar hibrida berizin (Lab, 4.0c) tersembunyi.
+    expect(ids(perawat)).toContain('onkologi');
+    expect(ids(perawat)).not.toContain('lab');
+    expect(ids(navGroups({ ...base, permissions: ['lab.worklist.read'] }))).toContain('lab');
     const admin = navGroups({ ...base, role: 'admin_tenant', permissions: ['iam.users.read'] });
     expect(ids(admin)).toContain('akses');
   });
