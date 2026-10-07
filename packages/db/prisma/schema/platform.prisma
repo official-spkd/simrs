@@ -99,6 +99,7 @@ model Tenant {
   consents                Consent[]
   consentSignatures       ConsentSignature[]
   dischargeSummaries      DischargeSummary[]
+  deathCertificates       DeathCertificate[]
   dischargeMedications    DischargeMedication[]
   dischargeSummarySources DischargeSummarySource[]
 

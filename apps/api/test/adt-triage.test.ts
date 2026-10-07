@@ -196,6 +196,60 @@ beforeAll(async () => {
   });
 });
 
+/**
+ * Resume medis final ber-TTE (pending) untuk kunjungan rawat inap: syarat `DischargeGate` 3.6. Jalur lengkap
+ * (himpun → rekonsiliasi → TTE) diuji di `discharge.test.ts`; di sini cukup baris final + dokumen + tanda tangan.
+ */
+async function seedSignedResume(encounterId: string, disposition: string): Promise<void> {
+  await run(A.id, async (tx) => {
+    const enc = await tx.encounter.findUniqueOrThrow({ where: { id: encounterId } });
+    const id = newId();
+    await tx.dischargeSummary.create({
+      data: {
+        id,
+        tenantId: A.id,
+        patientId: enc.patientId,
+        encounterId,
+        rootId: id,
+        occurredAt: new Date(),
+        authorUserId: dpjpUserId,
+        authorRole: 'dokter',
+        kind: 'rawat_inap',
+        sections: {},
+        disposition,
+        dischargeCondition: 'Membaik',
+      },
+    });
+    const docId = newId();
+    await tx.document.create({
+      data: {
+        id: docId,
+        tenantId: A.id,
+        patientId: enc.patientId,
+        kind: 'resume',
+        title: 'Resume medis pulang',
+        fileName: 'resume.pdf',
+        mimeType: 'application/pdf',
+        sizeBytes: 10,
+        sha256: 'a'.repeat(64),
+        storageKey: `${A.id}/2026/10/${docId}`,
+        sourceType: 'discharge_summaries',
+        sourceId: id,
+      },
+    });
+    await tx.documentSignature.create({
+      data: {
+        id: newId(),
+        tenantId: A.id,
+        documentId: docId,
+        signerUserId: dpjpUserId,
+        documentSha256: 'a'.repeat(64),
+        verifyCode: `sv1.${A.id}.${'A'.repeat(11)}${newId().replace(/-/g, '')}`,
+      },
+    });
+  });
+}
+
 afterAll(async () => {
   await app?.close();
 });
@@ -494,7 +548,13 @@ describe('alur IGD → rawat inap → transfer → pulang (K04)', () => {
       await run(A.id, (tx) => tx.billableEvent.count({ where: { encounterId: imp, kind: 'transfer' } })),
     ).toBe(1);
 
-    // Pulang: bed kotor, gelang batal, disposisi tercatat, event adt.discharged.
+    // Pulang: tanpa resume final ber-TTE ditolak (DischargeGate 3.6); dengan resume → bed kotor, gelang batal,
+    // disposisi tercatat, event adt.discharged.
+    const blocked = await as('daftar')
+      .post('/adt/discharges', { encounterId: imp, disposition: 'pulang' })
+      .expect(409);
+    expect(blocked.body.code).toBe('DISCHARGE_BLOCKED');
+    await seedSignedResume(imp, 'pulang');
     await as('daftar').post('/adt/discharges', { encounterId: imp, disposition: 'pulang' }).expect(201);
     expect((await bedStatus(target)).status).toBe('kotor');
     const done = await run(A.id, (tx) => tx.encounter.findUniqueOrThrow({ where: { id: imp } }));

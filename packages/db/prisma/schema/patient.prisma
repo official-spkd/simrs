@@ -69,6 +69,7 @@ model Patient {
   consultResponses     ConsultResponse[]
   clinicalConsents     Consent[]
   dischargeSummaries   DischargeSummary[]
+  deathCertificates    DeathCertificate[]
 
   bedRequests               BedRequest[]
   bedAssignments            BedAssignment[]

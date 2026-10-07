@@ -685,3 +685,46 @@ model DischargeSummarySource {
   @@unique([tenantId, summaryId, section, sourceType, sourceId])
   @@map("discharge_summary_sources")
 }
+
+/// K13 · Surat keterangan kematian (keputusan K-1, 7 Okt 2026; berversi): jam kematian + sebab kematian ICD-10 (kode
+/// dari `ref`, trigger) oleh dokter yang berelasi dengan pasien; PDF ber-TTE dokter (`documents.source_type =
+/// 'death_certificates'`, terkunci lewat `ClinicalSigningService`). Satu rantai per kunjungan (indeks parsial manual
+/// `death_certificates_one_per_encounter`); koreksi hanya bila TTE gagal. Syarat `DischargeGate` disposisi `meninggal`.
+model DeathCertificate {
+  id               String   @id @db.Uuid
+  tenantId         String   @map("tenant_id") @db.Uuid
+  patientId        String   @map("patient_id") @db.Uuid
+  encounterId      String   @map("encounter_id") @db.Uuid
+  rootId           String   @map("root_id") @db.Uuid
+  version          Int      @default(1)
+  supersedesId     String?  @map("supersedes_id") @db.Uuid
+  addendumOf       String?  @map("addendum_of") @db.Uuid
+  status           String   @default("final")
+  correctionReason String?  @map("correction_reason")
+  occurredAt       DateTime @map("occurred_at") @db.Timestamptz(3)
+  recordedAt       DateTime @default(now()) @map("recorded_at") @db.Timestamptz(3)
+  authorUserId     String   @map("author_user_id") @db.Uuid
+  authorRole       String   @map("author_role")
+  /// Jam kematian.
+  diedAt           DateTime @map("died_at") @db.Timestamptz(3)
+  codeSystem       String   @default("icd10") @map("code_system")
+  /// Sebab kematian (ICD-10).
+  code             String
+  display          String
+  note             String?
+
+  tenant         Tenant             @relation(fields: [tenantId], references: [id])
+  patient        Patient            @relation(fields: [tenantId, patientId], references: [tenantId, id])
+  encounter      Encounter          @relation(fields: [tenantId, encounterId], references: [tenantId, id])
+  author         User               @relation("DeathCertificateAuthor", fields: [tenantId, authorUserId], references: [tenantId, id])
+  supersedes     DeathCertificate?  @relation("DeathCertificateVersion", fields: [tenantId, supersedesId], references: [tenantId, id])
+  supersededBy   DeathCertificate[] @relation("DeathCertificateVersion")
+  addendumTarget DeathCertificate?  @relation("DeathCertificateAddendum", fields: [tenantId, addendumOf], references: [tenantId, id])
+  addenda        DeathCertificate[] @relation("DeathCertificateAddendum")
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, rootId, version])
+  @@index([tenantId, encounterId])
+  @@index([tenantId, patientId])
+  @@map("death_certificates")
+}

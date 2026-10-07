@@ -59,6 +59,7 @@ model User {
   informedConsents           Consent[]              @relation("ConsentInformer")
   witnessedConsents          ConsentSignature[]     @relation("ConsentStaffWitness")
   authoredDischargeSummaries DischargeSummary[]     @relation("DischargeSummaryAuthor")
+  authoredDeathCertificates  DeathCertificate[]     @relation("DeathCertificateAuthor")
 
   wristbandScans            WristbandScan[]            @relation("WristbandScanUser")
   authoredTriage            TriageAssessment[]         @relation("TriageAuthor")
