@@ -7,6 +7,7 @@ const NOT_CONNECTED: Record<DevicePrincipalKind, string> = {
   kiosk:
     'Anjungan pendaftaran mandiri belum dapat dipakai. Silakan ambil nomor antrean di loket pendaftaran.',
   queue_display: 'Papan antrean belum tersambung. Nomor antrean dipanggil langsung oleh petugas.',
+  lab_analyzer: 'Analyzer laboratorium mengirim hasil dari gateway-nya sendiri, bukan lewat peramban.',
 };
 
 /** TV yang belum diikat admin ke papan antrean (Akses → Perangkat anjungan dan display). */

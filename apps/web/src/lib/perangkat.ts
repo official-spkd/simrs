@@ -6,7 +6,8 @@ import { safeNextPath } from './safe-path';
  * dibuka oleh PERANGKAT terdaftar (cookie `simrs_device`), bukan sesi staf; mode presentasi tetap di balik login staf.
  * Modul murni (dipakai proxy dan Server Component).
  */
-export const DEVICE_SCREEN_ROUTES: Readonly<Record<DevicePrincipalKind, string>> = {
+/** Analyzer lab (`lab_analyzer`) tidak punya layar peramban: mendaftar dan mengirim dari gateway-nya sendiri. */
+export const DEVICE_SCREEN_ROUTES: Readonly<Partial<Record<DevicePrincipalKind, string>>> = {
   kiosk: '/kiosk',
   queue_display: '/display',
 };

@@ -1,6 +1,6 @@
 'use server';
 
-import { createDeviceSchema, createdDeviceSchema, formatJam } from '@simrs/shared';
+import { createDeviceSchema, createdDeviceSchema, type DevicePrincipalKind, formatJam } from '@simrs/shared';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { z } from 'zod';
@@ -22,7 +22,7 @@ export interface DeviceActionResult {
   error?: string;
   fields?: Record<string, string>;
   message?: string;
-  created?: { name: string; code: string; expiresAt: string };
+  created?: { name: string; code: string; expiresAt: string; kind: DevicePrincipalKind };
 }
 
 async function authorize(): Promise<string | null> {
@@ -67,7 +67,12 @@ export async function createDeviceAction(
     revalidatePath(PATH);
     return {
       ok: true,
-      created: { name: res.device.name, code: res.enrolmentCode, expiresAt: res.enrolmentExpiresAt },
+      created: {
+        name: res.device.name,
+        code: res.enrolmentCode,
+        expiresAt: res.enrolmentExpiresAt,
+        kind: res.device.kind,
+      },
     };
   } catch (err) {
     return failure(err);
