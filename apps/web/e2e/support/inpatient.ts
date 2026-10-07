@@ -190,15 +190,18 @@ export async function admitPatient(ward: Ward, dpjp: Account, patientName: strin
     headers: { 'content-type': 'application/json', authorization: `Bearer ${await apiToken(admisi)}` },
     body: JSON.stringify({ encounterId, locationId: ward.bedId, initialDiagnosis: null }),
   });
-  const body = (await res.json()) as { wristbandCode?: string; message?: string };
-  if (res.status !== 201 || !body.wristbandCode)
-    throw new Error(`Admisi uji gagal ${res.status}: ${body.message}`);
+  const body = (await res.json()) as { message?: string };
+  if (res.status !== 201) throw new Error(`Admisi uji gagal ${res.status}: ${body.message}`);
+  // Respons admisi tanpa kode gelang (ADR-0109): kode "hasil pindai" uji dibaca dari baris gelang aktif.
+  const band = await inTenant(TENANTS.RSFA, (tx) =>
+    tx.patientWristband.findFirstOrThrow({ where: { encounterId, voidedAt: null }, select: { code: true } }),
+  );
   return {
     encounterId,
     patientId: patient.id,
     patientName,
     mrn: patient.mrn,
-    wristbandCode: body.wristbandCode,
+    wristbandCode: band.code,
   };
 }
 
