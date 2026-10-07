@@ -7,6 +7,7 @@ import {
   medicationAdministrationInputSchema,
   medicationDoubleCheckInputSchema,
   nursingCarePlanInputSchema,
+  nursingEncounterQuerySchema,
   wristbandScanInputSchema,
   type FluidBalanceInput,
   type MedicationAdministrationInput,
@@ -44,6 +45,20 @@ export class NursingController {
     const scan = await this.db.transaction(() => this.emar.scan(body));
     if (!scan.matched) throw clinicalError('WRISTBAND_MISMATCH');
     return scan;
+  }
+
+  /** Pindaian cocok yang masih berlaku (cek ganda dua sesi: perawat kedua memilih pindaian rekan). */
+  @RequirePermission('medication', 'administer')
+  @Get('wristband-scans')
+  activeScans(@Query(new ZodValidationPipe(nursingEncounterQuerySchema)) q: { encounterId: string }) {
+    return this.emar.activeScans(q.encounterId);
+  }
+
+  /** Atestasi cek ganda atas pindaian yang masih berlaku (isi dosis beku untuk pemberian). */
+  @RequirePermission('medication', 'administer')
+  @Get('double-checks')
+  doubleChecks(@Query(new ZodValidationPipe(nursingEncounterQuerySchema)) q: { encounterId: string }) {
+    return this.emar.doubleChecks(q.encounterId);
   }
 
   @RequirePermission('clinical', 'read')
@@ -99,6 +114,46 @@ export class NursingController {
   @Get('fluid-balances/:encounterId')
   fluids(
     @Param('encounterId', uuid) id: string,
+    @Query(new ZodValidationPipe(emarQuerySchema)) query: { date?: string },
+  ) {
+    return this.care.fluids(id, query.date);
+  }
+}
+
+/**
+ * K12 · Alias rute per kunjungan kanonik (`/api/v1/encounters/:id/<sumber>`, keputusan orkestrator W4): papan eMAR,
+ * rencana asuhan, dan balans cairan. Izin, ABAC, dan audit sama persis dengan rute `/nursing/...` (layanan yang sama);
+ * rute lama tetap berlaku.
+ */
+@ApiTags('klinis · keperawatan')
+@TenantScoped()
+@RequireModule('K12')
+@Controller('encounters')
+export class EncounterNursingController {
+  constructor(
+    private readonly emar: EmarService,
+    private readonly care: NursingCareService,
+  ) {}
+
+  @RequirePermission('clinical', 'read')
+  @Get(':id/emar')
+  board(
+    @Param('id', uuid) id: string,
+    @Query(new ZodValidationPipe(emarQuerySchema)) query: { date?: string },
+  ) {
+    return this.emar.board(id, query.date);
+  }
+
+  @RequirePermission('clinical', 'read')
+  @Get(':id/care-plans')
+  plans(@Param('id', uuid) id: string) {
+    return this.care.plans(id);
+  }
+
+  @RequirePermission('clinical', 'read')
+  @Get(':id/fluid-balances')
+  fluids(
+    @Param('id', uuid) id: string,
     @Query(new ZodValidationPipe(emarQuerySchema)) query: { date?: string },
   ) {
     return this.care.fluids(id, query.date);
