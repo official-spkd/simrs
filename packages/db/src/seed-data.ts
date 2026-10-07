@@ -40,7 +40,7 @@ export const SEED_LOCAL_TENANTS = [
 ] as const;
 
 /**
- * Posisi akun demo lokal (`pnpm db:create-demo`): semua 16 peran bawaan, dengan unit kerja seed yang paling
+ * Posisi akun demo lokal (`pnpm db:create-demo`): semua 17 peran bawaan, dengan unit kerja seed yang paling
  * sesuai (null = semua unit). Akun demo hanya untuk mencoba layar per posisi; tidak pernah ada di produksi.
  */
 export const DEMO_POSITIONS: ReadonlyArray<readonly [role: string, unitCode: string | null]> = [
@@ -51,6 +51,7 @@ export const DEMO_POSITIONS: ReadonlyArray<readonly [role: string, unitCode: str
   ['apoteker', 'FARMASI'],
   ['analis_lab', 'LAB'],
   ['radiografer', 'RAD'],
+  ['ahli_gizi', null],
   ['petugas_pendaftaran', null],
   ['kasir', 'KASIR'],
   ['koder', 'REKAM-MEDIS'],
@@ -88,6 +89,7 @@ export const PRESENTATION_PERSONAS: ReadonlyArray<{
   { slug: 'apoteker', role: 'apoteker', unitCode: 'FARMASI', displayName: 'apt. Dewi Anggraini, S.Farm.' },
   { slug: 'analis-lab', role: 'analis_lab', unitCode: 'LAB', displayName: 'Fitri Handayani, A.Md.AK' },
   { slug: 'radiografer', role: 'radiografer', unitCode: 'RAD', displayName: 'Bayu Saputra, A.Md.Rad' },
+  { slug: 'ahli-gizi', role: 'ahli_gizi', unitCode: null, displayName: 'Sri Wahyuni, S.Gz' },
   { slug: 'kasir', role: 'kasir', unitCode: 'KASIR', displayName: 'Hendra Wijaya' },
   { slug: 'koder', role: 'koder', unitCode: 'REKAM-MEDIS', displayName: 'Arif Nugroho, A.Md.RMIK' },
   { slug: 'akuntan', role: 'akuntan', unitCode: null, displayName: 'Yulia Permatasari, S.E., Ak.' },
@@ -146,7 +148,7 @@ export interface SeedStaffMember {
 
 /**
  * Staf fiktif per RS seed (fase 1 potongan 10d, docs/09: "±30 staf lintas peran"): 33 orang yang mencakup
- * 16 peran bawaan dan unit seed. Daftar yang sama dipakai di setiap RS seed (NIP hanya unik per RS).
+ * 17 peran bawaan dan unit seed. Daftar yang sama dipakai di setiap RS seed (NIP hanya unik per RS).
  *
  * Akun dibuat TANPA kata sandi dan tanpa MFA, jadi tidak ada yang bisa masuk sebagai staf seed sampai admin SIM RS
  * memberi sandi sementara lewat "Reset kata sandi" di layar Akses (lalu login pertama: daftar MFA + ganti sandi).
@@ -230,6 +232,8 @@ export const SEED_STAFF: readonly SeedStaffMember[] = [
     displayName: 'Krisna Mahendra, A.Md.Rad',
     positions: [['radiografer', 'RAD']],
   },
+  // S07 · Ahli gizi (fase 4): melayani semua bangsal, tanpa unit tetap.
+  { nip: '999906112020122034', displayName: 'Nurul Hidayah, S.Gz', positions: [['ahli_gizi', null]] },
   // Administrasi pelayanan dan keuangan.
   { nip: '999908142023052024', displayName: 'Siti Khodijah', positions: [['petugas_pendaftaran', null]] },
   { nip: '999901292022022025', displayName: 'Meiliana Gunawan', positions: [['kasir', 'KASIR']] },

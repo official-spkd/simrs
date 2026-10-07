@@ -86,7 +86,7 @@ Browser tidak pernah memanggil API langsung. Web (Next.js) menjadi perantara: to
 
 Hak akses berlapis. Setiap lapis harus lolos:
 
-1. **Peran (RBAC).** Setiap staf punya satu atau lebih _penugasan_: peran di unit tertentu dengan masa berlaku. Saat login, staf memakai satu penugasan. Setiap RS punya 16 peran sistem dengan matriks izin bawaan berprinsip hak minimum. Admin SIM RS bisa menyesuaikan matriks itu, dan setiap perubahannya diaudit.
+1. **Peran (RBAC).** Setiap staf punya satu atau lebih _penugasan_: peran di unit tertentu dengan masa berlaku. Saat login, staf memakai satu penugasan. Setiap RS punya 17 peran sistem dengan matriks izin bawaan berprinsip hak minimum. Admin SIM RS bisa menyesuaikan matriks itu, dan setiap perubahannya diaudit.
 2. **Relasi dengan pasien (ABAC).** Peran klinis (dokter, perawat, dan lainnya) hanya bisa membuka pasien yang sedang dirawatnya: sebagai DPJP, perawat penanggung jawab, rawat bersama, konsultan, atau petugas unit. Bila admin RS memberi suatu peran lingkup **unit**, staf itu juga bisa membuka pasien yang sedang punya kunjungan aktif di unit penugasannya (mis. perawat IGD membuka semua pasien yang sedang di IGD, termasuk pasien tanpa identitas); akses itu berakhir saat kunjungan selesai atau dibatalkan (ADR-0031). Peran administratif seperti pendaftaran dan rekam medis berizin ke seluruh pasien.
 3. **Akses darurat (break-the-glass).** Bila keadaan klinis mendesak dan relasi belum tercatat, staf boleh membuka pasien dengan menulis alasan klinis. Akses berlaku sementara (bawaan 60 menit), petugas privasi langsung diberi tahu, dan setiap akses darurat wajib ditinjau.
 
@@ -220,7 +220,7 @@ Selama pengembangan, semua sistem luar ditiru oleh `apps/mock` di `http://localh
 
 Semua data lokal **fiktif**. NIK uji berawalan `9999`, kode CBG berawalan `SIM-`. Tenant RSFA/RSFB bernama "RS Fiktif …"; tenant RSCM memakai nama RS sebenarnya (fokus pengembangan lokal), tetapi kode Kemenkes/BPJS/SATUSEHAT, pasien, dan stafnya fiktif. Jangan pernah memasukkan data pasien asli ke lingkungan pengembangan.
 
-Seed juga mengisi 33 staf fiktif per RS (16 peran, penugasan per unit) dengan NIP fiktif berawalan `9999` sebagai nama pengguna. Staf seed sengaja dibuat **tanpa kata sandi**: tidak ada akun dengan sandi bawaan yang bisa dipakai siapa pun. Staf baru bisa masuk setelah admin SIM RS memberi sandi sementara lewat **Reset kata sandi** di layar Pengguna & akses, lalu mendaftarkan MFA dan mengganti sandi saat login pertama.
+Seed juga mengisi 34 staf fiktif per RS (17 peran, penugasan per unit) dengan NIP fiktif berawalan `9999` sebagai nama pengguna. Staf seed sengaja dibuat **tanpa kata sandi**: tidak ada akun dengan sandi bawaan yang bisa dipakai siapa pun. Staf baru bisa masuk setelah admin SIM RS memberi sandi sementara lewat **Reset kata sandi** di layar Pengguna & akses, lalu mendaftarkan MFA dan mengganti sandi saat login pertama.
 
 ## Peta fase
 

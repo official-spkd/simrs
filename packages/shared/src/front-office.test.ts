@@ -237,7 +237,7 @@ describe('event domain', () => {
   const ev = (e: Omit<DomainEvent, 'occurredAt'>) =>
     bpjsTaskForEvent({ ...e, occurredAt: new Date(AT) } as DomainEvent)?.taskId ?? null;
 
-  it('daftar nama event sesuai rencana fase 2 (+ booking.cancelled untuk task 99) dan fase 3 §3.0a', () => {
+  it('daftar nama event sesuai rencana fase 2 (+ booking.cancelled untuk task 99), fase 3 §3.0a, dan fase 4 §4.0a', () => {
     expect([...DOMAIN_EVENT_NAMES].sort()).toEqual(
       [
         'booking.cancelled',
@@ -261,6 +261,32 @@ describe('event domain', () => {
         'bed.status_changed',
         'discharge.signed',
         'consent.signed',
+        // Fase 4 · penunjang
+        'lab.order_accepted',
+        'lab.specimen_received',
+        'lab.specimen_rejected',
+        'lab.result_released',
+        'lab.result_corrected',
+        'lab.test_voided',
+        'critical_result.raised',
+        'critical_result.reported',
+        'critical_result.escalated',
+        'radiology.exam_completed',
+        'radiology.report_signed',
+        'pharmacy.service_started',
+        'pharmacy.dispensed',
+        'pharmacy.returned',
+        'stock.received',
+        'stock.adjusted',
+        'stock.transferred',
+        'surgery.case_scheduled',
+        'surgery.incision_recorded',
+        'surgery.case_completed',
+        'surgery.case_cancelled',
+        'blood.unit_issued',
+        'diagnostic.report_signed',
+        'micro.report_released',
+        'pa.report_signed',
       ].sort(),
     );
     expect(isDomainEventName('queue.ticket_called')).toBe(true);

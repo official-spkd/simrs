@@ -151,6 +151,47 @@ export const TENANT_SETTINGS = {
     z.number().int().min(3).max(10),
     5,
   ),
+  // S01–S10 · Penunjang (fase 4, rencana §4.0a)
+  'critical.report_limit_minutes': def(
+    'Batas waktu pelaporan nilai kritis ke dokter sejak hasil masuk (menit)',
+    z.number().int().min(5).max(120),
+    30,
+  ),
+  'critical.escalation_step_minutes': def(
+    'Jarak antar-tingkat eskalasi nilai kritis yang belum dilaporkan (menit)',
+    z.number().int().min(5).max(120),
+    30,
+  ),
+  'lab.tat_target_routine_minutes': def(
+    'Target waktu tunggu hasil lab rutin, sampel diterima → rilis (menit)',
+    z.number().int().min(15).max(1440),
+    60,
+  ),
+  'lab.tat_target_cito_minutes': def(
+    'Target waktu tunggu hasil lab cito, sampel diterima → rilis (menit)',
+    z.number().int().min(10).max(720),
+    45,
+  ),
+  'radiology.contrast_egfr_min': def(
+    'eGFR minimum untuk pemeriksaan radiologi berkontras (mL/menit/1,73 m²); di bawahnya butuh override dokter',
+    z.number().int().min(15).max(90),
+    30,
+  ),
+  'stock.expiry_warning_days': def(
+    'Batch ditandai mendekati kedaluwarsa bila ED kurang dari (hari)',
+    z.number().int().min(7).max(365),
+    90,
+  ),
+  'surgery.override_reason_min': def(
+    'Panjang minimum alasan override insisi sebelum time out (karakter)',
+    z.number().int().min(15).max(200),
+    15,
+  ),
+  'pharmacy.override_reason_min': def(
+    'Panjang minimum alasan override peringatan CDS saat telaah farmasi (karakter)',
+    z.number().int().min(10).max(200),
+    10,
+  ),
   'bed.boarding_alert_hours': def(
     'Peringatan pasien IGD menunggu bed rawat inap (boarding) setelah (jam)',
     z.number().int().min(1).max(24),

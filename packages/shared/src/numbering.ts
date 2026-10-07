@@ -24,6 +24,9 @@ const pad = (v: bigint, digits: number) => v.toString().padStart(digits, '0');
 /** Kode layanan antrean = awalan nomor antrean: poli `PD`, loket admisi `A`, farmasi `F` (docs/04 §5). */
 export const QUEUE_PREFIX_PATTERN = /^[A-Z]{1,2}$/;
 
+/** S01 · Nomor laboratorium `L` + YYMMDD + 4 digit (kontrak `labSampleSchema.labNo`). */
+export const LAB_NO_PATTERN = /^L\d{10}$/;
+
 /** Kode booking 10 digit: `YYMMDD` tanggal layanan + 4 digit urut (mis. `2610050117`, anjungan: keypad 10 digit). */
 export const BOOKING_CODE_PATTERN = /^\d{10}$/;
 
@@ -85,6 +88,51 @@ export const NUMBER_KINDS = {
     period: 'day',
     max: 9_999n,
     format: (v, p) => `${p}${pad(v, 4)}`,
+  },
+  // S01–S08 · Penunjang (fase 4, rencana §4.0a)
+  /** S01 · Nomor laboratorium (barcode tabung): `L` + YYMMDD + 4 digit, urut harian (`L2610070001`). */
+  lab_no: { label: 'Nomor laboratorium', period: 'day', max: 9_999n, format: (v, p) => `L${p}${pad(v, 4)}` },
+  /** S03 · Nomor akses radiologi (siap untuk PACS/MWL): `RAD-YYMM-NNNN`. */
+  rad_accession: {
+    label: 'Nomor akses radiologi',
+    period: 'month',
+    max: 9_999n,
+    format: (v, p) => `RAD-${p}-${pad(v, 4)}`,
+  },
+  /** S04 · Nomor resep farmasi: `R-YYMM-NNNN`. */
+  prescription_no: {
+    label: 'Nomor resep',
+    period: 'month',
+    max: 9_999n,
+    format: (v, p) => `R-${p}-${pad(v, 4)}`,
+  },
+  /** S06 · Nomor kasus kamar operasi: `OK-YYMM-NNNN`. */
+  surgery_case: {
+    label: 'Nomor kasus operasi',
+    period: 'month',
+    max: 9_999n,
+    format: (v, p) => `OK-${p}-${pad(v, 4)}`,
+  },
+  /** S05 · Penerimaan barang depo/gudang: `TRM-YYMM-NNNN`. */
+  stock_receipt: {
+    label: 'Penerimaan stok',
+    period: 'month',
+    max: 9_999n,
+    format: (v, p) => `TRM-${p}-${pad(v, 4)}`,
+  },
+  /** S05 · Mutasi antar-depo: `MUT-YYMM-NNNN`. */
+  stock_transfer: {
+    label: 'Mutasi stok',
+    period: 'month',
+    max: 9_999n,
+    format: (v, p) => `MUT-${p}-${pad(v, 4)}`,
+  },
+  /** S08 · Permintaan darah: `BD-YYMM-NNNN`. */
+  blood_request: {
+    label: 'Permintaan darah',
+    period: 'month',
+    max: 9_999n,
+    format: (v, p) => `BD-${p}-${pad(v, 4)}`,
   },
   /** F04 · Nomor antrean `<kode layanan>-<3 digit>` per layanan per hari: `PD-027`, `A-031`, `F-021`. */
   queue_ticket: {
