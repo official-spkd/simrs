@@ -1,0 +1,162 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 720" width="1000" height="720" role="img" aria-labelledby="judul ket">
+  <title id="judul">Satu permintaan tulis dari layar ke database</title>
+  <desc id="ket">Layar memanggil Server Action di web Next.js. Server Action memeriksa sesi, izin, dan input, lalu memanggil API lewat fungsi api() dengan token dari cookie httpOnly. API memasang header keamanan dan request id, membatasi laju, mengenali sesi, memeriksa izin peran dan modul aktif, memvalidasi input dengan zod, lalu service memeriksa relasi pasien (ABAC) dan aturan bisnis. Semua tulisan berada dalam satu transaksi bertenant dengan RLS: baris domain, kunci idempotensi, event domain, pesan outbox pending atau held, peristiwa biaya, dan jejak audit. Setelah commit, worker mengirim outbox ke sistem luar (lokal: mock), trigger pg_notify memicu aliran SSE ke layar, dan permintaan TTE diproses worker. Galat apa pun membatalkan seluruh transaksi dan klien menerima kode galat stabil.</desc>
+  <style>
+    .bg{fill:#F5F7F9}.card{fill:#FFFFFF;stroke:#E3E8EE;stroke-width:1.2}.brandbox{fill:#E6F4F1;stroke:#0F766E;stroke-width:1.4}
+    .warnbox{fill:#FFF3E0;stroke:#E0B070;stroke-width:1.2}.dangerbox{fill:#FDECEA;stroke:#B42318;stroke-width:1.2}
+    text{font-family:"IBM Plex Sans","Segoe UI",system-ui,-apple-system,Helvetica,Arial,sans-serif;fill:#14212B;font-size:13px}
+    .h{font-size:19px;font-weight:700}.sub{font-size:13px;fill:#3F4C58}.cap{font-size:11px;font-weight:700;letter-spacing:.08em;fill:#5B6B79}
+    .b{font-weight:600}.s{font-size:12px;fill:#3F4C58}.xs{font-size:11px;fill:#5B6B79}.mono{font-family:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;font-size:11px}
+    .tb{fill:#0B5D56}.tw{fill:#8A4B00}.td{fill:#B42318}
+    .ln{stroke:#5B6B79;stroke-width:1.5;fill:none}.lnb{stroke:#0F766E;stroke-width:1.8;fill:none}.lnd{stroke:#B42318;stroke-width:1.5;fill:none;stroke-dasharray:5 4}
+    .ah{fill:#5B6B79}.ahb{fill:#0F766E}.ahd{fill:#B42318}
+    .num{fill:#0F766E}.numt{fill:#FFFFFF;font-size:11px;font-weight:700}
+    @media (prefers-color-scheme: dark){
+      .bg{fill:#0E161C}.card{fill:#15212A;stroke:#2A3945}.brandbox{fill:#0F302D;stroke:#3FB8AA}.warnbox{fill:#362510;stroke:#8A5A1E}.dangerbox{fill:#3A1714;stroke:#F2877C}
+      text{fill:#E6EDF3}.sub,.s{fill:#B8C4CE}.cap,.xs{fill:#8FA1B0}.tb{fill:#6FD3C6}.tw{fill:#F0B45A}.td{fill:#F2877C}
+      .ln{stroke:#8FA1B0}.lnb{stroke:#3FB8AA}.lnd{stroke:#F2877C}.ah{fill:#8FA1B0}.ahb{fill:#3FB8AA}.ahd{fill:#F2877C}
+      .num{fill:#3FB8AA}.numt{fill:#0E161C}
+    }
+  </style>
+  <defs>
+    <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="ah" d="M0 0L10 5L0 10z"/></marker>
+    <marker id="ab" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="ahb" d="M0 0L10 5L0 10z"/></marker>
+    <marker id="ad" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="ahd" d="M0 0L10 5L0 10z"/></marker>
+  </defs>
+  <rect class="bg" x="0" y="0" width="1000" height="720" rx="14"/>
+  <text class="h" x="24" y="38">Satu permintaan tulis: dari layar ke database, lalu sesudahnya</text>
+  <text class="sub" x="24" y="60">Contoh nyata: Pendaftaran rawat jalan → POST /api/v1/registration/outpatient. Semua tulisan commit bersama, atau batal bersama.</text>
+
+  <!-- Judul kolom -->
+  <text class="cap" x="24" y="96">WEB · NEXT.JS (BFF)</text>
+  <text class="cap" x="250" y="96">API · NESTJS /api/v1</text>
+  <text class="cap" x="526" y="96">SATU TRANSAKSI BERTENANT (RLS)</text>
+  <text class="cap" x="790" y="96">SETELAH COMMIT</text>
+
+  <!-- Kolom web -->
+  <rect class="card" x="24" y="108" width="196" height="70" rx="10"/>
+  <text class="b" x="38" y="130">Layar (komponen klien)</text>
+  <text class="xs" x="38" y="148">tidak pernah melihat token</text>
+  <text class="xs" x="38" y="164">memanggil Server Action</text>
+  <path class="ln" d="M122 178V196" marker-end="url(#a)"/>
+
+  <rect class="brandbox" x="24" y="200" width="196" height="118" rx="10"/>
+  <text class="b tb" x="38" y="222">Server Action</text>
+  <text class="s" x="38" y="242">• cek sesi + izin sendiri</text>
+  <text class="s" x="38" y="260">• validasi input (zod)</text>
+  <text class="s" x="38" y="278">• Idempotency-Key</text>
+  <text class="mono" x="38" y="300">registerOutpatientAction</text>
+  <path class="ln" d="M122 318V336" marker-end="url(#a)"/>
+
+  <rect class="brandbox" x="24" y="340" width="196" height="118" rx="10"/>
+  <text class="b tb" x="38" y="362">api() · lib/server/api.ts</text>
+  <text class="s" x="38" y="382">• token dari cookie httpOnly</text>
+  <text class="s" x="38" y="400">• tanpa cache, batas waktu</text>
+  <text class="s" x="38" y="418">• respons dicek skema zod</text>
+  <text class="xs" x="38" y="442">satu-satunya pintu web → API</text>
+  <path class="lnb" d="M220 400H236V140H246" marker-end="url(#ab)"/>
+
+  <rect class="warnbox" x="24" y="480" width="196" height="76" rx="10"/>
+  <text class="b tw" x="38" y="502">Mode presentasi</text>
+  <text class="xs" x="38" y="520">DATA_SOURCE=demo: toko demo,</text>
+  <text class="xs" x="38" y="536">API tidak dipanggil (ADR-0023)</text>
+
+  <!-- Kolom API -->
+  <rect class="card" x="250" y="108" width="246" height="378" rx="12"/>
+  <circle class="num" cx="268" cy="134" r="9"/><text class="numt" x="268" y="138" text-anchor="middle">1</text>
+  <text class="s" x="284" y="138">header keamanan + request id</text>
+  <circle class="num" cx="268" cy="166" r="9"/><text class="numt" x="268" y="170" text-anchor="middle">2</text>
+  <text class="s" x="284" y="170">batas laju per IP</text>
+  <circle class="num" cx="268" cy="198" r="9"/><text class="numt" x="268" y="202" text-anchor="middle">3</text>
+  <text class="s" x="284" y="202">AuthGuard: sesi → tenant, pengguna,</text>
+  <text class="s" x="284" y="218">peran, unit; batas laju per pengguna</text>
+  <circle class="num" cx="268" cy="246" r="9"/><text class="numt" x="268" y="250" text-anchor="middle">4</text>
+  <text class="s" x="284" y="250">@RequirePermission → lingkup</text>
+  <text class="mono" x="284" y="266">all | unit | relationship</text>
+  <circle class="num" cx="268" cy="294" r="9"/><text class="numt" x="268" y="298" text-anchor="middle">5</text>
+  <text class="s" x="284" y="298">@RequireModule (modul aktif RS)</text>
+  <circle class="num" cx="268" cy="326" r="9"/><text class="numt" x="268" y="330" text-anchor="middle">6</text>
+  <text class="s" x="284" y="330">ZodValidationPipe (field asing ditolak)</text>
+  <circle class="num" cx="268" cy="358" r="9"/><text class="numt" x="268" y="362" text-anchor="middle">7</text>
+  <text class="s" x="284" y="362">service: ABAC pasien</text>
+  <text class="mono" x="284" y="378">PatientAccessService.assert</text>
+  <text class="s" x="284" y="396">+ aturan bisnis → repository</text>
+  <line class="ln" x1="266" y1="414" x2="480" y2="414" stroke-dasharray="3 3"/>
+  <text class="xs" x="266" y="434">langkah 5–7 + audit berjalan di dalam</text>
+  <text class="xs" x="266" y="450">transaksi (TenantTransactionInterceptor)</text>
+  <text class="xs" x="266" y="470">@NoRequestTransaction: lookup, SSE, CDS</text>
+  <path class="lnb" d="M496 300H522" marker-end="url(#ab)"/>
+
+  <!-- Penolakan -->
+  <rect class="dangerbox" x="250" y="504" width="246" height="82" rx="10"/>
+  <text class="b td" x="266" y="526">Ditolak di langkah mana pun</text>
+  <text class="xs" x="266" y="544">izin/ABAC → access_denied di-commit</text>
+  <text class="xs" x="266" y="560">di transaksi terpisah, lalu 403</text>
+  <text class="mono" x="262" y="577" style="font-size:10.5px">{code, message, details, requestId}</text>
+  <path class="lnd" d="M373 486V500" marker-end="url(#ad)"/>
+
+  <!-- Transaksi -->
+  <rect class="brandbox" x="526" y="108" width="240" height="478" rx="12"/>
+  <text class="mono" x="542" y="134">set_config('app.tenant_id')</text>
+  <text class="xs" x="542" y="150">tanpa konteks → TENANT_REQUIRED</text>
+  <rect class="card" x="540" y="164" width="212" height="44" rx="8"/>
+  <text class="b" x="552" y="183">baris domain</text>
+  <text class="xs" x="552" y="199">klinis: lewat ClinicalRecordService</text>
+  <rect class="card" x="540" y="216" width="212" height="34" rx="8"/>
+  <text class="mono" x="552" y="238">idempotency_keys</text>
+  <rect class="card" x="540" y="258" width="212" height="44" rx="8"/>
+  <text class="mono" x="552" y="277">domain_events</text>
+  <text class="xs" x="552" y="293">penangan sinkron, transaksi sama</text>
+  <rect class="card" x="540" y="310" width="212" height="44" rx="8"/>
+  <text class="mono" x="552" y="329">outbox_messages</text>
+  <text class="xs" x="552" y="345">pending · held (SATUSEHAT)</text>
+  <rect class="card" x="540" y="362" width="212" height="44" rx="8"/>
+  <text class="mono" x="552" y="381">billable_events</text>
+  <text class="xs" x="552" y="397">tanpa harga, idempoten</text>
+  <rect class="card" x="540" y="414" width="212" height="44" rx="8"/>
+  <text class="mono" x="552" y="433">audit_events</text>
+  <text class="xs" x="552" y="449">@Audited + db.audit, hash berantai</text>
+  <line class="ln" x1="542" y1="474" x2="750" y2="474" stroke-dasharray="3 3"/>
+  <text class="b tb" x="542" y="498">COMMIT</text>
+  <text class="xs" x="542" y="516">semua tulisan di atas tersimpan</text>
+  <text class="xs" x="542" y="532">bersama, atau batal bersama</text>
+  <text class="xs" x="542" y="556">role simrs_app tanpa BYPASSRLS</text>
+  <text class="xs" x="542" y="572">tabel klinis: UPDATE/DELETE ditolak</text>
+  <path class="lnb" d="M766 200H786" marker-end="url(#ab)"/>
+  <path class="lnb" d="M766 360H786" marker-end="url(#ab)"/>
+  <path class="lnb" d="M766 500H786" marker-end="url(#ab)"/>
+
+  <!-- Setelah commit -->
+  <rect class="card" x="790" y="108" width="186" height="168" rx="12"/>
+  <text class="b" x="804" y="130">Worker (BullMQ)</text>
+  <text class="s" x="804" y="150">klaim outbox pending</text>
+  <text class="s" x="804" y="168">→ mock :4100 (lokal)</text>
+  <text class="s" x="804" y="186">retry eksponensial</text>
+  <text class="s" x="804" y="204">gagal permanen → DLQ</text>
+  <text class="xs" x="804" y="226">held tidak diklaim: dilepas</text>
+  <text class="xs" x="804" y="242">fase 7 (Encounter dulu)</text>
+  <text class="xs" x="804" y="262">job berkala per tenant</text>
+
+  <rect class="card" x="790" y="292" width="186" height="140" rx="12"/>
+  <text class="b" x="804" y="314">Waktu nyata (SSE)</text>
+  <text class="s" x="804" y="334">trigger pg_notify</text>
+  <text class="mono" x="804" y="350">{ tenant_id, id }</text>
+  <text class="s" x="804" y="370">→ satu LISTEN per API</text>
+  <text class="s" x="804" y="388">→ baris dibaca lewat RLS</text>
+  <text class="s" x="804" y="406">→ BFF → layar</text>
+  <text class="xs" x="804" y="424">antrean, IGD, bed, EWS</text>
+
+  <rect class="card" x="790" y="448" width="186" height="138" rx="12"/>
+  <text class="b" x="804" y="470">TTE dokumen klinis</text>
+  <text class="s" x="804" y="490">outbox tte.sign</text>
+  <text class="s" x="804" y="508">hanya hash dikirim</text>
+  <text class="s" x="804" y="526">signature: pending</text>
+  <text class="s" x="804" y="544">→ signed / failed</text>
+  <text class="xs" x="804" y="566">versi sumber terkunci</text>
+  <text class="xs" x="804" y="580">(RECORD_LOCKED)</text>
+
+  <!-- Jalur balik -->
+  <path class="ln" d="M646 586V640H12V430H20" marker-end="url(#a)"/>
+  <text class="s" x="30" y="630">respons JSON (mis. 201) atau galat stabil → api() → Server Action → pesan di layar</text>
+  <text class="xs" x="24" y="690">Rujukan: TenantTransactionInterceptor (apps/api/src/common), ADR-0002/0003/0026/0028/0032. Detail: docs/panduan/07-cara-kerja-backend.md.</text>
+</svg>

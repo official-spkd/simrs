@@ -211,6 +211,7 @@ Aturan untuk semua tabel klinis:
 - Rekonsiliasi (baru, lanjut, ubah dosis, dihentikan; dikonfirmasi DPJP).
 - `POST .../:id/finalize` (`clinical.sign`): 12 butir diperiksa server → PDF + TTE → terkunci; addendum setelah final. Resume RJ ringkas untuk penutupan poli (memicu task 5).
 - `DischargeGate`: RI = disposisi + resume final; meninggal = surat kematian; rujuk = surat rujukan (F07); surat kontrol BPJS lewat fase 2.
+- **K-1 (keputusan pemilik produk 7 Okt 2026, `docs/13-pembagian-tugas-cd-cx.md` §8):** disposisi `meninggal` hanya bisa diselesaikan dokter yang berelasi dengan pasien (DPJP, rawat bersama, atau dokter jaga yang punya akses); wajib jam kematian, sebab kematian ICD-10, dan surat keterangan kematian ber-TTE (`clinical.sign`); admisi (`bed.write` tanpa relasi) ditolak. `DischargeGate` menegakkan aturan ini.
 - Staging SATUSEHAT `held` Composition dan Encounter `finished`.
 - **Tes:** menggantikan resume ber-TTE → 409 `RECORD_LOCKED` (addendum boleh); tutup tanpa resume → 409; isi resume = data sumber. **DoD:** resume.
 
@@ -303,6 +304,7 @@ Berkas `app/(staf)/klinis/resume/*`. Bagian berlabel sumber, rekonsiliasi, 12 bu
 19. **Tutup encounter RI:** disposisi + resume final dengan TTE diminta; TTE gagal masuk worklist.
 20. **Tablet persetujuan** memakai sesi staf; tanpa prinsipal perangkat.
 21. **Pasien rahasia (EP 10c):** flag + temuan audit; pengetatan akses di B09 fase 8.
+22. **Disposisi meninggal (K-1, diputuskan pemilik produk 7 Okt 2026):** hanya dokter yang berelasi dengan pasien; jam kematian + sebab kematian ICD-10 + surat keterangan kematian ber-TTE wajib; admisi ditolak; ditegakkan `DischargeGate` (3.6).
 
 ## 5. Risiko dan utang teknis
 

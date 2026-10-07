@@ -4,7 +4,8 @@ Demo publik menjalankan SIM RS dengan **data fiktif** di internet. Tujuannya pre
 mode presentasi (ADR-0023) dan akun "Masuk cepat". Demo ini bukan staging dan bukan produksi. Jangan pernah
 memasukkan data pasien asli.
 
-Contoh yang berjalan: `https://demo.spkd.store/demo-simrs` (VPS 187.77.119.238, sejak 7 Okt 2026).
+Contoh yang berjalan: `https://demo.spkd.store/demo-simrs` (VPS `<IP_VPS_DEMO>`, sejak 7 Okt 2026). Alamat IP asli
+tidak ditulis di repo; nilainya disimpan di catatan operator.
 
 ## Perilaku `APP_ENV=demo`
 
