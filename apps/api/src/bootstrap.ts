@@ -1,7 +1,7 @@
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { Logger } from 'nestjs-pino';
-import { MAX_DOCUMENT_BYTES } from '@simrs/shared';
+import { CONSENT_SIGNATURE_MAX_BYTES, MAX_DOCUMENT_BYTES } from '@simrs/shared';
 import { rawUpload } from './common/raw-upload.middleware';
 import { securityHeaders } from './common/security-headers';
 import type { ApiEnv } from './config/env';
@@ -19,6 +19,8 @@ export function configureApp(app: NestExpressApplication, env: ApiEnv): void {
   app.useBodyParser('json', { limit: JSON_BODY_LIMIT });
   // Unggah dokumen pasien: body biner dibaca sebelum transaksi dibuka (lihat rawUpload).
   app.use('/api/v1/patients/:patientId/documents', rawUpload(MAX_DOCUMENT_BYTES));
+  // K11 · Gambar tanda tangan persetujuan di tablet (PNG kecil, ADR-0020/0058).
+  app.use('/api/v1/consents/drafts/:id/signature-image', rawUpload(CONSENT_SIGNATURE_MAX_BYTES));
   app.useLogger(app.get(Logger));
   app.setGlobalPrefix('api/v1', { exclude: ['health', 'ready'] });
   app.enableCors({

@@ -393,7 +393,10 @@ export class AdtService {
       encounterClass: enc.encounterClass as 'EMER' | 'IMP',
       disposition: input.disposition,
     });
-    if (!gate.ok) throw clinicalError('DISCHARGE_BLOCKED', { reasons: gate.reasons });
+    if (!gate.ok) {
+      if (gate.forbidden) throw new AppError('FORBIDDEN', gate.reasons.join('; '), 403);
+      throw clinicalError('DISCHARGE_BLOCKED', { reasons: gate.reasons });
+    }
     await this.lockBedRooms([enc.id], []);
     const now = new Date();
     const bedId = await this.finishEncounter(

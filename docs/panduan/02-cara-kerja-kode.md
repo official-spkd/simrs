@@ -399,7 +399,8 @@ memakai satu pola berversi:
 `apps/api/src/infra/clinical/` (`ClinicalInfraModule`, global) dipakai semua modul klinis. Kerangka modul
 `worklist`, `encounter`, `triage`, `adt`, `assessment`, `cppt`, `diagnosis`, `orders`, `cds`, `consult`, `consent`,
 `nursing`, `discharge`, `summary`, `care-packages`, `results` sudah terdaftar di `AppModule`. Potongan 3.2–3.8 mengisi
-foldernya tanpa mengubah daftar modul.
+foldernya tanpa mengubah daftar modul (per 7 Okt 2026 3.2–3.5 dan 3.7 sudah terisi; `discharge`, `consult`,
+`care-packages` masih kerangka kosong). Gambaran lintas modul: [Cara kerja backend](./07-cara-kerja-backend.md).
 
 | Bagian                              | Guna                                                                                                                                                                                                                                                              |
 | ----------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -545,6 +546,59 @@ tindakan) dan SATUSEHAT `held` (ServiceRequest, MedicationRequest), event `order
 → resep PDF klinis ber-TTE (`ClinicalPdfService`, sumber `order_groups`). Konteks CDS dari rekam medis kelompok RM:
 alergi terkode, obat aktif, diagnosis ICD-10 aktif sebagai flag `icd10-*`, eGFR LOINC terakhir, order 30 hari,
 penjamin, singkatan terlarang RS.
+
+### eMAR + asuhan keperawatan (K12, fase 3 potongan 3.5)
+
+Modul `nursing` (`emar.service.ts`, `medication-schedules.service.ts`, `nursing-care.service.ts`, `vitals.*`),
+`@RequireModule('K12')`, ADR-0077. Ringkasan lintas modul: [Cara kerja backend](./07-cara-kerja-backend.md#pola-entri-klinis-berversi).
+
+| Endpoint                                             | Izin                    | Isi                                                                                                                                               |
+| ---------------------------------------------------- | ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GET /nursing/emar/:encounterId?date=YYYY-MM-DD`     | `clinical.read`         | Papan dosis WIB; jadwal dibentuk idempoten dari event `order.activated` (hari berjalan) dan dilengkapi saat dibaca                                |
+| `POST /nursing/wristband-scans`                      | `medication.administer` | Hasil pindai gelang; kode salah tetap disimpan + diaudit sebelum 422 `WRISTBAND_MISMATCH`                                                         |
+| `POST /nursing/double-checks`                        | `medication.administer` | Atestasi cek ganda high-alert dari **sesi** perawat/bidan kedua (bukan pemindai), isi dosis dibekukan                                             |
+| `POST /nursing/administrations`                      | `medication.administer` | Pemberian: pindaian aktif milik pemberi, label = UUID baris order, `doubleCheckId` untuk high-alert, alasan wajib untuk terlambat/ditunda/ditolak |
+| `GET /nursing/diagnoses`                             | `clinical.read`         | Diagnosis keperawatan master lokal                                                                                                                |
+| `POST /nursing/care-plans`, `GET …/:encounterId`     | `clinical.write`/`read` | Rencana asuhan berversi (`nursing_care_plans` lewat `ClinicalRecordService`)                                                                      |
+| `POST /nursing/fluid-balances`, `GET …/:encounterId` | `clinical.write`/`read` | Balans cairan sebagai `observations` kategori `cairan`; total hanya versi terkini                                                                 |
+
+Pengaman API + DB (trigger `medication_administrations`; `medication_double_checks` append-only): pindaian cocok dan
+belum kedaluwarsa, gelang aktif, keterlambatan dihitung ulang dengan jam server, dosis terjadwal sekali, stat sekali per
+order, PRN berikutnya butuh pindaian baru. Pemberian memakai kunci per order yang sama dengan pembatalan CPOE.
+Setiap pemberian membuat SATUSEHAT `held` (MedicationAdministration); hanya dosis `given` membuat `billable_events`
+jenis `obat`. Layar Rawat inap/Asuhan keperawatan disambungkan di W4.
+
+### Persetujuan tindakan tablet + edukasi (K11, fase 3 potongan 3.7)
+
+Modul `consent`, kontrak `schemas/consent.ts`, ADR-0058. Tablet memakai sesi staf (keputusan fase 3 no. 20). Alurnya
+draf → tanda tangan → atestasi saksi petugas → final (atau penolakan/batal). Draf (`consent_drafts`) bukan rekam
+medis; yang menjadi rekam medis berversi adalah entri `consents` saat final/penolakan.
+
+| Endpoint `/api/v1/…`                                           | Izin                    | Isi                                                                                                                      |
+| -------------------------------------------------------------- | ----------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| `GET consents/templates`                                       | `consent.read`          | Templat = formulir P07 terbit yang memuat ketujuh butir `CONSENT_INFORMATION_ITEMS` (contoh seed `persetujuan_tindakan`) |
+| `POST encounters/:id/consent-drafts`                           | `consent.write`         | Draf baru dari templat: tindakan, pemberi persetujuan (pasien/wali), tujuh butir, waktu penjelasan (boleh kosong)        |
+| `GET encounters/:id/consent-drafts`, `GET consents/drafts/:id` | `consent.read`          | Draf + `missing` (`tanda_tangan`, `saksi_petugas`, `saksi_kedaluwarsa`) untuk tablet                                     |
+| `PUT consents/drafts/:id`                                      | `consent.write`         | Ganti isi; tanda tangan + atestasi dihapus                                                                               |
+| `POST consents/drafts/:id/signature-image?slot=`               | `consent.write`         | PNG tanda tangan (body biner, maks. 512 KB) → dokumen pasien P08; jawab `imageDocumentId`                                |
+| `PUT consents/drafts/:id/signatures`                           | `consent.write`         | Ketujuh butir dinyatakan dipahami + tanda tangan pasien/wali (+ saksi keluarga); atestasi saksi sebelumnya dihapus       |
+| `POST consents/drafts/:id/witness`                             | `consent.write`         | Atestasi saksi petugas dengan sesinya sendiri, setelah tanda tangan; berlaku 30 menit                                    |
+| `POST consents/drafts/:id/finalize`                            | `consent.sign` (dokter) | Tanpa tanda tangan/atestasi → 422 `CONSENT_SIGNATURES_REQUIRED`; saksi = dokter itu sendiri → 422; hasil = PDF + TTE     |
+| `POST consents/drafts/:id/refuse`                              | `consent.sign`          | Penolakan beralasan ≥ 10 → entri `tolak` + PDF + TTE (tanda tangan yang sudah ada ikut tercantum)                        |
+| `POST consents/drafts/:id/cancel`                              | `consent.write`         | Draf dibatalkan beralasan ≥ 10                                                                                           |
+| `POST consents/:id/revoke`                                     | `consent.sign`          | Pencabutan = entri baru `dicabut` (addendum; versi ber-TTE tidak bisa digantikan) + tanda tangan pasien/wali + PDF + TTE |
+| `GET encounters/:id/consents`                                  | `consent.read`          | Persetujuan final + tanda tangan + status TTE dokumen; `effectiveDecision` = `dicabut` bila ada pencabutan               |
+
+- Draf tutup-sekali (trigger `consent_drafts_guard`): setelah `final`/`ditolak`/`batal` setiap perubahan → 409
+  `CONSENT_CLOSED`. Langkah yang mengubah draf mengunci barisnya (`FOR UPDATE`), jadi final ganda serentak hanya sekali.
+- `consent.sign` berlingkup relasi: hanya DPJP/rawat bersama (atau akses darurat) yang bisa memfinalkan. Perawat/bidan
+  memegang `consent.read/write` lingkup unit (menyiapkan draf, mengambil tanda tangan, menjadi saksi).
+- Tanda tangan `goresan` = PNG milik pasien yang sama (unggahan draf di atas, atau unggahan P08 umum); `nama` = ketik
+  nama. PDF mencantumkan nama + cara tanda tangan; berkas PNG tetap di dokumen pasien.
+- PDF lewat `ClinicalSigningService.issueSigned('consents', …)`: dokumen `kind = consent`, TTE dokter pemberi
+  penjelasan; versi langsung terkunci (`RECORD_LOCKED`). Event `consent.signed` (`setuju`/`tolak`/`dicabut`).
+- Edukasi pasien = formulir P07 `edukasi_terintegrasi` (seed) diisi dengan `encounterId`, tampil di
+  `GET encounters/:id/assessments`.
 
 ### Booking (F02, fase 2 potongan 3)
 
