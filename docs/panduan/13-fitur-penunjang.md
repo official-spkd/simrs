@@ -8,7 +8,8 @@ medis pasien. Setiap layar punya gerbang keselamatan yang ditegakkan ulang di Se
 > Status 7 Okt 2026: kesepuluh layar berjalan di mode presentasi dengan data fiktif (`pnpm dev:demo`) dan sejak
 > potongan 4.0c berstatus hibrida: di mode api peran berizin melihat "Belum tersambung" sampai potongan 4.2–4.9 mengisi
 > jalur API, peran lain "Akses ditolak". Kontrak bersama fase 4 (4.0a: izin, event, `SUPPORT_ERRORS`, skema API,
-> aturan murni, parser HL7 ORU) dan mock analyzer LIS (4.1b) sudah ada; modul API penunjang belum. Sumber order tetap
+> aturan murni, parser HL7 ORU), skema DB + gerbang keselamatan di database (4.0b, ADR-0034–0037), dan mock analyzer
+> LIS (4.1b) sudah ada; modul API penunjang belum. Sumber order tetap
 > CPOE + CDS (3.4); hasil berkode masuk modul `results` (3.2a).
 
 Posisi layar penunjang dalam perjalanan pasien rawat jalan (CPOE → lab dan farmasi → kasir):

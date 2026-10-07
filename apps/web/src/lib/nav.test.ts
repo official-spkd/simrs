@@ -114,9 +114,11 @@ describe('navGroups', () => {
     });
     expect(item(dokter, 'order')?.available).toBe(true);
     expect(item(dokter, 'edukasi')?.available).toBe(true);
-    // Layar tanpa jalur api (CPPT, asesmen) dan layar perangkat (tablet, anjungan) tetap tanpa menu di mode api.
-    for (const id of ['cppt', 'asesmen', 'consent', 'kiosk', 'app-pasien'])
-      expect(item(dokter, id), id).toBeUndefined();
+    // Bagan RME yang kini tersambung API (CPPT, asesmen, diagnosis, worklist, ringkasan) punya menu.
+    for (const id of ['cppt', 'asesmen', 'diagnosis', 'worklist', 'ringkasan'])
+      expect(item(dokter, id)?.available, id).toBe(true);
+    // Layar perangkat (tablet, anjungan) dan pratinjau aplikasi tetap tanpa menu di mode api.
+    for (const id of ['consent', 'kiosk', 'app-pasien']) expect(item(dokter, id), id).toBeUndefined();
     // Tanpa izin: tidak tampil.
     const kasir = navGroups({ ...base, role: 'kasir', permissions: ['patient.read'] });
     expect(item(kasir, 'order')).toBeUndefined();

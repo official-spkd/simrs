@@ -671,9 +671,15 @@ lewat `ClinicalRecordService` dan `CareTeamService`.
 - Jawaban pertama mencatat biaya `konsultasi` sekali per rantai. Notifikasi permintaan/jawaban tanpa PHI.
 - Dokumen pasien di layar klinis (utang P08): komponen `components/klinis/patient-documents.tsx` (daftar, unggah,
   batal beralasan, minta TTE, unduh) memakai data `lib/server/data/klinis/dokumen.ts`, Server Action
-  `dokumen-actions.ts` (unggah biner lewat `apiUpload`, batas body Server Action 11 MB di `next.config.ts`), dan
-  Route Handler unduh `/klinis/dokumen/:id/unduh` (BFF, token tetap di server). Aturan tombol di
-  `lib/patient-documents.ts`. Dipasang di tab Dokumen layar Rawat inap (W4).
+  `dokumen-actions.ts` (batal, minta TTE), Route Handler unggah `POST /klinis/dokumen/unggah?patientId=` dan unduh
+  `/klinis/dokumen/:id/unduh` (BFF, token tetap di server). Aturan tombol di `lib/patient-documents.ts`. Dipasang di
+  tab Dokumen layar Rawat inap (W4).
+- **Unggah berkas tidak lewat Server Action** (tinjauan keamanan DOC): body Server Action dibaca sebelum sesi
+  diperiksa, jadi batasnya dibiarkan bawaan Next (1 MB). Route Handler unggah memeriksa header `x-simrs-upload: 1` +
+  `sec-fetch-site` (anti-CSRF), sesi (401), dan izin `documents.write` (403) SEBELUM membaca body; lalu membaca body
+  dengan batas 10 MB (413, aliran dihentikan), mengenali jenis dari isi (PDF/PNG/JPEG, selain itu 415), dan meneruskan
+  ke API (`apiUpload`) yang menegakkan ulang semuanya. Tanda tangan tablet (W5a) tetap Server Action tetapi dibatasi
+  256 KB per gambar sehingga muat di 1 MB.
 
 ### Booking (F02, fase 2 potongan 3)
 
