@@ -30,12 +30,11 @@ HEAD 3.6 dikirim ke orkestrator: `08b2ba49` (master `718880b6` sudah digabung).
 
 ## W5b · layar Resume mode api
 
-- Web: `app/(staf)/klinis/resume/{api-resume-list}.tsx`, `[encounterId]/{api-resume,api-resume-client,actions-api}`,
-  `[encounterId]/pdf/[documentId]/route.ts`.
+- Web: `app/(staf)/klinis/resume/{api-resume-list}.tsx`, `[encounterId]/{api-resume,api-resume-client,actions-api}`;
+  cetak PDF lewat rute unduh dokumen bersama `/klinis/dokumen/:id/unduh`.
 - E2E: `apps/web/e2e/klinis-resume.spec.ts`.
 
 ## Utang
 
 - TTE resume/surat kematian yang gagal: API mendukung koreksi beralasan, layar belum punya tombol "tanda tangani ulang"
   (sementara lewat `POST /documents/:id/signatures`).
-- Tautan "Buka CPOE" di poli mode api menuju layar W2 (agen A3); sampai W2 tergabung halaman itu "Belum tersambung".

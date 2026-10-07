@@ -68,5 +68,5 @@ yang belum final setelah pulang tetap muncul di worklist (`resume_overdue`) seba
   sama.
 - **Kontrak demo dilonggarkan dua hal** (tanpa memecah data demo): `klinisPatientSchema.sex` menerima `-` (tidak
   diketahui) dan `birthDate` boleh null; `PatientBanner` menerima `-`.
-- **Resume (W5b)** memakai `ResumeSections` yang sama; cetak PDF lewat Route Handler BFF yang meneruskan
-  `GET /api/v1/documents/:id/content`.
+- **Resume (W5b)** memakai `ResumeSections` yang sama; cetak PDF lewat rute unduh dokumen BFF bersama
+  (`/klinis/dokumen/:id/unduh` → `GET /api/v1/documents/:id/content`).

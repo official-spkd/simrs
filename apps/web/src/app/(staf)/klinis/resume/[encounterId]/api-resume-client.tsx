@@ -61,7 +61,7 @@ export function ApiResumeClient({
   view: DischargeSummaryView;
   /** Peran berizin `clinical.write` (menyusun draf). */
   canWrite: boolean;
-  /** Awalan rute cetak PDF (`/klinis/resume/<id>/pdf`). */
+  /** Awalan rute unduh dokumen BFF (`/klinis/dokumen`, P08). */
   pdfBase: string;
 }) {
   const router = useRouter();
@@ -390,7 +390,7 @@ export function ApiResumeClient({
                       {a.document && (
                         <>
                           {' · '}
-                          <a href={`${pdfBase}/${a.document.id}`} target="_blank" rel="noopener">
+                          <a href={`${pdfBase}/${a.document.id}/unduh`} target="_blank" rel="noopener">
                             Buka PDF
                           </a>
                         </>
@@ -491,7 +491,7 @@ export function ApiResumeClient({
             </span>
             {final.document && (
               <a
-                href={`${pdfBase}/${final.document.id}`}
+                href={`${pdfBase}/${final.document.id}/unduh`}
                 target="_blank"
                 rel="noopener"
                 className="text-small font-semibold"

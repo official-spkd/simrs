@@ -4,8 +4,6 @@ import {
   dischargeSummarySchema,
   type DischargeSummaryView,
   dischargeSummaryViewSchema,
-  type EncounterContext,
-  encounterContextSchema,
   type Worklist,
   worklistSchema,
 } from '@simrs/shared';
@@ -83,13 +81,6 @@ export async function getDischargeSummary(
 export function getDischargeSummaryApi(encounterId: string): Promise<DischargeSummaryView> {
   return api(`/api/v1/encounters/${encodeURIComponent(encounterId)}/discharge-summary`, {
     schema: dischargeSummaryViewSchema,
-  });
-}
-
-/** Mode api · banner pasien kunjungan. */
-export function getEncounterContextApi(encounterId: string): Promise<EncounterContext> {
-  return api(`/api/v1/encounters/${encodeURIComponent(encounterId)}/context`, {
-    schema: encounterContextSchema,
   });
 }
 

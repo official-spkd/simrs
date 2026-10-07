@@ -18,6 +18,8 @@ export class ApiError extends Error {
 export interface ApiCall<S extends z.ZodType> {
   method?: 'GET' | 'POST' | 'PUT' | 'PATCH';
   body?: unknown;
+  /** Body biner (`application/octet-stream`, mis. PNG tanda tangan); tidak boleh bersama `body`. */
+  binary?: ArrayBuffer;
   accessToken?: string | null;
   client?: ClientInfo | null;
   /** Header `Idempotency-Key` (mis. check-in anjungan: sentuhan ganda → hasil yang sama). */
@@ -41,6 +43,7 @@ export async function callApi<S extends z.ZodType>(
 ): Promise<z.infer<S>> {
   const headers = new Headers({ accept: 'application/json' });
   if (call.body !== undefined) headers.set('content-type', 'application/json');
+  else if (call.binary) headers.set('content-type', 'application/octet-stream');
   if (call.accessToken) headers.set('authorization', `Bearer ${call.accessToken}`);
   if (call.idempotencyKey) headers.set('idempotency-key', call.idempotencyKey);
   if (call.client?.ip) headers.set('x-forwarded-for', call.client.ip);
@@ -52,7 +55,7 @@ export async function callApi<S extends z.ZodType>(
     res = await fetch(new URL(path, baseUrl), {
       method: call.method ?? 'GET',
       headers,
-      body: call.body === undefined ? undefined : JSON.stringify(call.body),
+      body: call.body !== undefined ? JSON.stringify(call.body) : (call.binary ?? undefined),
       cache: 'no-store',
       redirect: 'error',
       signal: AbortSignal.timeout(call.timeoutMs ?? 10_000),

@@ -251,8 +251,8 @@ describe('katalog dan order set', () => {
     expect(created.body).toMatchObject({
       code: 'pneumonia-awal',
       items: [
-        { type: 'layanan', name: 'Darah lengkap' },
-        { type: 'obat', name: 'Seftriakson 2 g injeksi' },
+        { type: 'layanan', kind: 'lab', name: 'Darah lengkap' },
+        { type: 'obat', kind: 'obat', name: 'Seftriakson 2 g injeksi' },
       ],
     });
     await as('apoteker').post('/orders/order-sets', input).expect(409);
@@ -412,7 +412,7 @@ describe('CDS dan kirim order', () => {
     ]);
   });
 
-  it('order residen langsung aktif tetapi menunggu tinjauan DPJP; resep belum dimintakan TTE', async () => {
+  it('order residen langsung aktif, menunggu tinjauan DPJP; tinjauan DPJP menerbitkan resep ber-TTE peninjau', async () => {
     const e = await inpatient(A);
     const r = await as('residen')
       .post('/orders/submit', body(e.encounterId, [med(drug(A, 'Amlodipin 5 mg tablet'))]), newId())
@@ -423,6 +423,72 @@ describe('CDS dan kirim order', () => {
       medicationRequests: [{ status: 'aktif' }],
       prescription: null,
     });
+    // Tinjauan DPJP (izin `clinical.sign`, relasi DPJP): atestasi review_order + resep ber-TTE peninjau.
+    await as('residen').post(`/orders/${r.body.id}/review`).expect(403);
+    // Relasi akses (ABAC lingkup relasi `clinical.sign`) untuk dua dokter; hanya satu yang DPJP utama kunjungan ini.
+    await run(A.id, async (tx) => {
+      for (const who of ['dokter', 'dokterAnggrek']) {
+        await tx.accessRelationship.create({
+          data: {
+            id: newId(),
+            tenantId: A.id,
+            userId: users[who] as string,
+            patientId: e.patientId,
+            kind: 'dpjp',
+          },
+        });
+      }
+      await tx.encounterParticipant.create({
+        data: {
+          id: newId(),
+          tenantId: A.id,
+          encounterId: e.encounterId,
+          userId: users.dokter as string,
+          role: 'dpjp_utama',
+        },
+      });
+    });
+    const notTeam = await as('dokterAnggrek').post(`/orders/${r.body.id}/review`).expect(403);
+    expect(notTeam.body.code).toBe('COSIGN_NOT_ALLOWED');
+    // Tugas worklist DPJP (3.2b) terbuka sampai ditinjau.
+    const reviewTask = { kind: 'review_order', targetId: r.body.id, encounterId: e.encounterId };
+    const before = await as('dokter').get('/worklist?view=tugas').expect(200);
+    expect(before.body.tasks).toContainEqual(expect.objectContaining(reviewTask));
+    // Tinjauan serentak (klik ganda / dua tab): satu atestasi, satu resep; yang lain 409.
+    const [first, second] = await Promise.all([
+      as('dokter').post(`/orders/${r.body.id}/review`),
+      as('dokter').post(`/orders/${r.body.id}/review`),
+    ]);
+    expect([first.status, second.status].sort()).toEqual([200, 409]);
+    const reviewed = first.status === 200 ? first : second;
+    const after = await as('dokter').get('/worklist?view=tugas').expect(200);
+    expect(after.body.tasks).not.toContainEqual(expect.objectContaining(reviewTask));
+    const stored = await run(A.id, async (tx) => ({
+      attestations: await tx.clinicalAttestation.count({
+        where: { targetType: 'order_groups', targetId: r.body.id, kind: 'review_order' },
+      }),
+      prescriptions: await tx.document.count({
+        where: { sourceType: 'order_groups', sourceId: r.body.id },
+      }),
+    }));
+    expect(stored).toEqual({ attestations: 1, prescriptions: 1 });
+    expect(reviewed.body).toMatchObject({
+      needsReview: false,
+      review: { by: { userId: users.dokter, peran: 'dokter' } },
+      prescription: { signatureStatus: 'pending' },
+    });
+    const sig = await run(A.id, (tx) =>
+      tx.documentSignature.findUniqueOrThrow({ where: { id: reviewed.body.prescription.signatureId } }),
+    );
+    expect(sig.signerUserId).toBe(users.dokter);
+    expect((await as('dokter').post(`/orders/${r.body.id}/review`).expect(409)).body.message).toMatch(
+      /tidak memerlukan|sudah ditinjau/,
+    );
+    const own = await as('dokter')
+      .post('/orders/submit', body(e.encounterId, [svc(orderable(A, 'Kalium'))]), newId())
+      .expect(201);
+    expect(own.body).toMatchObject({ needsReview: false, review: null });
+    await as('dokter').post(`/orders/${own.body.id}/review`).expect(409);
     // Perawat tidak berizin order.write.
     await as('perawat')
       .post('/orders/submit', body(e.encounterId, [med(drug(A, 'Amlodipin 5 mg tablet'))]), newId())
@@ -560,6 +626,13 @@ describe('CDS dan kirim order', () => {
       .expect(200);
     expect(ckd.body.lines[0].findings).toEqual([
       expect.objectContaining({ rule: 'riwayat', ruleCode: 'riwayat-ckd-biguanid', level: 'warn' }),
+    ]);
+    // Aturan seed `riwayat-ckd-ains` memakai token diagnosis `icd10-n18` (bukan flag `ckd` mode presentasi).
+    const ains = await as('dokterB')
+      .post('/orders/evaluate', body(eB.encounterId, [med(drug(B, 'Ibuprofen 400 mg tablet'))]))
+      .expect(200);
+    expect(ains.body.lines[0].findings).toEqual([
+      expect.objectContaining({ rule: 'riwayat', ruleCode: 'riwayat-ckd-ains', level: 'warn' }),
     ]);
   });
 

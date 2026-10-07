@@ -1,5 +1,16 @@
 import 'server-only';
-import { type ConsentDocument, consentDocumentSchema } from '@simrs/shared';
+import {
+  type ConsentDocument,
+  type ConsentDraft,
+  consentDocumentSchema,
+  consentDraftSchema,
+  type ConsentRecord,
+  consentRecordSchema,
+  type ConsentTemplate,
+  consentTemplateSchema,
+} from '@simrs/shared';
+import { z } from 'zod';
+import { api } from '../../api';
 import { CONSENT_ID } from '../../../demo/fixtures/ids';
 import { demoHendroConsent } from '../../../demo/fixtures/rawat-inap';
 import { applyConsent } from '../../../rawat-inap-consent-toko';
@@ -21,8 +32,8 @@ import { scenarioSteps } from './shared';
 /**
  * K11 · Data tablet Persetujuan tindakan. Mode presentasi: dokumen fiktif + keputusan tersimpan di toko demo
  * (`persetujuan`, ADR-0085) + persetujuan pasien skenario, divalidasi
- * kontrak yang sama dengan API kelak; mode api menunggu backend fase 3 (potongan 3.7, layar W5a; halaman menampilkan
- * "Belum tersambung").
+ * kontrak yang sama dengan API. Mode api (layar W5a): draf, templat, dan persetujuan final dari `/api/v1/consents/*` dan
+ * `/api/v1/encounters/:id/consent*` (izin `consent.*` + ABAC ditegakkan API).
  */
 
 /**
@@ -60,4 +71,24 @@ export async function consentTurn(
   const [step] =
     doc.id === CONSENT_ID.hartono ? await scenarioSteps(session, [['igd-ranap', 'tata-laksana']]) : [];
   return { step: step ?? null, wait: consentScenarioWait(doc, step?.tasks.consent) };
+}
+
+/** Mode api: templat persetujuan (formulir P07 terbit yang memuat ketujuh butir informasi). */
+export function getConsentTemplatesApi(): Promise<ConsentTemplate[]> {
+  return api('/api/v1/consents/templates', { schema: z.array(consentTemplateSchema) });
+}
+
+/** Mode api: draf persetujuan kunjungan (semua status, untuk tablet). */
+export function getEncounterConsentDraftsApi(encounterId: string): Promise<ConsentDraft[]> {
+  return api(`/api/v1/encounters/${encounterId}/consent-drafts`, { schema: z.array(consentDraftSchema) });
+}
+
+/** Mode api: persetujuan/penolakan/pencabutan final kunjungan + status TTE dokumennya. */
+export function getEncounterConsentsApi(encounterId: string): Promise<ConsentRecord[]> {
+  return api(`/api/v1/encounters/${encounterId}/consents`, { schema: z.array(consentRecordSchema) });
+}
+
+/** Mode api: satu draf persetujuan (`id` sudah divalidasi UUID oleh pemanggil). */
+export function getConsentDraftApi(id: string): Promise<ConsentDraft> {
+  return api(`/api/v1/consents/drafts/${id}`, { schema: consentDraftSchema });
 }

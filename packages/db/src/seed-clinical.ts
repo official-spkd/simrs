@@ -1,4 +1,5 @@
 import {
+  type CdsRuleDefinition,
   ewsMaxParam,
   ewsScore,
   MORSE_FALL_SCALE,
@@ -194,6 +195,17 @@ export const SEED_FORM_PACKAGES: ReadonlyArray<
   ['rawat_inap', MORSE_FALL_SCALE.code, true],
 ];
 
+/**
+ * Flag riwayat KB contoh (`SAMPLE_CDS_RULES`, juga dipakai mode presentasi) → token diagnosis yang dihasilkan API dari
+ * diagnosis ICD-10 aktif (ADR-0030: `icd10-<kategori>`). Hanya kode yang ada di `SEED_REF_SAMPLES` (N18 = penyakit
+ * ginjal kronik); flag tanpa padanan kode contoh (`hipoglikemia-berat`) tetap apa adanya sampai KB RS menulisnya.
+ */
+const SEED_HISTORY_FLAG_TOKENS: Readonly<Record<string, string>> = { ckd: 'icd10-n18' };
+
+function seedRuleDefinition(d: CdsRuleDefinition): CdsRuleDefinition {
+  return d.kind === 'history' ? { ...d, flag: SEED_HISTORY_FLAG_TOKENS[d.flag] ?? d.flag } : d;
+}
+
 export interface SeedClinicalResult {
   beds: number;
   drugs: number;
@@ -309,7 +321,7 @@ export async function seedClinicalMasters(tx: TenantTx, tenantId: string): Promi
           tenantId,
           code: r.code,
           version: 1,
-          definition: r.definition as unknown as Prisma.InputJsonValue,
+          definition: seedRuleDefinition(r.definition) as unknown as Prisma.InputJsonValue,
         },
       ],
       skipDuplicates: true,

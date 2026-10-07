@@ -1,8 +1,9 @@
 import { formatTanggalLahir, formatTanggalWaktu } from '@simrs/shared';
 import { Alert, PatientBanner } from '@simrs/ui';
-import { notFound } from 'next/navigation';
+import Link from 'next/link';
 import { ApiError } from '@/lib/server/api-core';
-import { getDischargeSummaryApi, getEncounterContextApi } from '@/lib/server/data/klinis/resume';
+import { getEncounterContextApi } from '@/lib/server/data/klinis/encounters-api';
+import { getDischargeSummaryApi } from '@/lib/server/data/klinis/resume';
 import { can, type SessionView } from '@/lib/session-view';
 import { ApiResumeClient } from './api-resume-client';
 
@@ -10,7 +11,8 @@ const SEX = { male: 'L', female: 'P', unknown: '–' } as const;
 
 /**
  * K13 · Resume medis mode api (W5b, mockup `Resume.dc.html`): `GET /encounters/:id/discharge-summary` + banner
- * `GET /encounters/:id/context`. Kunjungan tidak dikenal/tenant lain → 404; tanpa relasi → pesan akses dari API.
+ * `GET /encounters/:id/context`. Kunjungan tidak dikenal/tenant lain → "Kunjungan tidak ditemukan"; tanpa relasi → pesan
+ * akses dari API.
  */
 export async function ApiResume({ session, encounterId }: { session: SessionView; encounterId: string }) {
   let view;
@@ -21,12 +23,21 @@ export async function ApiResume({ session, encounterId }: { session: SessionView
       getEncounterContextApi(encounterId),
     ]);
   } catch (err) {
-    if (err instanceof ApiError && (err.status === 404 || err.status === 400)) notFound();
     if (err instanceof ApiError && err.status !== 401) {
+      const missing = err.status === 404 || err.status === 400;
       return (
-        <Alert level="critical" title="Resume tidak bisa dimuat">
-          {err.message}
-        </Alert>
+        <div className="flex max-w-3xl flex-col gap-4">
+          <h1 className="m-0 text-h1 font-bold tracking-[-0.02em]">Resume medis</h1>
+          <Alert level="warning" title={missing ? 'Kunjungan tidak ditemukan' : 'Resume tidak bisa dimuat'}>
+            {missing ? 'Periksa tautan kunjungan, lalu buka resume dari daftar pasien.' : err.message}
+          </Alert>
+          <Link
+            href="/klinis/resume"
+            className="inline-flex min-h-11 w-fit items-center rounded-control border border-line-strong bg-white/90 px-3.5 text-small font-semibold text-ink-900 no-underline hover:bg-brand-50/60"
+          >
+            Kembali ke daftar resume
+          </Link>
+        </div>
       );
     }
     throw err;
@@ -58,11 +69,7 @@ export async function ApiResume({ session, encounterId }: { session: SessionView
         guarantor={ctx.coverage?.name ?? 'Umum'}
         attending={ctx.dpjp?.name}
       />
-      <ApiResumeClient
-        view={view}
-        canWrite={can(session, 'clinical', 'write')}
-        pdfBase={`/klinis/resume/${view.encounterId}/pdf`}
-      />
+      <ApiResumeClient view={view} canWrite={can(session, 'clinical', 'write')} pdfBase="/klinis/dokumen" />
     </div>
   );
 }

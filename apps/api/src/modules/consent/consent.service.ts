@@ -6,9 +6,12 @@ import {
   type ClinicalEntryMeta,
   clinicalError,
   CONSENT_INFORMATION_ITEMS,
+  CONSENT_EDUCATION_FORM,
+  CONSENT_EDUCATION_TOPIC,
   CONSENT_INFORMATION_KEYS,
   CONSENT_WITNESS_VALID_MINUTES,
   type ConsentDecision,
+  consentEducationReady,
   type ConsentDraft,
   type ConsentDraftCancelInput,
   type ConsentDraftCreateInput,
@@ -379,6 +382,13 @@ export class ConsentService {
   async finalize(id: string): Promise<ConsentRecord> {
     const me = this.records.author();
     const { row, enc } = await this.loadDraft(id, 'write', { lock: true, open: true });
+    // Sama dengan layar Edukasi mode demo: edukasi tindakan terkini kunjungan ini terverifikasi paham (P07).
+    if (!(await this.educationReady([enc.id])).has(enc.id)) {
+      throw clinicalError('CONSENT_EDUCATION_REQUIRED', {
+        formCode: CONSENT_EDUCATION_FORM,
+        topic: CONSENT_EDUCATION_TOPIC,
+      });
+    }
     const missing = draftMissing(row, new Date());
     const signer = row.signer as ConsentSignatureInput | null;
     if (missing.length > 0 || !signer || !row.staffWitnessUserId) {
@@ -814,8 +824,29 @@ export class ConsentService {
     });
   }
 
+  /**
+   * Kunjungan yang edukasi tindakannya terkini terverifikasi paham: isian final terkini `edukasi_terintegrasi` per
+   * kunjungan, urut waktu, dievaluasi `consentEducationReady` (aturan bersama dengan layar demo).
+   */
+  private async educationReady(encounterIds: string[]): Promise<Set<string>> {
+    const rows = await this.db.tx().formResponse.findMany({
+      where: {
+        encounterId: { in: encounterIds },
+        formCode: CONSENT_EDUCATION_FORM,
+        status: 'final',
+        supersededBy: { none: {} },
+      },
+      orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+      select: { encounterId: true, answers: true },
+    });
+    return new Set(
+      encounterIds.filter((e) => consentEducationReady(rows.filter((r) => r.encounterId === e))),
+    );
+  }
+
   private async presentDrafts(rows: DraftRow[]): Promise<ConsentDraft[]> {
     if (rows.length === 0) return [];
+    const educated = await this.educationReady([...new Set(rows.map((r) => r.encounterId))]);
     const names = await this.records.userNames(
       rows.flatMap((r) => [
         r.createdBy,
@@ -847,7 +878,10 @@ export class ConsentService {
             }
           : null,
       status: r.status as ConsentDraftStatus,
-      missing: r.status === 'draf' ? draftMissing(r, now) : [],
+      missing:
+        r.status === 'draf'
+          ? [...(educated.has(r.encounterId) ? [] : (['edukasi_tindakan'] as const)), ...draftMissing(r, now)]
+          : [],
       consentId: r.consentId,
       cancelReason: r.cancelReason,
       createdBy: person(r.createdBy),
