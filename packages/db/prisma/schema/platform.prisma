@@ -105,6 +105,7 @@ model Tenant {
   // K · ADT, order/CDS, eMAR, askep, staging (fase 3 potongan 3.0c)
   bedStatuses               BedStatus[]
   bedStatusEvents           BedStatusEvent[]
+  boardSignals              BoardSignal[]
   bedRequests               BedRequest[]
   bedAssignments            BedAssignment[]
   patientWristbands         PatientWristband[]
