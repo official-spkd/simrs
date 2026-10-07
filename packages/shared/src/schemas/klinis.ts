@@ -465,6 +465,8 @@ export const vitalSignsRecordSchema = clinicalEntryMetaSchema.extend({
     score: z.int().min(0).max(20),
     maxParam: z.int().min(0).max(3),
     risk: z.enum(['rendah', 'sedang', 'tinggi']),
+    /** Melewati ambang eskalasi RS (`ews.escalation_score`) atau satu parameter bernilai 3 (dihitung server). */
+    escalated: z.boolean(),
   }),
 });
 export type VitalSignsRecord = z.infer<typeof vitalSignsRecordSchema>;

@@ -192,7 +192,7 @@ describe('tanda vital + NEWS2 (K12)', () => {
     expect(await notes()).toHaveLength(0);
 
     const high = await as('perawat').post(url, highVitals(e.encounterId)).expect(201);
-    expect(high.body.ews).toEqual({ score: 13, maxParam: 3, risk: 'tinggi' });
+    expect(high.body.ews).toEqual({ score: 13, maxParam: 3, risk: 'tinggi', escalated: true });
     const sent = await notes();
     expect(sent).toHaveLength(1);
     expect(sent[0]?.link).toBe(`/klinis/rawat-inap?kunjungan=${e.encounterId}`);

@@ -399,7 +399,7 @@ memakai satu pola berversi:
 `apps/api/src/infra/clinical/` (`ClinicalInfraModule`, global) dipakai semua modul klinis. Kerangka modul
 `worklist`, `encounter`, `triage`, `adt`, `assessment`, `cppt`, `diagnosis`, `orders`, `cds`, `consult`, `consent`,
 `nursing`, `discharge`, `summary`, `care-packages`, `results` sudah terdaftar di `AppModule`. Potongan 3.2–3.8 mengisi
-foldernya tanpa mengubah daftar modul (per 7 Okt 2026 3.2–3.5 sudah terisi; `discharge`, `consent`, `consult`,
+foldernya tanpa mengubah daftar modul (per 7 Okt 2026 3.2–3.5 dan 3.7 sudah terisi; `discharge`, `consult`,
 `care-packages` masih kerangka kosong). Gambaran lintas modul: [Cara kerja backend](./07-cara-kerja-backend.md).
 
 | Bagian                              | Guna                                                                                                                                                                                                                                                              |

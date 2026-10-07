@@ -97,11 +97,17 @@ test.describe('smoke', () => {
       'ranap',
       'resume',
     ]);
-    // Layar yang sudah tersambung API (W2: CPOE, W5a: tablet persetujuan) diperiksa terpisah di bawah.
-    const connected = new Set(['order', 'consent']);
+    // Rawat inap sudah tersambung API (layar W4, `rawat-inap-api.spec.ts`): daftar terbuka, ID demo = tidak ditemukan.
+    await page.goto('/klinis/rawat-inap');
+    await expect(page.getByRole('heading', { name: 'Pasien rawat inap', level: 1 })).toBeVisible();
+    await expect(page.getByText('Belum tersambung', { exact: true })).toHaveCount(0);
+    const demoId = await page.goto(`/klinis/rawat-inap/${ENCOUNTER_ID.hartono}`);
+    expect(demoId?.status()).toBe(200);
+    await expect(page.getByText('Kunjungan tidak ditemukan')).toBeVisible();
+    // Layar lain yang sudah tersambung API (W2: CPOE, W5a: tablet persetujuan) diperiksa terpisah di bawah.
+    const connected = new Set(['ranap', 'order', 'consent']);
     const routes = [
       ...clinical.filter((s) => !connected.has(s.id)).map((s) => ({ route: s.route, label: s.label })),
-      { route: `/klinis/rawat-inap/${ENCOUNTER_ID.hartono}`, label: 'Rawat inap' },
       { route: `/klinis/resume/${ENCOUNTER_ID.hartono}`, label: 'Resume medis' },
     ];
     for (const r of routes) {
