@@ -548,23 +548,33 @@ penjamin, singkatan terlarang RS.
 
 ### Persetujuan tindakan tablet + edukasi (K11, fase 3 potongan 3.7)
 
-Modul `consent`, kontrak `schemas/consent.ts`. Tablet memakai sesi staf (keputusan fase 3 no. 20). Persetujuan
-dicatat saat FINAL; pengisian sebelum itu memakai draf klinis (`/drafts/:encounterId/consent…`).
+Modul `consent`, kontrak `schemas/consent.ts`, ADR-0058. Tablet memakai sesi staf (keputusan fase 3 no. 20). Alurnya
+draf → tanda tangan → atestasi saksi petugas → final (atau penolakan/batal). Draf (`consent_drafts`) bukan rekam
+medis; yang menjadi rekam medis berversi adalah entri `consents` saat final/penolakan.
 
-| Endpoint `/api/v1/…`                  | Izin                    | Isi                                                                                                                           |
-| ------------------------------------- | ----------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| `GET consents/templates`              | `consent.read`          | Templat = formulir P07 terbit yang memuat ketujuh butir `CONSENT_INFORMATION_ITEMS` (contoh seed `persetujuan_tindakan`)      |
-| `POST encounters/:id/consent-witness` | `consent.write`         | Atestasi saksi petugas dengan sesinya sendiri; disimpan sebagai draf klinis `consent_witness`, berlaku 30 menit, sekali pakai |
-| `POST consents`                       | `consent.sign` (dokter) | Persetujuan/penolakan final: isian templat (7 butir), tanda tangan pasien/wali (+ saksi keluarga), saksi petugas → PDF + TTE  |
-| `POST consents/:id/revoke`            | `consent.sign`          | Pencabutan = addendum `dicabut` (versi ber-TTE tidak bisa digantikan), juga PDF + TTE                                         |
-| `GET encounters/:id/consents`         | `consent.read`          | Persetujuan final + tanda tangan + status TTE dokumen; `effectiveDecision` = `dicabut` bila ada addendum pencabutan           |
+| Endpoint `/api/v1/…`                                           | Izin                    | Isi                                                                                                                      |
+| -------------------------------------------------------------- | ----------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| `GET consents/templates`                                       | `consent.read`          | Templat = formulir P07 terbit yang memuat ketujuh butir `CONSENT_INFORMATION_ITEMS` (contoh seed `persetujuan_tindakan`) |
+| `POST encounters/:id/consent-drafts`                           | `consent.write`         | Draf baru dari templat: tindakan, pemberi persetujuan (pasien/wali), tujuh butir, waktu penjelasan (boleh kosong)        |
+| `GET encounters/:id/consent-drafts`, `GET consents/drafts/:id` | `consent.read`          | Draf + `missing` (`tanda_tangan`, `saksi_petugas`, `saksi_kedaluwarsa`) untuk tablet                                     |
+| `PUT consents/drafts/:id`                                      | `consent.write`         | Ganti isi; tanda tangan + atestasi dihapus                                                                               |
+| `POST consents/drafts/:id/signature-image?slot=`               | `consent.write`         | PNG tanda tangan (body biner, maks. 512 KB) → dokumen pasien P08; jawab `imageDocumentId`                                |
+| `PUT consents/drafts/:id/signatures`                           | `consent.write`         | Ketujuh butir dinyatakan dipahami + tanda tangan pasien/wali (+ saksi keluarga); atestasi saksi sebelumnya dihapus       |
+| `POST consents/drafts/:id/witness`                             | `consent.write`         | Atestasi saksi petugas dengan sesinya sendiri, setelah tanda tangan; berlaku 30 menit                                    |
+| `POST consents/drafts/:id/finalize`                            | `consent.sign` (dokter) | Tanpa tanda tangan/atestasi → 422 `CONSENT_SIGNATURES_REQUIRED`; saksi = dokter itu sendiri → 422; hasil = PDF + TTE     |
+| `POST consents/drafts/:id/refuse`                              | `consent.sign`          | Penolakan beralasan ≥ 10 → entri `tolak` + PDF + TTE (tanda tangan yang sudah ada ikut tercantum)                        |
+| `POST consents/drafts/:id/cancel`                              | `consent.write`         | Draf dibatalkan beralasan ≥ 10                                                                                           |
+| `POST consents/:id/revoke`                                     | `consent.sign`          | Pencabutan = entri baru `dicabut` (addendum; versi ber-TTE tidak bisa digantikan) + tanda tangan pasien/wali + PDF + TTE |
+| `GET encounters/:id/consents`                                  | `consent.read`          | Persetujuan final + tanda tangan + status TTE dokumen; `effectiveDecision` = `dicabut` bila ada pencabutan               |
 
-- Tanda tangan `goresan` = PNG yang diunggah lewat unggahan biner P08 (ADR-0020, `documents.write`, milik pasien yang
-  sama); `nama` = ketik nama. Gambar tidak ditanam di PDF; PDF mencantumkan nama + cara tanda tangan, berkas PNG tetap
-  di dokumen pasien.
-- Saksi petugas harus orang lain dari dokter yang memfinalkan dan beratestasi untuk kunjungan + tindakan yang sama.
-- PDF lewat `ClinicalSigningService.issueSigned('consents', …)`: dokumen `kind = consent`, `source` = versi itu,
-  TTE dokter pemberi penjelasan; versi langsung terkunci (`RECORD_LOCKED`). Event `consent.signed` (setuju/tolak).
+- Draf tutup-sekali (trigger `consent_drafts_guard`): setelah `final`/`ditolak`/`batal` setiap perubahan → 409
+  `CONSENT_CLOSED`. Langkah yang mengubah draf mengunci barisnya (`FOR UPDATE`), jadi final ganda serentak hanya sekali.
+- `consent.sign` berlingkup relasi: hanya DPJP/rawat bersama (atau akses darurat) yang bisa memfinalkan. Perawat/bidan
+  memegang `consent.read/write` lingkup unit (menyiapkan draf, mengambil tanda tangan, menjadi saksi).
+- Tanda tangan `goresan` = PNG milik pasien yang sama (unggahan draf di atas, atau unggahan P08 umum); `nama` = ketik
+  nama. PDF mencantumkan nama + cara tanda tangan; berkas PNG tetap di dokumen pasien.
+- PDF lewat `ClinicalSigningService.issueSigned('consents', …)`: dokumen `kind = consent`, TTE dokter pemberi
+  penjelasan; versi langsung terkunci (`RECORD_LOCKED`). Event `consent.signed` (`setuju`/`tolak`/`dicabut`).
 - Edukasi pasien = formulir P07 `edukasi_terintegrasi` (seed) diisi dengan `encounterId`, tampil di
   `GET encounters/:id/assessments`.
 
