@@ -433,9 +433,13 @@ export const ALL_ACCESS_NAV: ReadonlyArray<{ title: string; items: WebNavItem[] 
 ];
 
 /** Gabungkan menu Superadmin demo ke menu dasar (grup bernama sama ditambah, grup baru sebelum SISTEM / di akhir). */
-function withAllAccessNav(groups: WebNavGroup[]): WebNavGroup[] {
+function withAllAccessNav(
+  groups: WebNavGroup[],
+  extras: ReadonlyArray<{ title: string; items: WebNavItem[] }> = ALL_ACCESS_NAV,
+): WebNavGroup[] {
   const out = groups.map((g) => ({ ...g, items: [...g.items] }));
-  for (const extra of ALL_ACCESS_NAV) {
+  for (const extra of extras) {
+    if (extra.items.length === 0) continue;
     const same = out.find((g) => g.title === extra.title);
     if (same) {
       same.items.push(...extra.items);
@@ -448,6 +452,20 @@ function withAllAccessNav(groups: WebNavGroup[]): WebNavGroup[] {
   }
   return out;
 }
+
+/**
+ * Mode api: layar hibrida yang di mode presentasi hanya dibuka lewat alur (worklist, skenario) dan menu Superadmin
+ * demo, mis. CPOE, Edukasi, Tablet persetujuan. Selama worklist K01 dan Pemeriksaan poli belum tersambung, tanpa menu
+ * ini dokter rawat jalan tidak punya pintu masuk ke layar yang sudah tersambung. Hanya layar ber-izin sungguhan
+ * (`permission`) dan bukan khusus perangkat; menu tetap disaring izin peran di `navGroups`.
+ */
+const API_ENTRY_NAV = ALL_ACCESS_NAV.map((g) => ({
+  title: g.title,
+  items: g.items.filter((i) => {
+    const screen = screenById(i.id);
+    return !!screen?.permission && screen.layout === 'staf';
+  }),
+}));
 
 /** Menu RS yang relevan bagi operator platform (tanpa modul klinis/keuangan). */
 const PLATFORM_ITEM_IDS = new Set(['beranda', 'akses', 'audit']);
@@ -478,7 +496,11 @@ export function navGroups(opts: {
   modules?: Readonly<Partial<Record<string, boolean>>> | null;
 }): WebNavGroup[] {
   const allAccess = opts.allAccess === true && opts.dataSource === 'demo' && opts.kind === 'hospital';
-  const base = allAccess ? withAllAccessNav(NAV_GROUPS) : NAV_GROUPS;
+  const base = allAccess
+    ? withAllAccessNav(NAV_GROUPS)
+    : opts.dataSource === 'api'
+      ? withAllAccessNav(NAV_GROUPS, API_ENTRY_NAV)
+      : NAV_GROUPS;
   const groups = base
     .map((g) => ({
       ...g,
