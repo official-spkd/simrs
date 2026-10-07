@@ -154,20 +154,28 @@ export async function cancelOrderAction(input: unknown): Promise<{ ok: true } | 
 
 const reviewInput = z.strictObject({ encounterId: z.uuid(), groupId: z.uuid() });
 
-/** Tinjauan DPJP atas order residen: atestasi + resep ber-TTE DPJP. */
-export async function reviewOrderAction(input: unknown): Promise<{ ok: true } | Fail> {
+/**
+ * Tinjauan DPJP atas order residen: atestasi `review_order` + resep ber-TTE DPJP peninjau (API memeriksa DPJP utama,
+ * rawat bersama, atau DPJP kunjungan). Tugas worklist "Tinjau order residen" ikut tertutup.
+ */
+export async function reviewOrderAction(input: unknown): Promise<{ ok: true; message: string } | Fail> {
   const denied = await authorize('clinical', 'sign', 'Tinjauan order residen hanya oleh DPJP.');
   if (denied) return denied;
   const p = reviewInput.safeParse(input);
   if (!p.success) return { ok: false, message: 'Kiriman order tidak dikenali.' };
   try {
-    await api(`/api/v1/orders/${p.data.groupId}/review`, {
+    const group = await api(`/api/v1/orders/${p.data.groupId}/review`, {
       method: 'POST',
       body: {},
       schema: orderGroupSchema,
     });
     revalidatePath(pathOf(p.data.encounterId));
-    return { ok: true };
+    return {
+      ok: true,
+      message: group.prescription
+        ? 'Order residen ditinjau · resep dikirim untuk TTE atas nama Anda.'
+        : 'Order residen ditinjau.',
+    };
   } catch (err) {
     return failure(err);
   }

@@ -10,13 +10,15 @@ import {
   orderGroupSchema,
   type OrderSetView,
   orderSetViewSchema,
+  type WorklistPatient,
+  worklistSchema,
 } from '@simrs/shared';
 import { z } from 'zod';
 import { demoCpoeAvailable, demoCpoeContext, demoCpoeEncounters } from '../../../demo/fixtures/klinis';
 import { patientByEncounterId } from '../../../demo/fixtures/pasien';
 import { applySentOrders } from '../../../klinis-order-toko';
 import { readDomain } from '../../demo/state';
-import type { SessionView } from '../../../session-view';
+import { can, type SessionView } from '../../../session-view';
 import { api } from '../../api';
 import { scenarioRuns } from '../../demo/scenario-context';
 import { assertDemo } from '../../demo-guard';
@@ -26,7 +28,7 @@ import { notImplemented } from '../not-implemented';
 /**
  * K09 · Data layar Order & resep (CPOE). Mode presentasi: katalog dummy + order tersimpan di toko demo (`klinis-order`,
  * ADR-0085) + proyeksi pasien skenario (Tn. Suryo, Tn. Hartono) dari mesin Simulasi, divalidasi kontrak yang sama
- * dengan API kelak. Mode api (layar W2): banner kunjungan (`/encounter/:id/context`), order set, dan kiriman order
+ * dengan API kelak. Mode api (layar W2): banner kunjungan (`/encounters/:id/context`), order set, dan kiriman order
  * kunjungan dari API (izin + ABAC ditegakkan API).
  */
 
@@ -67,12 +69,13 @@ export async function hasCpoeContext(session: SessionView, encounterId: string):
     const runs = await scenarioRuns(session);
     return demoCpoeAvailable(encounterId, runs.results['igd-ranap']);
   }
-  return notImplemented('CPOE');
+  // Mode api: halaman CPOE sendiri menjawab kunjungan tak dikenal/di luar akses dengan pesan tertulis (bukan 404).
+  return z.uuid().safeParse(encounterId).success && can(session, 'order', 'read');
 }
 
 /** Mode api: banner pasien + kunjungan (`id` sudah divalidasi UUID oleh pemanggil). */
 export function getEncounterContextApi(encounterId: string): Promise<EncounterContext> {
-  return api(`/api/v1/encounter/${encounterId}/context`, { schema: encounterContextSchema });
+  return api(`/api/v1/encounters/${encounterId}/context`, { schema: encounterContextSchema });
 }
 
 /** Mode api: order set institusi aktif. */
@@ -83,4 +86,35 @@ export function getOrderSetsApi(): Promise<OrderSetView[]> {
 /** Mode api: semua kiriman order kunjungan (terbaru dulu) dengan status, temuan CDS, dan resep. */
 export function getEncounterOrdersApi(encounterId: string): Promise<OrderGroup[]> {
   return api(`/api/v1/encounters/${encounterId}/orders`, { schema: z.array(orderGroupSchema) });
+}
+
+/** Kunjungan yang bisa dibuka di CPOE mode api + jumlah order residen yang menunggu tinjauan saya. */
+export interface CpoeApiEncounter extends WorklistPatient {
+  reviewTasks: number;
+}
+
+/**
+ * Mode api: pilihan kunjungan CPOE dari worklist K01 (`/api/v1/worklist`): pasien tempat saya DPJP/rawat bersama
+ * (`dpjp`) + pasien di unit penugasan (`unit`), ABAC + audit per pasien oleh API. Kunjungan dengan order residen yang
+ * menunggu tinjauan saya tampil teratas.
+ */
+export async function getCpoeEncountersApi(): Promise<CpoeApiEncounter[]> {
+  const [mine, unit] = await Promise.all([
+    api('/api/v1/worklist?view=dpjp', { schema: worklistSchema }),
+    api('/api/v1/worklist?view=unit', { schema: worklistSchema }),
+  ]);
+  const reviews = new Map<string, number>();
+  for (const task of mine.tasks) {
+    if (task.kind === 'review_order' && task.encounterId) {
+      reviews.set(task.encounterId, (reviews.get(task.encounterId) ?? 0) + 1);
+    }
+  }
+  const byId = new Map<string, CpoeApiEncounter>();
+  for (const p of [...mine.patients, ...unit.patients]) {
+    if (!byId.has(p.encounterId))
+      byId.set(p.encounterId, { ...p, reviewTasks: reviews.get(p.encounterId) ?? 0 });
+  }
+  return [...byId.values()].sort(
+    (a, b) => b.reviewTasks - a.reviewTasks || a.name.localeCompare(b.name, 'id'),
+  );
 }

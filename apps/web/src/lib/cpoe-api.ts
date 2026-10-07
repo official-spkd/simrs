@@ -3,6 +3,7 @@ import {
   MEDICATION_FREQUENCIES,
   type MedicationFrequency,
   type OrderEvaluation,
+  type OrderGroup,
   type OrderLineInput,
   type OrderStatus,
   type OrderSubmitInput,
@@ -146,6 +147,14 @@ export function sendBlocker(
     return `${blocked.length} order diblokir CDS (${blocked.map((l) => l.name).join(', ')}). Hapus atau isi alasan override.`;
   }
   return null;
+}
+
+/** Kabar setelah kirim: jumlah order, tinjauan DPJP (order residen), dan resep yang dikirim untuk TTE. */
+export function sentSummary(group: OrderGroup): string {
+  const count = group.serviceRequests.length + group.medicationRequests.length;
+  return `${count} order terkirim${group.needsReview ? ' · menunggu tinjauan DPJP' : ''}${
+    group.prescription ? ' · resep dikirim untuk TTE' : ''
+  }.`;
 }
 
 export const ORDER_STATUS_LABEL: Record<OrderStatus, string> = {

@@ -97,8 +97,10 @@ test.describe('smoke', () => {
       'ranap',
       'resume',
     ]);
+    // Layar yang sudah tersambung API (W2: CPOE) diperiksa terpisah di bawah.
+    const connected = new Set(['order']);
     const routes = [
-      ...clinical.map((s) => ({ route: s.route, label: s.label })),
+      ...clinical.filter((s) => !connected.has(s.id)).map((s) => ({ route: s.route, label: s.label })),
       { route: `/klinis/rawat-inap/${ENCOUNTER_ID.hartono}`, label: 'Rawat inap' },
       { route: `/klinis/resume/${ENCOUNTER_ID.hartono}`, label: 'Resume medis' },
       { route: `/tablet/persetujuan/${CONSENT_ID.hartono}`, label: 'Persetujuan tindakan' },
@@ -111,7 +113,12 @@ test.describe('smoke', () => {
       await expect(page.getByText('Akses ditolak')).toHaveCount(0);
       await expect(page.getByText('Mode presentasi · data fiktif')).toHaveCount(0);
     }
-    // CPOE kunjungan sudah tersambung (W2): id fixture presentasi bukan kunjungan sungguhan → kunjungan tidak ditemukan.
+    // CPOE sudah tersambung (W2): daftar kunjungan dari worklist; id fixture presentasi bukan kunjungan sungguhan →
+    // kunjungan tidak ditemukan.
+    expect((await page.goto('/klinis/order'))?.status()).toBe(200);
+    await expect(page.getByRole('heading', { name: 'Order & resep (CPOE)', level: 1 })).toBeVisible();
+    await expect(page.getByRole('region', { name: 'Kunjungan berjalan' })).toBeVisible();
+    await expect(page.getByText('Belum tersambung', { exact: true })).toHaveCount(0);
     await page.goto(`/klinis/order/${ENCOUNTER_ID.suryo}`);
     await expect(page.getByRole('heading', { name: 'Order & resep (CPOE)', level: 1 })).toBeVisible();
     await expect(page.getByText('Kunjungan tidak ditemukan')).toBeVisible();

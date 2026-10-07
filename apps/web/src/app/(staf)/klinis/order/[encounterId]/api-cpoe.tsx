@@ -1,4 +1,5 @@
 import { Alert } from '@simrs/ui';
+import Link from 'next/link';
 import { EncounterBanner } from '@/components/klinis/encounter-banner';
 import { CpoeApiWorkspace } from '@/components/klinis/cpoe-api-workspace';
 import { ApiError } from '@/lib/server/api-core';
@@ -26,12 +27,18 @@ export async function ApiCpoe({ session, encounterId }: { session: SessionView; 
     if (err instanceof ApiError && (err.status === 403 || err.status === 404)) {
       return (
         <div className="flex max-w-3xl flex-col gap-4">
-          <h1 className="m-0 text-h1 font-semibold">Order &amp; resep (CPOE)</h1>
+          <h1 className="m-0 text-h1 font-bold tracking-[-0.02em]">Order &amp; resep (CPOE)</h1>
           <Alert level="warning" title={err.status === 404 ? 'Kunjungan tidak ditemukan' : 'Akses ditolak'}>
             {err.status === 404
-              ? 'Periksa tautan kunjungan, lalu buka CPOE dari daftar pasien.'
+              ? 'Periksa tautan kunjungan, lalu buka CPOE dari daftar kunjungan.'
               : err.message}
           </Alert>
+          <Link
+            href="/klinis/order"
+            className="inline-flex min-h-11 w-fit items-center rounded-control border border-line-strong bg-white/90 px-3.5 text-small font-semibold text-ink-900 no-underline hover:bg-brand-50/60"
+          >
+            Kembali ke daftar kunjungan
+          </Link>
         </div>
       );
     }
@@ -44,7 +51,7 @@ export async function ApiCpoe({ session, encounterId }: { session: SessionView; 
         <span className="text-caption text-ink-500">
           Klinis / {ctx.encounter.unit.name} / Order · {session.tenant.name}
         </span>
-        <h1 className="m-0 text-h1 font-semibold">Order &amp; resep (CPOE)</h1>
+        <h1 className="m-0 text-h1 font-bold tracking-[-0.02em]">Order &amp; resep (CPOE)</h1>
       </header>
       <EncounterBanner ctx={ctx} />
       <CpoeApiWorkspace

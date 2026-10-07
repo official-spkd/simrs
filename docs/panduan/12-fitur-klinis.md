@@ -46,7 +46,7 @@ Sepuluh layar bagan RME memakai pola bersama di `apps/web/src/components/rme/` d
 | Layar                      | Rute                         | Peran (mode presentasi)                              | Komponen      | Status                                     |
 | -------------------------- | ---------------------------- | ---------------------------------------------------- | ------------- | ------------------------------------------ |
 | Pemeriksaan poli           | `/klinis/poli`               | dokter, dokter residen, perawat, bidan               | K01, K02      | 🟨 demo; API worklist, CPPT, diagnosis ada |
-| Order dan resep (CPOE)     | `/klinis/order`              | dokter, dokter residen                               | K09           | 🟨 demo; API CPOE + CDS ada (3.4)          |
+| Order dan resep (CPOE)     | `/klinis/order`              | dokter, dokter residen                               | K09           | ✅ demo + api (W2)                         |
 | IGD                        | `/klinis/igd`                | dokter, dokter residen, perawat, petugas pendaftaran | K03           | 🟨 demo; API triase + papan IGD ada (3.3)  |
 | Tempat tidur               | `/klinis/tempat-tidur`       | perawat, petugas pendaftaran, manajemen              | K05           | 🟨 demo; API ADT + papan bed ada (3.3)     |
 | Rawat inap                 | `/klinis/rawat-inap`         | dokter, dokter residen, perawat, bidan               | K04, K07, K12 | 🟨 demo; API CPPT + eMAR ada (3.5); W4 belum    |
@@ -143,7 +143,7 @@ peran lain melihat "Akses ditolak". TTE CPPT di API tetap memakai izin `clinical
 | Rute     | `/klinis/order` (pilih kunjungan) · `/klinis/order/<encounterId>` (CPOE satu kunjungan)                                                                                  |
 | Pemakai  | dokter, dokter residen                                                                                                                                                   |
 | Komponen | K09 CPOE dan order set                                                                                                                                                   |
-| Status   | demo (mode presentasi); API katalog, order set, pratinjau CDS, kirim, dan batal ada (3.4), layar belum disambung (W2)                                                    |
+| Status   | demo (mode presentasi) dan api (W2): katalog, order set, pratinjau CDS server, kirim, batal, tinjauan DPJP atas order residen, status TTE resep                       |
 | Mockup   | `design/mockups/CPOE.dc.html`                                                                                                                                            |
 | Kode web | `apps/web/src/app/(staf)/klinis/order/` · `apps/web/src/components/klinis/cpoe-*.tsx` · `apps/web/src/lib/klinis-cds.ts` · `apps/web/src/lib/server/data/klinis/cpoe.ts` |
 | Kode API | `apps/api/src/modules/orders/` · `apps/api/src/modules/cds/` · mesin aturan `packages/shared/src/clinical/cds.ts`                                                        |
@@ -193,8 +193,33 @@ dikirim dengan TTE.
   **Kirim resep (TTE)** setelah rencana terapi, gerbang CDS skenario, dan PRB selesai.
 - Kunjungan tak dikenal menghasilkan 404.
 
-**Mode api.** Izin layar `order.write`. Sampai potongan W2 halaman menampilkan "Belum tersambung". Di API, resep
-penulis tanpa `clinical.sign` (residen) berstatus `needs_review` untuk DPJP.
+**Mode api (W2).** Izin layar `order.write`; API menegakkan ulang izin dan ABAC pasien. Komponen
+`components/klinis/cpoe-api-*.tsx`, logika murni `lib/cpoe-api.ts`, Server Action `app/(staf)/klinis/order/actions.ts`.
+
+1. **Order & resep (CPOE)** menampilkan "Kunjungan berjalan" dari worklist K01: pasien tempat Anda DPJP atau rawat
+   bersama, ditambah pasien di unit penugasan. Kunjungan dengan order residen yang menunggu tinjauan Anda tampil
+   teratas dengan chip "N order residen menunggu tinjauan".
+2. Banner pasien diambil dari `GET /encounters/:id/context`. Alergi selalu bertulisan: daftar alergi, "Tidak ada alergi
+   obat (NKDA)", atau "Alergi belum dikaji".
+3. Cari katalog RS (minimal 2 huruf, bisa disaring per jenis) atau terapkan order set. Baris obat wajib dosis, rute,
+   dan aturan pakai; penunjang memilih prioritas rutin/cito.
+4. Setiap perubahan daftar menjalankan pratinjau CDS server (`POST /orders/evaluate`) dengan KB RS. Temuan blok
+   memunculkan gerbang **CDS memblokir …**: **Hapus …**, atau **Override dengan alasan** (minimal 10 karakter).
+   Alasan ikut dikirim dan tercatat di `cds_alerts`.
+5. **Kirim N order** aktif setelah semua baris lengkap dan tidak ada blok tersisa. Kiriman memakai Idempotency-Key
+   yang dipakai ulang selama daftar tidak berubah, sehingga klik ganda tidak menggandakan order. Bila server tetap
+   menolak (`CDS_BLOCKED`), hasil evaluasi server tampil di gerbang.
+6. "Order kunjungan ini" memuat setiap kiriman: penulis, waktu, isi beku, status per baris, override tercatat, dan
+   status resep ("Resep · TTE diproses/sah/gagal"). Layar memuat ulang sendiri selama TTE diproses.
+7. **Batalkan** meminta alasan minimal 10 karakter; baris menjadi "Dibatalkan" dengan alasannya.
+8. Order dokter residen langsung aktif, tetapi resepnya belum ditandatangani: kiriman berlabel "Menunggu tinjauan
+   DPJP". DPJP utama, DPJP rawat bersama, atau DPJP kunjungan menekan **Tinjau dan tandatangani resep**
+   (`POST /orders/:id/review`). Tinjauan mencatat atestasi `review_order`, menerbitkan resep PDF ber-TTE atas nama
+   peninjau, dan menutup tugas worklist "Tinjau order residen". Dokter lain ditolak `COSIGN_NOT_ALLOWED`; penulis order
+   tidak bisa meninjau order sendiri; tinjauan ganda ditolak 409.
+
+Nominal tidak ditampilkan di mode api sampai master tarif U01. Kunjungan yang tidak ada atau di luar akses menampilkan
+"Kunjungan tidak ditemukan" atau "Akses ditolak" dengan tautan kembali ke daftar kunjungan.
 
 ## IGD
 

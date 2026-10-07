@@ -1,4 +1,4 @@
-import { orderSubmitInputSchema } from '@simrs/shared';
+import { type OrderGroup, orderSubmitInputSchema } from '@simrs/shared';
 import { describe, expect, it } from 'vitest';
 import {
   type DraftLine,
@@ -7,6 +7,7 @@ import {
   lineProblems,
   newDraftLine,
   sendBlocker,
+  sentSummary,
   submitInput,
 } from './cpoe-api';
 
@@ -78,5 +79,25 @@ describe('CPOE mode api · baris order', () => {
         false,
       ),
     ).toBeNull();
+  });
+});
+
+describe('CPOE mode api · kabar setelah kirim', () => {
+  // Hanya bidang yang dibaca `sentSummary`; sisanya tidak relevan untuk kabar.
+  const group = (over: Partial<OrderGroup>): OrderGroup =>
+    ({
+      serviceRequests: [{}],
+      medicationRequests: [{}],
+      needsReview: false,
+      prescription: null,
+      ...over,
+    }) as unknown as OrderGroup;
+
+  it('jumlah order, tinjauan DPJP untuk order residen, dan resep yang dikirim untuk TTE', () => {
+    expect(sentSummary(group({}))).toBe('2 order terkirim.');
+    expect(sentSummary(group({ needsReview: true }))).toBe('2 order terkirim · menunggu tinjauan DPJP.');
+    expect(sentSummary(group({ prescription: {} as OrderGroup['prescription'], serviceRequests: [] }))).toBe(
+      '1 order terkirim · resep dikirim untuk TTE.',
+    );
   });
 });

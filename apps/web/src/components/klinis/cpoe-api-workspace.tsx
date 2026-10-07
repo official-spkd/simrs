@@ -7,7 +7,7 @@ import type {
   OrderGroup,
   OrderSetView,
 } from '@simrs/shared';
-import { Chip, cx } from '@simrs/ui';
+import { Button, Chip, cx } from '@simrs/ui';
 import { useRouter } from 'next/navigation';
 import { useEffect, useId, useRef, useState, useTransition } from 'react';
 import {
@@ -23,12 +23,18 @@ import {
   KIND_TITLE,
   newDraftLine,
   sendBlocker,
+  sentSummary,
   submitInput,
 } from '@/lib/cpoe-api';
 import { CpoeApiDraftRow } from './cpoe-api-draft-row';
 import { CpoeApiOrders } from './cpoe-api-orders';
 
 const KINDS: readonly CpoeOrderKind[] = ['lab', 'radiologi', 'obat', 'tindakan', 'kontrol'];
+
+/** Kartu Pelangi Klinis (sama dengan kartu layar CPOE mode presentasi). */
+const CARD = 'rounded-card border border-white/95 bg-white/90 shadow-card';
+const FIELD =
+  'min-h-11 rounded-control border border-line-strong bg-white px-3 font-[inherit] disabled:cursor-not-allowed disabled:bg-muted';
 
 /** Kunci acak lokal (baris draf) dan Idempotency-Key kiriman. */
 const uid = () => crypto.randomUUID();
@@ -38,18 +44,21 @@ function CatalogSearch({ disabled, onAdd }: { disabled: boolean; onAdd: (item: D
   const [q, setQ] = useState('');
   const [kind, setKind] = useState<CpoeOrderKind | ''>('');
   const [items, setItems] = useState<OrderCatalogItem[]>([]);
+  const [searched, setSearched] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const seq = useRef(0);
   useEffect(() => {
     const term = q.trim();
+    const n = ++seq.current;
     if (term.length < 2) {
       setItems([]);
+      setSearched(false);
       return;
     }
-    const n = ++seq.current;
     const t = setTimeout(async () => {
       const r = await searchCatalogAction({ q: term, kind: kind || null });
       if (n !== seq.current) return;
+      setSearched(true);
       if (!r.ok) return setError(r.message);
       setError(null);
       setItems(r.items);
@@ -57,7 +66,7 @@ function CatalogSearch({ disabled, onAdd }: { disabled: boolean; onAdd: (item: D
     return () => clearTimeout(t);
   }, [q, kind]);
   return (
-    <div className="flex flex-col gap-2.5 rounded-card border border-line bg-white p-3.5 shadow-card">
+    <section aria-label="Katalog order" className={cx(CARD, 'flex flex-col gap-2.5 p-3.5')}>
       <label htmlFor={id} className="text-small font-semibold">
         Cari pemeriksaan, obat, tindakan
       </label>
@@ -69,7 +78,7 @@ function CatalogSearch({ disabled, onAdd }: { disabled: boolean; onAdd: (item: D
         disabled={disabled}
         placeholder="Ketik minimal 2 huruf"
         onChange={(e) => setQ(e.target.value)}
-        className="min-h-11 rounded-control border border-line-strong bg-white px-3 font-[inherit]"
+        className={FIELD}
       />
       <label className="flex flex-col gap-1 text-caption font-semibold text-ink-700" htmlFor={`${id}-jenis`}>
         Jenis
@@ -78,7 +87,7 @@ function CatalogSearch({ disabled, onAdd }: { disabled: boolean; onAdd: (item: D
           value={kind}
           disabled={disabled}
           onChange={(e) => setKind(e.target.value as CpoeOrderKind | '')}
-          className="min-h-11 rounded-control border border-line-strong bg-white px-2.5 font-[inherit] text-small"
+          className={cx(FIELD, 'px-2.5 text-small')}
         >
           <option value="">Semua jenis</option>
           {KINDS.map((k) => (
@@ -93,10 +102,18 @@ function CatalogSearch({ disabled, onAdd }: { disabled: boolean; onAdd: (item: D
           {error}
         </span>
       )}
+      {searched && !error && items.length === 0 && (
+        <span role="status" className="text-caption text-ink-500">
+          Tidak ada item katalog untuk “{q.trim()}”.
+        </span>
+      )}
       {items.length > 0 && (
         <ul aria-label="Hasil katalog" className="m-0 flex list-none flex-col gap-1.5 p-0">
           {items.map((c) => (
-            <li key={c.id} className="flex items-center justify-between gap-2">
+            <li
+              key={c.id}
+              className="flex items-center justify-between gap-2 border-b border-line-soft pb-1.5 last:border-b-0"
+            >
               <span className="min-w-0 text-small">
                 <span className="font-semibold">{c.name}</span>
                 <span className="block text-caption text-ink-500">
@@ -105,28 +122,50 @@ function CatalogSearch({ disabled, onAdd }: { disabled: boolean; onAdd: (item: D
                   {c.highAlert ? ' · kewaspadaan tinggi' : ''}
                 </span>
               </span>
-              <button
-                type="button"
+              <Button
+                size="sm"
                 disabled={disabled}
                 aria-label={`Tambah ${c.name}`}
                 onClick={() => onAdd({ id: c.id, kind: c.kind, name: c.name, highAlert: c.highAlert })}
-                className="min-h-11 shrink-0 cursor-pointer rounded-control border border-brand-800 bg-white px-3 font-[inherit] text-small font-semibold text-brand-700 disabled:opacity-60"
+                className="shrink-0 text-small"
               >
                 Tambah
-              </button>
+              </Button>
             </li>
           ))}
         </ul>
       )}
-    </div>
+    </section>
   );
 }
 
 /**
- * CPOE mode api (layar W2, mockup `CPOE.dc.html`): katalog RS + order set, daftar order yang disusun dengan pratinjau
- * CDS SERVER sambil mengisi, gerbang keselamatan untuk temuan blok (hapus, atau override beralasan yang ikut tercatat),
- * kirim dengan Idempotency-Key (dipakai ulang selama daftar tidak berubah), lalu order kunjungan + status, batal
- * beralasan, tinjauan DPJP, dan status TTE resep. Tanpa nominal (tarif menunggu U01).
+ * Selama ada resep yang TTE-nya masih diproses worker (outbox `tte.sign`), muat ulang data server berkala agar status
+ * berubah sendiri menjadi sah/gagal tanpa muat ulang manual. Berhenti setelah ±1 menit.
+ */
+function useRefreshWhilePending(pending: boolean) {
+  const router = useRouter();
+  const rounds = useRef(0);
+  useEffect(() => {
+    if (!pending) {
+      rounds.current = 0;
+      return;
+    }
+    if (rounds.current >= 20) return;
+    const t = setTimeout(() => {
+      rounds.current += 1;
+      router.refresh();
+    }, 3_000);
+    return () => clearTimeout(t);
+  });
+}
+
+/**
+ * CPOE mode api (layar W2, mockup `CPOE.dc.html`): katalog RS + order set | daftar order yang disusun dengan pratinjau
+ * CDS SERVER sambil mengisi, gerbang keselamatan untuk temuan blok (hapus, atau override beralasan yang ikut tercatat)
+ * | pemeriksaan sebelum kirim + kirim dengan Idempotency-Key (dipakai ulang selama daftar tidak berubah); di bawahnya
+ * order kunjungan + status, batal beralasan, tinjauan DPJP atas order residen, dan status TTE resep. Tanpa nominal
+ * (tarif menunggu U01).
  */
 export function CpoeApiWorkspace({
   encounterId,
@@ -157,15 +196,16 @@ export function CpoeApiWorkspace({
   const keyRef = useRef<{ fingerprint: string; key: string } | null>(null);
   const evalSeq = useRef(0);
   const editable = canWrite && active;
+  useRefreshWhilePending(groups.some((g) => g.prescription?.signatureStatus === 'pending'));
 
   // Pratinjau CDS server setiap kali daftar berubah (ditunda sebentar saat mengetik).
   useEffect(() => {
+    const n = ++evalSeq.current;
     if (lines.length === 0) {
       setEvaluation(null);
       setEvaluating(false);
       return;
     }
-    const n = ++evalSeq.current;
     setEvaluating(true);
     const t = setTimeout(async () => {
       const r = await evaluateOrdersAction(evaluateInput(encounterId, lines, orderSetId));
@@ -212,35 +252,27 @@ export function CpoeApiWorkspace({
       keyRef.current = null;
       setLines([]);
       setOrderSetId(null);
-      const meds = r.group.medicationRequests.length;
-      setSent(
-        `${r.group.serviceRequests.length + meds} order terkirim${
-          r.group.needsReview ? ' · menunggu tinjauan DPJP' : ''
-        }${r.group.prescription ? ' · resep dikirim untuk TTE' : ''}.`,
-      );
+      setSent(sentSummary(r.group));
       router.refresh();
     });
   };
 
   return (
     <div className="flex flex-col gap-5">
-      <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-[minmax(240px,300px)_minmax(0,1fr)]">
+      <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-[minmax(240px,280px)_minmax(0,1fr)] min-[1400px]:grid-cols-[minmax(240px,280px)_minmax(0,1fr)_minmax(260px,300px)]">
         <aside aria-label="Katalog dan order set" className="flex min-w-0 flex-col gap-4">
           {!editable && (
             <p
               role="note"
-              className="m-0 rounded-card border border-line bg-subtle px-3.5 py-3 text-small text-ink-700"
+              className="m-0 rounded-card border border-brand-200 bg-[linear-gradient(135deg,var(--color-brand-50),var(--color-brand-100))] px-3.5 py-3 text-small font-semibold text-brand-800"
             >
-              {active
-                ? 'Peran Anda hanya membaca order kunjungan ini.'
-                : 'Kunjungan tidak sedang berjalan; order baru tidak bisa dibuat.'}
+              {!active
+                ? 'Kunjungan tidak sedang berjalan; order baru tidak bisa dibuat.'
+                : 'Peran Anda hanya membaca order kunjungan ini.'}
             </p>
           )}
           <CatalogSearch disabled={!editable || pending} onAdd={(i) => add([i], null)} />
-          <section
-            aria-label="Order set institusi"
-            className="flex flex-col gap-2 rounded-card border border-line bg-white p-3.5 shadow-card"
-          >
+          <section aria-label="Order set institusi" className={cx(CARD, 'flex flex-col gap-2 p-3.5')}>
             <h2 className="m-0 text-small font-semibold">Order set</h2>
             {orderSets.length === 0 && (
               <p className="m-0 text-caption text-ink-500">Belum ada order set RS.</p>
@@ -256,7 +288,7 @@ export function CpoeApiWorkspace({
                     s.id,
                   )
                 }
-                className="flex min-h-11 cursor-pointer flex-col items-start rounded-control border border-line-strong bg-white px-3 py-2 text-left font-[inherit] disabled:cursor-not-allowed disabled:opacity-60"
+                className="flex min-h-11 cursor-pointer flex-col items-start rounded-control border border-line-strong bg-white px-3 py-2 text-left font-[inherit] hover:bg-brand-50/60 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 <span className="text-small font-semibold">{s.name}</span>
                 <span className="text-caption text-ink-500">{s.items.length} item</span>
@@ -267,7 +299,7 @@ export function CpoeApiWorkspace({
 
         <section aria-label="Order baru" className="flex min-w-0 flex-col gap-3.5">
           {lines.length === 0 ? (
-            <p className="m-0 rounded-card border border-dashed border-line-strong bg-white p-4 text-small text-ink-500">
+            <p className="m-0 rounded-card border border-dashed border-line-strong bg-white/80 p-4 text-small text-ink-500">
               Belum ada order baru. Cari item katalog atau terapkan order set di kiri.
             </p>
           ) : (
@@ -278,9 +310,9 @@ export function CpoeApiWorkspace({
                 <section
                   key={k}
                   aria-label={`Order ${KIND_TITLE[k].toLowerCase()}`}
-                  className="overflow-hidden rounded-card border border-line bg-white shadow-card"
+                  className={cx(CARD, 'overflow-hidden')}
                 >
-                  <h2 className="m-0 border-b border-line bg-subtle px-4 py-2.5 text-caption font-bold tracking-[0.06em] text-ink-700 uppercase">
+                  <h2 className="m-0 border-b border-line bg-card-header px-4 py-2.5 text-caption font-bold tracking-[0.06em] text-ink-700 uppercase">
                     {KIND_TITLE[k]}
                   </h2>
                   <ul className="m-0 list-none p-0">
@@ -306,44 +338,62 @@ export function CpoeApiWorkspace({
               );
             })
           )}
-          {lines.length > 0 && (
-            <div className="flex flex-col gap-2 rounded-card border border-line bg-white p-3.5 shadow-card">
-              <span className={cx('text-small', blocker ? 'text-ink-700' : 'font-semibold text-success')}>
+        </section>
+
+        <aside
+          aria-label="Ringkasan order"
+          className="flex min-w-0 flex-col gap-3.5 lg:col-span-2 min-[1400px]:col-span-1"
+        >
+          <section className={cx(CARD, 'flex flex-col gap-2.5 px-4 py-3.5')}>
+            <h2 className="m-0 text-body font-semibold">Pemeriksaan sebelum kirim</h2>
+            <p
+              className={cx(
+                'm-0 flex items-start gap-2 text-small',
+                blocker ? 'text-ink-700' : 'font-semibold text-success',
+              )}
+            >
+              <span aria-hidden="true" className={cx('font-bold', blocker ? 'text-warning' : 'text-success')}>
+                {blocker ? '!' : '✓'}
+              </span>
+              <span>
+                <span className="sr-only">{blocker ? 'Tertahan: ' : 'Lolos: '}</span>
                 {blocker ?? 'Pemeriksaan CDS selesai. Order siap dikirim (TTE resep oleh dokter berwenang).'}
               </span>
-              <span className="flex flex-wrap items-center gap-2">
-                <button
-                  type="button"
-                  onClick={onSend}
-                  disabled={Boolean(blocker) || pending || !editable}
-                  className="min-h-11 cursor-pointer rounded-control border border-brand-800 bg-brand-700 px-4 font-[inherit] font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  {pending ? 'Mengirim…' : `Kirim ${lines.length} order`}
-                </button>
-                {orderSetId && <Chip tone="info">Dari order set</Chip>}
+            </p>
+            {orderSetId && (
+              <span>
+                <Chip tone="info">Dari order set</Chip>
               </span>
-              {error && (
-                <span role="alert" className="text-small text-danger">
-                  {error}
-                </span>
-              )}
-            </div>
+            )}
+            <p className="m-0 text-caption text-ink-500">
+              Tarif tampil setelah master tarif RS tersambung. Order residen menunggu tinjauan DPJP sebelum
+              resep ditandatangani.
+            </p>
+          </section>
+          <Button variant="primary" onClick={onSend} disabled={Boolean(blocker) || pending || !editable}>
+            {pending ? 'Mengirim…' : lines.length > 0 ? `Kirim ${lines.length} order` : 'Kirim order'}
+          </Button>
+          {error && (
+            <p
+              role="alert"
+              className="m-0 rounded-control border border-koral-200 bg-alert-critical px-3 py-2 text-small text-danger"
+            >
+              {error}
+            </p>
           )}
-          {sent && lines.length > 0 && (
-            <p role="status" className="m-0 text-small text-success">
+          {sent && (
+            <p
+              role="status"
+              className="m-0 rounded-card border border-zamrud-200 bg-alert-success px-4 py-3 text-small font-semibold text-success"
+            >
               {sent}
             </p>
           )}
-        </section>
+        </aside>
       </div>
 
       <section aria-label="Order kunjungan ini" className="flex flex-col gap-2.5">
         <h2 className="m-0 text-[17px] font-semibold">Order kunjungan ini</h2>
-        {sent && lines.length === 0 && (
-          <p role="status" className="m-0 text-small font-semibold text-success">
-            {sent}
-          </p>
-        )}
         <CpoeApiOrders
           encounterId={encounterId}
           groups={groups}
