@@ -126,6 +126,8 @@ export const CLINICAL_ERRORS = {
   },
   // K13 · Resume medis: butir wajib server (12 butir rawat inap, ringkas rawat jalan) sebelum TTE
   RESUME_INCOMPLETE: { status: 422, message: 'Resume belum lengkap; lengkapi butir wajib sebelum TTE' },
+  // K09 · resep: rute bertentangan dengan bentuk sediaan (injeksi + oral, tablet + intravena)
+  MEDICATION_ROUTE_INVALID: { status: 422, message: 'Rute pemberian tidak sesuai bentuk sediaan obat' },
   // K12 · eMAR
   WRISTBAND_MISMATCH: { status: 422, message: 'Gelang tidak cocok dengan pasien kunjungan ini' },
   WRISTBAND_SCAN_REQUIRED: {
@@ -177,6 +179,7 @@ export const CLINICAL_ERROR_CODES = [
   'BED_VERSION_CONFLICT',
   'DISCHARGE_BLOCKED',
   'RESUME_INCOMPLETE',
+  'MEDICATION_ROUTE_INVALID',
   'WRISTBAND_MISMATCH',
   'WRISTBAND_SCAN_REQUIRED',
   'MEDICATION_ALREADY_GIVEN',
