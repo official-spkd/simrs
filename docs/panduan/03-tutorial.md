@@ -105,7 +105,7 @@ pnpm db:seed         # 3 tenant RS fiktif (RSCM, RSFA, RSFB) + tenant PLATFORM (
 ```
 
 Per RS, seed mengisi struktur (15 unit, kamar, bed), formulir Morse, pasien fiktif (RSCM dan RSFA 200, RSFB 30), dan
-**33 staf fiktif** lintas 16 peran (dokter per poli/bangsal/OK/IGD/penunjang, residen, perawat, bidan, apoteker, analis
+**34 staf fiktif** lintas 17 peran (dokter per poli/bangsal/OK/IGD/penunjang, residen, perawat, bidan, apoteker, analis
 lab, radiografer, pendaftaran, kasir, koder, rekam medis, akuntan, manajemen, mutu, privasi, admin SIM RS) beserta
 penugasan unitnya. Daftarnya ada di `SEED_STAFF` (`packages/db/src/seed-data.ts`). Nama pengguna staf = NIP fiktif
 berawalan `9999` (mis. `999901292022022025`), no. HP fiktif `0813-0000-1xxx` (tersimpan terenkripsi). Seed aman diulang:
@@ -133,7 +133,7 @@ pnpm db:create-admin --tenant RSFA --username admin.rsfa --name "Admin RS Fiktif
 pnpm db:create-admin --tenant PLATFORM --username superadmin --name "Operator Platform"
 ```
 
-Pengembangan lokal difokuskan ke **RSCM** (data tetap fiktif; kode Kemenkes/BPJS/SATUSEHAT-nya juga fiktif). Untuk mencoba semua layar dengan satu akun, buat akun demo yang memegang 16 posisi (dokter, perawat, kasir, petugas rekam medis, admin, dan seterusnya):
+Pengembangan lokal difokuskan ke **RSCM** (data tetap fiktif; kode Kemenkes/BPJS/SATUSEHAT-nya juga fiktif). Untuk mencoba semua layar dengan satu akun, buat akun demo yang memegang 17 posisi (dokter, perawat, kasir, petugas rekam medis, admin, dan seterusnya):
 
 ```powershell
 pnpm db:create-demo --tenant RSCM --username demo.rscm --name "Akun Demo RSCM"

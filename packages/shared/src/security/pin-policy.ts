@@ -29,6 +29,7 @@ export const PIN_LOGIN_ROLES = [
   'apoteker',
   'analis_lab',
   'radiografer',
+  'ahli_gizi',
   'petugas_pendaftaran',
 ] as const;
 
