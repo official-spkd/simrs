@@ -3,7 +3,8 @@ import { Icon } from './icons';
 
 export interface PatientBannerProps {
   name: string;
-  sex: 'L' | 'P';
+  /** `-` = tidak diketahui. */
+  sex: 'L' | 'P' | '-';
   ageYears: number;
   birthDate: string;
   mrn: string;

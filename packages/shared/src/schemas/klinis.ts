@@ -32,7 +32,8 @@ export const poliQueueItemSchema = z.strictObject({
   queueNo: z.string().regex(/^[A-Z]{1,2}-\d{3}$/),
   name: nonEmpty,
   rm: z.string().regex(/^\d{2}-\d{2}-\d{2}-\d{2}$/),
-  sex: z.enum(['L', 'P']),
+  /** `-` = jenis kelamin tidak diketahui (data api; pasien tanpa identitas). */
+  sex: z.enum(['L', 'P', '-']),
   ageYears: z.number().int().min(0).max(130),
   payer: z.enum(PAYERS),
   status: z.enum(POLI_QUEUE_STATUSES),
@@ -111,9 +112,11 @@ export type EncounterLab = z.infer<typeof encounterLabSchema>;
 export const klinisPatientSchema = z.strictObject({
   id: nonEmpty,
   name: nonEmpty,
-  sex: z.enum(['L', 'P']),
+  /** `-` = jenis kelamin tidak diketahui (data api; pasien tanpa identitas). */
+  sex: z.enum(['L', 'P', '-']),
   ageYears: z.number().int().min(0).max(130),
-  birthDate: z.iso.date(),
+  /** Null bila tanggal lahir tidak tercatat (data api). */
+  birthDate: z.iso.date().nullable(),
   rm: z.string().regex(/^\d{2}-\d{2}-\d{2}-\d{2}$/),
   /** NIK tersamar (awalan fiktif 9999). */
   nikMasked: z.string().regex(/^9999•+\d{4}$/),
