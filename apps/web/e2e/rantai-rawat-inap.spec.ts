@@ -46,10 +46,13 @@ test('rantai rawat inap (api): admisi → rekam Rawat inap → CPOE resep → eM
   const doc = await as(browser, dpjp, '/klinis/rawat-inap');
   await doc.getByRole('link', { name: new RegExp(p.patientName) }).click();
   await expect(doc.getByLabel('Identitas pasien')).toContainText(p.mrn);
-  await doc
-    .getByRole('navigation', { name: 'Tautan cepat pasien' })
-    .getByRole('link', { name: 'Order & resep (CPOE)' })
-    .click();
+  const quick = doc.getByRole('navigation', { name: 'Tautan cepat pasien' });
+  // Tautan persetujuan membuka tablet langsung pada kunjungan ini (bukan daftar pilih kunjungan).
+  await expect(quick.getByRole('link', { name: /^Persetujuan tindakan/ })).toHaveAttribute(
+    'href',
+    `/tablet/persetujuan?kunjungan=${p.encounterId}`,
+  );
+  await quick.getByRole('link', { name: 'Order & resep (CPOE)' }).click();
   await expect(doc).toHaveURL(new RegExp(`/klinis/order/${p.encounterId}$`));
   await expect(doc.getByLabel('Identitas pasien')).toContainText(p.mrn);
 
@@ -57,9 +60,13 @@ test('rantai rawat inap (api): admisi → rekam Rawat inap → CPOE resep → eM
   await doc.getByLabel('Cari pemeriksaan, obat, tindakan').fill('seftriakson');
   await doc.getByRole('button', { name: 'Tambah Seftriakson 2 g injeksi' }).click();
   await doc.getByRole('textbox', { name: /^Dosis/ }).fill('2 g');
-  await doc.getByRole('combobox', { name: /^Rute/ }).selectOption('intravena');
   await doc.getByRole('combobox', { name: /^Aturan pakai/ }).selectOption('stat');
+  // Keselamatan resep: sediaan injeksi tidak diberi rute bawaan "oral"; kirim tertahan sampai rute dipilih.
+  const route = doc.getByRole('combobox', { name: /^Rute/ });
+  await expect(route).toHaveValue('');
   const send = doc.getByRole('button', { name: 'Kirim 1 order' });
+  await expect(send).toBeDisabled();
+  await route.selectOption('intravena');
   await expect(send).toBeEnabled();
   await send.click();
   await expect(doc.getByRole('status').filter({ hasText: '1 order terkirim' })).toBeVisible();
