@@ -46,11 +46,14 @@ test.describe('smoke', () => {
       'bed',
       'consent',
       'daftar',
+      'edukasi',
       'igd',
       'jadwal',
       'kendali',
       'kiosk',
+      'konsul',
       'order',
+      'paket',
       'poli',
       'ranap',
       'resume',
@@ -81,7 +84,7 @@ test.describe('smoke', () => {
     await expect(nav.getByText('Rawat inap', { exact: true })).toHaveCount(0);
   });
 
-  test('layar klinis hibrida di mode api: peran berizin melihat "Belum tersambung" (rencana fase 3 potongan 3.0d)', async ({
+  test('layar klinis hibrida di mode api: peran berizin melihat layar tersambung atau "Belum tersambung" (rencana fase 3 potongan 3.0d)', async ({
     page,
   }) => {
     // Dokter memegang clinical.read/write, order.write, bed.read, consent.write (matriks bawaan 3.0a).
@@ -91,8 +94,11 @@ test.describe('smoke', () => {
     expect(clinical.map((s) => s.id).sort()).toEqual([
       'bed',
       'consent',
+      'edukasi',
       'igd',
+      'konsul',
       'order',
+      'paket',
       'poli',
       'ranap',
       'resume',
@@ -105,7 +111,7 @@ test.describe('smoke', () => {
     expect(demoId?.status()).toBe(200);
     await expect(page.getByText('Kunjungan tidak ditemukan')).toBeVisible();
     // Layar lain yang sudah tersambung API (W2: CPOE, W5a: tablet persetujuan) diperiksa terpisah di bawah.
-    const connected = new Set(['ranap', 'order', 'consent']);
+    const connected = new Set(['ranap', 'order', 'consent', 'konsul', 'edukasi', 'paket', 'igd', 'bed']);
     const routes = [
       ...clinical.filter((s) => !connected.has(s.id)).map((s) => ({ route: s.route, label: s.label })),
       { route: `/klinis/resume/${ENCOUNTER_ID.hartono}`, label: 'Resume medis' },
@@ -135,13 +141,30 @@ test.describe('smoke', () => {
     await expect(page.getByRole('heading', { name: 'Persetujuan tindakan', level: 1 })).toBeVisible();
     await expect(page.getByText('Draf tidak ditemukan')).toBeVisible();
 
+    // Konsultasi, Edukasi, Paket layanan sudah tersambung (3.7/3.8, `konsultasi-api.spec.ts`, `persetujuan.spec.ts`).
+    await page.goto('/klinis/konsultasi');
+    await expect(page.getByRole('heading', { name: 'Konsultasi & rawat bersama', level: 1 })).toBeVisible();
+    await expect(page.getByRole('region', { name: 'Konsul masuk' })).toBeVisible();
+    await page.goto('/klinis/edukasi');
+    await expect(page.getByRole('heading', { name: 'Edukasi pasien', level: 1 })).toBeVisible();
+    await expect(page.getByText('Pilih kunjungan pasien')).toBeVisible();
+    await page.goto('/klinis/paket-layanan');
+    await expect(page.getByRole('heading', { name: 'Paket formulir per setting', level: 1 })).toBeVisible();
+    await expect(page.getByText('Belum tersambung', { exact: true })).toHaveCount(0);
+    // IGD dan Tempat tidur sudah tersambung (W3).
+    await page.goto('/klinis/igd');
+    await expect(page.getByRole('heading', { name: 'Instalasi Gawat Darurat', level: 1 })).toBeVisible();
+    await page.goto('/klinis/tempat-tidur');
+    await expect(page.getByRole('heading', { name: 'Manajemen tempat tidur', level: 1 })).toBeVisible();
+    await expect(page.getByText('Belum tersambung', { exact: true })).toHaveCount(0);
+
     // Petugas pendaftaran (admisi IGD): papan IGD terbuka (`clinical.read`), Pemeriksaan poli tidak.
     await page.context().clearCookies();
     const admisi = await createAccount({ roles: ['petugas_pendaftaran'] });
     await loginAs(page, admisi);
     await page.goto('/klinis/igd');
-    await expect(page.getByRole('heading', { name: 'IGD', level: 1 })).toBeVisible();
-    await expect(page.getByText('Belum tersambung', { exact: true })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Instalasi Gawat Darurat', level: 1 })).toBeVisible();
+    await expect(page.getByText('Belum tersambung', { exact: true })).toHaveCount(0);
     await page.goto('/klinis/poli');
     await expect(page.getByText('Akses ditolak')).toBeVisible();
   });
