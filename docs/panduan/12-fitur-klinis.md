@@ -8,8 +8,8 @@ keselamatan yang tidak bisa dilewati diam-diam (CLAUDE.md §4.9) dan mengikuti p
 menjadi versi baru, data final terkunci, perubahan sesudah TTE lewat addendum.
 
 > Status 7 Okt 2026: ketujuh layar berjalan di mode presentasi dengan data fiktif (`pnpm dev:demo`). Di mode api
-> CPOE (W2), IGD + tempat tidur (W3), rawat inap (W4), dan tablet persetujuan (W5a) sudah tersambung; pemeriksaan poli
-> dan resume masih "Belum tersambung" (W1, W5b). Backend yang sudah
+> ketujuh layar sudah tersambung ke API: pemeriksaan poli (W1), CPOE (W2), IGD + tempat tidur (W3), rawat inap (W4),
+> tablet persetujuan (W5a), dan resume (W5b). Fase 3 tinggal potongan penutup 3.9. Backend yang sudah
 > ada: infrastruktur entri klinis (3.1), diagnosis, tanda vital, hasil, ringkasan (3.2a), CPPT + co-sign + worklist
 > (3.2b), ADT, papan bed, triase, gelang, Aplicare (3.3), CPOE + CDS + resep (3.4), dan eMAR + asuhan keperawatan
 > (3.5), resume + rekonsiliasi obat + gerbang tutup kunjungan + surat kematian (3.6), persetujuan tindakan + edukasi
@@ -48,12 +48,12 @@ Sepuluh layar bagan RME memakai pola bersama di `apps/web/src/components/rme/` d
 
 | Layar                      | Rute                         | Peran (mode presentasi)                              | Komponen      | Status                                           |
 | -------------------------- | ---------------------------- | ---------------------------------------------------- | ------------- | ------------------------------------------------ |
-| Pemeriksaan poli           | `/klinis/poli`               | dokter, dokter residen, perawat, bidan               | K01, K02      | 🟨 demo; API worklist, CPPT, diagnosis ada       |
+| Pemeriksaan poli           | `/klinis/poli`               | dokter, dokter residen, perawat, bidan               | K01, K02      | ✅ demo + api (W1)                               |
 | Order dan resep (CPOE)     | `/klinis/order`              | dokter, dokter residen                               | K09           | ✅ demo + api (W2)                               |
 | IGD                        | `/klinis/igd`                | dokter, dokter residen, perawat, petugas pendaftaran | K03           | ✅ demo + api (W3)                               |
 | Tempat tidur               | `/klinis/tempat-tidur`       | perawat, petugas pendaftaran, manajemen              | K05           | ✅ demo + api (W3)                               |
 | Rawat inap                 | `/klinis/rawat-inap`         | dokter, dokter residen, perawat, bidan               | K04, K07, K12 | ✅ demo + api (W4)                               |
-| Resume medis               | `/klinis/resume`             | dokter, dokter residen                               | K13           | 🟨 demo; API ada (3.6); W5b belum                |
+| Resume medis               | `/klinis/resume`             | dokter, dokter residen                               | K13           | ✅ demo + api (W5b)                              |
 | Persetujuan tindakan       | `/tablet/persetujuan`        | dokter, perawat                                      | K11           | ✅ demo + api (W5a)                              |
 | Worklist klinis            | `/klinis/worklist`           | dokter, dokter residen, perawat, bidan               | K01           | 🟨 demo; API worklist ada (3.2b)                 |
 | CPPT & serah terima        | `/klinis/cppt`               | dokter, dokter residen, perawat, bidan, apoteker     | K07           | 🟨 demo; API CPPT ada (3.2b)                     |

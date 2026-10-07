@@ -52,7 +52,7 @@ Contoh lengkap: `apps/web/src/app/(staf)/pendaftaran/`.
 | `actions.ts` / `actions-api.ts` | Server Action api: cek sesi + input sendiri, panggil API lewat BFF                         |
 | `*-client.tsx`, panel           | Bagian interaktif (`'use client'`); tidak membaca env atau rahasia                         |
 
-Layar klinis yang jalur api-nya belum dibangun (W1 Poli, W5b Resume) menampilkan `ScreenNotConnected` ("Belum tersambung", `components/screen-gate.tsx`), contohnya `app/(staf)/klinis/poli/page.tsx`. Layar yang sudah tersambung tetap berstatus `demo` + `permission` di registri (jalur demo dipertahankan), contohnya Pendaftaran, CPOE (W2: `components/klinis/cpoe-api-*.tsx`), tablet Persetujuan (W5a: `tablet/persetujuan/api-*.tsx`), dan Rawat inap (W4: `app/(staf)/klinis/rawat-inap/api-*.tsx`, `[encounterId]/actions-api.ts`, BFF SSE `events/route.ts`).
+Layar hibrida yang jalur api-nya belum dibangun (kini hanya sepuluh layar penunjang fase 4, 4.0c) menampilkan `ScreenNotConnected` ("Belum tersambung", `components/screen-gate.tsx`), contohnya `app/(staf)/penunjang/lab/page.tsx`. Semua layar klinis fase 3 sudah tersambung (W1–W5b). Layar yang sudah tersambung tetap berstatus `demo` + `permission` di registri (jalur demo dipertahankan), contohnya Pendaftaran, CPOE (W2: `components/klinis/cpoe-api-*.tsx`), tablet Persetujuan (W5a: `tablet/persetujuan/api-*.tsx`), dan Rawat inap (W4: `app/(staf)/klinis/rawat-inap/api-*.tsx`, `[encounterId]/actions-api.ts`, BFF SSE `events/route.ts`).
 
 ### Data dummy dan aturan murni
 

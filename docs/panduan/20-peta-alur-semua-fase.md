@@ -80,12 +80,12 @@ Backend: 🟨 berjalan. Layar: 17.
 
 | Layar                      | Rute                         | Komponen    | Sumber data                              | Panduan                        |
 | -------------------------- | ---------------------------- | ----------- | ---------------------------------------- | ------------------------------ |
-| Pemeriksaan poli           | `/klinis/poli`               | K01 K02     | hibrida (demo + api)                     | [Klinis](./12-fitur-klinis.md) |
+| Pemeriksaan poli           | `/klinis/poli`               | K01 K02     | hibrida (demo + api, api tersambung W1)  | [Klinis](./12-fitur-klinis.md) |
 | Order & resep (CPOE)       | `/klinis/order`              | K09         | hibrida (demo + api, api tersambung W2)  | [Klinis](./12-fitur-klinis.md) |
 | IGD                        | `/klinis/igd`                | K03         | hibrida (demo + api, api tersambung W3)  | [Klinis](./12-fitur-klinis.md) |
 | Tempat tidur               | `/klinis/tempat-tidur`       | K05         | hibrida (demo + api, api tersambung W3)  | [Klinis](./12-fitur-klinis.md) |
 | Rawat inap                 | `/klinis/rawat-inap`         | K04 K07 K12 | hibrida (demo + api, api tersambung W4)  | [Klinis](./12-fitur-klinis.md) |
-| Resume medis               | `/klinis/resume`             | K13         | hibrida (demo + api)                     | [Klinis](./12-fitur-klinis.md) |
+| Resume medis               | `/klinis/resume`             | K13         | hibrida (demo + api, api tersambung W5b) | [Klinis](./12-fitur-klinis.md) |
 | Persetujuan tindakan       | `/tablet/persetujuan`        | K11         | hibrida (demo + api, api tersambung W5a) | [Klinis](./12-fitur-klinis.md) |
 | Worklist klinis            | `/klinis/worklist`           | K01         | demo                                     | [Klinis](./12-fitur-klinis.md) |
 | CPPT & serah terima        | `/klinis/cppt`               | K07         | demo                                     | [Klinis](./12-fitur-klinis.md) |
