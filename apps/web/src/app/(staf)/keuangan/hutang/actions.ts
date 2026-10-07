@@ -50,7 +50,7 @@ export async function hutangAction(input: HutangActionInput): Promise<KeuanganAc
   const { state } = await readDomain('hutang');
   const commit = async (event: EventOf<'hutang'>, message: string): Promise<KeuanganActionResult> => {
     const r = await commitEvent('hutang', event, { rev: c.rev, session: s });
-    return r.ok ? { ok: true, message } : { ok: false, message: r.error, stale: r.stale };
+    return r.ok ? { ok: true, message, rev: r.rev } : { ok: false, message: r.error, stale: r.stale };
   };
   const f = 'invoiceId' in c ? state.invoices.find((x) => x.id === c.invoiceId) : undefined;
   switch (c.type) {

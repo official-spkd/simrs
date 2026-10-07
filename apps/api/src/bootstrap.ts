@@ -1,7 +1,14 @@
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { Logger } from 'nestjs-pino';
-import { CONSENT_SIGNATURE_MAX_BYTES, MAX_DOCUMENT_BYTES } from '@simrs/shared';
+import {
+  CONSENT_SIGNATURE_MAX_BYTES,
+  HL7_MAX_BYTES,
+  LIS_HL7_CONTENT_TYPES,
+  LIS_INGEST_PATH,
+  MAX_DOCUMENT_BYTES,
+} from '@simrs/shared';
+import { rawText } from './common/raw-text.middleware';
 import { rawUpload } from './common/raw-upload.middleware';
 import { securityHeaders } from './common/security-headers';
 import type { ApiEnv } from './config/env';
@@ -21,6 +28,8 @@ export function configureApp(app: NestExpressApplication, env: ApiEnv): void {
   app.use('/api/v1/patients/:patientId/documents', rawUpload(MAX_DOCUMENT_BYTES));
   // K11 · Gambar tanda tangan persetujuan di tablet (PNG kecil, ADR-0020/0058).
   app.use('/api/v1/consents/drafts/:id/signature-image', rawUpload(CONSENT_SIGNATURE_MAX_BYTES));
+  // S01 · HL7 v2 dari analyzer lab (fase 4 §4.1a): body mentah untuk HMAC, maks. 256 KB.
+  app.use(LIS_INGEST_PATH, rawText(HL7_MAX_BYTES, LIS_HL7_CONTENT_TYPES));
   app.useLogger(app.get(Logger));
   app.setGlobalPrefix('api/v1', { exclude: ['health', 'ready'] });
   app.enableCors({

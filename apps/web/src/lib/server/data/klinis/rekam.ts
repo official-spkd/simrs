@@ -46,6 +46,8 @@ export interface RekamActionResult {
   stale?: boolean;
   /** Isian yang galat. */
   field?: string;
+  /** Revisi toko setelah aksi berhasil; aksi berikutnya memakainya tanpa menunggu halaman dimuat ulang. */
+  rev?: number;
 }
 
 export const REKAM_DENIED: RekamActionResult = {
@@ -73,10 +75,11 @@ export function rekamFail(message: string, field?: string): RekamActionResult {
 
 /** Hasil `commitEvent` sebagai hasil aksi (basi = muat ulang). */
 export function committed<T extends object>(
-  c: { ok: true } | { ok: false; error: string; stale?: true },
+  c: { ok: true; rev?: number } | { ok: false; error: string; stale?: true },
   ok: RekamActionResult & T,
 ): RekamActionResult & Partial<T> {
-  return c.ok ? ok : ({ ok: false, message: c.error, stale: c.stale } as RekamActionResult & Partial<T>);
+  if (c.ok) return c.rev === undefined ? ok : { ...ok, rev: c.rev };
+  return { ok: false, message: c.error, stale: c.stale } as RekamActionResult & Partial<T>;
 }
 
 // ─── CPPT: tulis + atestasi (dipakai layar Rawat inap, CPPT, Worklist, Kelengkapan) ─────────────────────────

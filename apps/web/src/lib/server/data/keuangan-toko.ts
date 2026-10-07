@@ -57,4 +57,6 @@ export interface KeuanganActionResult {
   message: string;
   /** Tampilan basi: halaman dimuat ulang. */
   stale?: boolean;
+  /** Revisi toko setelah aksi berhasil; aksi berikutnya memakainya (`useStoreAction`). */
+  rev?: number;
 }

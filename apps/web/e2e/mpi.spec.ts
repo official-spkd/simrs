@@ -61,6 +61,6 @@ test.describe('layar MPI (/rekam-medis/mpi)', () => {
     const perawat = await createAccount({ roles: ['perawat'] });
     await loginAs(page, perawat, '/rekam-medis/mpi');
     await expect(page.getByText('Tinjauan rekam medis ganda khusus petugas rekam medis.')).toBeVisible();
-    await expect(page.getByRole('link', { name: 'Rekam medis' })).toHaveCount(0);
+    await expect(page.getByRole('link', { name: 'Rekam medis', exact: true })).toHaveCount(0);
   });
 });

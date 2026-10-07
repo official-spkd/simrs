@@ -139,13 +139,17 @@ CPPT dalam format SOAP dengan diagnosis ICD-10, dan rencana tindak lanjut.
 presentasi; aksi disuntikkan lewat `PoliOps` (`components/klinis/poli-ops.ts`): toko demo atau Server Action
 `app/(staf)/klinis/poli/actions-api.ts`.
 
-1. Antrean poli hari ini untuk unit penugasan: `GET /api/v1/poli/worklist` (status dari tiket + kunjungan). Kunjungan
+1. Antrean poli hari ini: `GET /api/v1/poli/worklist` (status dari tiket + kunjungan). Bawaan = gabungan antrean poli
+   unit penugasan + kunjungan rawat jalan hari ini yang DPJP-nya praktisi terikat akun saya (dokter "Semua unit" dan
+   dokter yang praktik di poli lain tetap melihat pasiennya). Bila ada lebih dari satu poli/sesi, tombol pemilih
+   "Semua pasien saya · <poli> · unit Anda · <poli> · praktik HH.MM–HH.MM" mengisi `?poli=<layanan>`. Kunjungan
    terpilih: `GET /api/v1/encounters/:id/poli-visit` (bentuk kontrak demo + bagian `api`).
 2. **Panggil pasien · PD-0xx** (`POST /queue/tickets/:id/call`), **Mulai periksa** (`…/start`, task 4), dan
    **Panggil berikutnya** (`POST /queue/services/:id/call-next`).
-3. Perawat: **Ukur ulang tanda vital** meminta napas dan berat badan juga (NEWS2 dihitung server,
-   `POST /encounters/:id/observations`).
-4. Dokter: S/O, diagnosis ICD-10, catatan rencana (P), tindak lanjut/kontrol, kondisi pulang. Draf tersimpan otomatis
+3. Perawat: **Ukur ulang tanda vital** meminta napas, berat badan, kesadaran ACVPU (wajib dipilih), dan oksigen
+   tambahan, karena NEWS2 dihitung server dari nilai itu (`POST /encounters/:id/observations`).
+4. Dokter: S/O, diagnosis ICD-10, catatan rencana (P), tindak lanjut/kontrol, kondisi pulang dan cara pulang (keduanya
+   wajib dipilih, tanpa nilai bawaan, karena masuk resume ber-TTE). Draf tersimpan otomatis
    4 detik setelah berhenti mengetik (`PUT /drafts/:id/soap`, bukan rekam medis).
 5. **Tanda tangani dan selesai**: CPPT SOAP final, diagnosis yang belum tercatat (pertama = utama), resume rawat jalan
    ringkas ber-TTE (`/discharge/summaries` → finalize), lalu `POST /encounters/:id/close` (tiket poli selesai → task 5).
@@ -217,13 +221,17 @@ dikirim dengan TTE.
 **Mode api (W2).** Izin layar `order.write`; API menegakkan ulang izin dan ABAC pasien. Komponen
 `components/klinis/cpoe-api-*.tsx`, logika murni `lib/cpoe-api.ts`, Server Action `app/(staf)/klinis/order/actions.ts`.
 
-1. **Order & resep (CPOE)** menampilkan "Kunjungan berjalan" dari worklist K01: pasien tempat Anda DPJP atau rawat
+1. **Order & resep (CPOE)** (menu Klinis, juga dari tautan cepat Rawat inap dan Pemeriksaan poli) menampilkan
+   "Kunjungan berjalan" dari worklist K01: pasien tempat Anda DPJP atau rawat
    bersama, ditambah pasien di unit penugasan. Kunjungan dengan order residen yang menunggu tinjauan Anda tampil
    teratas dengan chip "N order residen menunggu tinjauan".
 2. Banner pasien diambil dari `GET /encounters/:id/context`. Alergi selalu bertulisan: daftar alergi, "Tidak ada alergi
    obat (NKDA)", atau "Alergi belum dikaji".
 3. Cari katalog RS (minimal 2 huruf, bisa disaring per jenis) atau terapkan order set. Baris obat wajib dosis, rute,
-   dan aturan pakai; penunjang memilih prioritas rutin/cito.
+   dan aturan pakai; penunjang memilih prioritas rutin/cito. Rute terisi "oral" hanya untuk sediaan oral (tablet,
+   kapsul, sirup, …). Sediaan injeksi, infus, dan bentuk lain mulai dengan "Pilih rute…", dan baris belum bisa dikirim
+   sebelum rute dipilih. Server menolak rute yang bertentangan dengan sediaan, misalnya injeksi + oral atau tablet +
+   intravena (422 `MEDICATION_ROUTE_INVALID`).
 4. Setiap perubahan daftar menjalankan pratinjau CDS server (`POST /orders/evaluate`) dengan KB RS. Temuan blok
    memunculkan gerbang **CDS memblokir …**: **Hapus …**, atau **Override dengan alasan** (minimal 10 karakter).
    Alasan ikut dikirim dan tercatat di `cds_alerts`.
@@ -547,6 +555,15 @@ rawat (`GET /worklist?view=dpjp`). Di resume: **Himpun resume** (draf dari sumbe
 kondisi, catatan per bagian, edukasi, instruksi, tindak lanjut, obat pulang), **Simpan draf resume**, **Konfirmasi
 DPJP**, kelengkapan dari server, **Tanda tangani resume (TTE)**, **Cetak PDF resume** (`/klinis/dokumen/<id>/unduh`,
 diteruskan dari `GET /documents/:id/content`), dan addendum ber-TTE.
+
+- **Tambah diagnosis kunjungan (ICD-10)** di layar Resume (butir "diagnosis berkode"): yang pertama menjadi utama,
+  berikutnya sekunder (`POST /diagnosis/conditions`). Rawat inap belum punya layar diagnosis mode api lain.
+- **TTE gagal**: panel final menampilkan "TTE gagal · alasan tanda tangan ulang" dan **Tanda tangani ulang (TTE)**
+  (koreksi beralasan ≥ 10 karakter → versi baru dengan isian DPJP versi sebelumnya, PDF + TTE baru). Endpoint dokumen
+  generik `POST /documents/:id/signatures` menolak dokumen klinis (409).
+- **Surat keterangan kematian** tampil bila cara pulang "Meninggal": jam kematian, sebab ICD-10, keterangan, lalu
+  **Terbitkan surat kematian (TTE)**; TTE gagal → **Tanda tangani ulang surat (TTE)**. Hanya dokter yang berelasi dengan
+  pasien (keputusan K-1).
 
 | Endpoint                                                                     | Fungsi                                                                                                             |
 | ---------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |

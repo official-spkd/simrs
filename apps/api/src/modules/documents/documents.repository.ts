@@ -17,6 +17,7 @@ export const DOCUMENT_SELECT = {
   voidedAt: true,
   voidedBy: true,
   voidReason: true,
+  sourceType: true,
   signatures: {
     orderBy: { requestedAt: 'asc' },
     select: {

@@ -41,6 +41,7 @@ export function PoliWorkspace({
   apiFields = null,
   finishedLabel = null,
   extraActions = null,
+  query = '',
 }: {
   worklist: PoliWorklist;
   encounter: PoliEncounter;
@@ -58,11 +59,13 @@ export function PoliWorkspace({
   /** Mode api: aksi lewat API (bawaan: toko demo). */
   ops?: PoliOps;
   /** Mode api: isian resume rawat jalan ringkas di SOAP. */
-  apiFields?: { plan: string; followUp: string; condition: string } | null;
+  apiFields?: { plan: string; followUp: string; condition: string; disposition: string } | null;
   /** Mode api: CPPT final tetapi kunjungan belum ditutup. */
   finishedLabel?: string | null;
   /** Mode api: tombol antrean pasien terpilih (panggil, mulai periksa) dan tautan resume. */
   extraActions?: ReactNode;
+  /** Parameter tambahan tautan pasien (mode api: poli terpilih). */
+  query?: string;
 }) {
   const router = useRouter();
   const tasks = useScenarioTasks(binding);
@@ -87,12 +90,12 @@ export function PoliWorkspace({
     if (!next || pending) return;
     if (next.scenario) {
       setCalled(`${next.queueNo} · ${next.name} adalah pasien skenario: buka lalu tekan "Panggil pasien".`);
-      router.push(`/klinis/poli?pasien=${next.patientId}`, { scroll: false });
+      router.push(`/klinis/poli?pasien=${next.patientId}${query}`, { scroll: false });
       return;
     }
     ops.callNext((res) => {
       setCalled(res.ok ? (res.message ?? null) : (res.error ?? 'Pasien belum dipanggil.'));
-      if (res.patientId) router.push(`/klinis/poli?pasien=${res.patientId}`, { scroll: false });
+      if (res.patientId) router.push(`/klinis/poli?pasien=${res.patientId}${query}`, { scroll: false });
     });
   };
 
@@ -151,6 +154,7 @@ export function PoliWorkspace({
         onCallNext={callNext}
         called={called}
         canCall={isDoctor}
+        query={query}
       />
       <section aria-label="Rekam medis pasien" className="flex min-w-0 flex-col gap-4">
         <KlinisPatientHeader patient={encounter.patient} attending={encounter.doctor} actions={actions} />

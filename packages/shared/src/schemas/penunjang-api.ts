@@ -270,6 +270,7 @@ export const CRITICAL_SOURCES = ['lab', 'radiology'] as const;
 export type CriticalSource = (typeof CRITICAL_SOURCES)[number];
 /** Status hanya berubah lewat trigger saat laporan ber-read-back masuk (tidak ada endpoint penutupan lain). */
 export const CRITICAL_STATUSES = ['terbuka', 'dilaporkan'] as const;
+export type CriticalStatus = (typeof CRITICAL_STATUSES)[number];
 export const CRITICAL_CHANNELS = ['telepon', 'langsung'] as const;
 export const CRITICAL_RECIPIENT_NAME_MIN = 5;
 

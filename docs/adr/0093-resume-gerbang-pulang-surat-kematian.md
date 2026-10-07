@@ -70,3 +70,21 @@ yang belum final setelah pulang tetap muncul di worklist (`resume_overdue`) seba
   diketahui) dan `birthDate` boleh null; `PatientBanner` menerima `-`.
 - **Resume (W5b)** memakai `ResumeSections` yang sama; cetak PDF lewat rute unduh dokumen BFF bersama
   (`/klinis/dokumen/:id/unduh` → `GET /api/v1/documents/:id/content`).
+
+## Pembaruan 7 Okt 2026 · penutup fase 3 (potongan 3.9)
+
+- **Worklist poli bawaan dokter** (temuan BUG, keputusan orkestrator): gabungan antrean layanan poli unit penugasan +
+  kunjungan rawat jalan hari ini dengan `practitioner.userId` = pengguna sesi; `options` = poli unit + sesi praktik saya
+  hari ini (termasuk sesi yang saya gantikan) untuk pemilih poli/sesi di layar (`?poli=`). Tetap disaring lingkup ABAC;
+  audit `read` per pasien yang tampil.
+- **Tidak ada nilai klinis karangan di BFF poli** (review keamanan 3.9): tanda vital mode api wajib kesadaran ACVPU +
+  oksigen tambahan (bukan `A`/tanpa O2 bawaan); kondisi pulang dan cara pulang dipilih dokter sebelum resume rawat jalan
+  ber-TTE (tanpa `Stabil`/`pulang` bawaan).
+- **Jalan pintas TTE ditutup**: `POST /documents/:id/signatures` menolak dokumen bersumber klinis (409); TTE gagal
+  diulang lewat koreksi beralasan di alur klinisnya (resume, surat kematian). Unggahan dokumen jenis `resume`/`consent`
+  ditolak (422): jenis itu hanya terbit dari alur klinis.
+- **Addendum resume** mensyaratkan tim DPJP (sama dengan finalisasi), bukan sekadar `clinical.sign`.
+- **Diagnosis rawat inap** bisa dicatat dari layar Resume (belum ada layar diagnosis mode api lain), agar butir
+  "diagnosis berkode" bisa dipenuhi tanpa jalan buntu.
+- **Surat kematian di layar**: panel di Resume saat cara pulang "Meninggal" (K-1), termasuk tanda tangan ulang.
+

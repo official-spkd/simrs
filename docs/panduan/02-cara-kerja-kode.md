@@ -550,7 +550,7 @@ Modul `orders` (CPOE) dan `cds` (ADR-0030). Kontrak masukan `orderSubmitInputSch
 | `GET /orders/catalog?q=&kind=`            | `order.read`    | Orderable + obat aktif RS (kode LOINC/ICD-9-CM/KFA, zat + golongan, kewaspadaan tinggi); tarif `null` sampai U01                                         |
 | `GET/POST /orders/order-sets`             | `read`/`manage` | Order set institusi; dibuat oleh pemegang `order.manage` (komite farmasi, diberikan lewat layar Akses)                                                   |
 | `POST /orders/evaluate`                   | `order.write`   | Pratinjau CDS server per baris (semua temuan, temuan teratas, `blocked`/`overridden`); tidak menyimpan, baca konteks pasien diaudit                      |
-| `POST /orders/submit` + `Idempotency-Key` | `order.write`   | 201 kiriman baru, 200 ulangan isi sama, 409 kunci dipakai isi lain, 422 `CDS_BLOCKED` (penolakan tetap dicatat `cds_alerts` `diblokir` + audit `denied`) |
+| `POST /orders/submit` + `Idempotency-Key` | `order.write`   | 201 kiriman baru, 200 ulangan isi sama, 409 kunci dipakai isi lain, 422 `CDS_BLOCKED` (penolakan tetap dicatat `cds_alerts` `diblokir` + audit `denied`), 422 `MEDICATION_ROUTE_INVALID` (rute bertentangan dengan `drugs.dosage_form`) |
 | `POST /orders/:id/cancel`                 | `order.cancel`  | Batal beralasan ≥ 10 (status `dibatalkan` append-only, SATUSEHAT revisi 2, event `order.cancelled`); batal ulang 409                                     |
 | `POST /orders/:id/review`                 | `clinical.sign` | Tinjauan order residen oleh DPJP utama/rawat bersama/DPJP kunjungan: atestasi `review_order` + resep ber-TTE peninjau                                    |
 | `GET /encounters/:encounterId/orders`     | `order.read`    | Semua kiriman kunjungan: isi beku, status terkini, temuan CDS, resep (dokumen + status TTE)                                                              |
@@ -680,6 +680,26 @@ lewat `ClinicalRecordService` dan `CareTeamService`.
   dengan batas 10 MB (413, aliran dihentikan), mengenali jenis dari isi (PDF/PNG/JPEG, selain itu 415), dan meneruskan
   ke API (`apiUpload`) yang menegakkan ulang semuanya. Tanda tangan tablet (W5a) tetap Server Action tetapi dibatasi
   256 KB per gambar sehingga muat di 1 MB.
+
+### Stok depo (S05, fase 4 potongan 4.6a)
+
+Modul `stock` (`/api/v1/stock`, modul RS `S05`), ADR-0036. Masukan + saldo di `schemas/penunjang-api.ts`, bentuk
+jawaban lain di `schemas/stock.ts`. Semua mutasi stok = baris `stock_movements`; saldo hanya diubah trigger
+`app_stock_apply_movement` (galat trigger `STOCK_INSUFFICIENT`/`BATCH_EXPIRED` dipetakan ke `SUPPORT_ERRORS`).
+
+| Endpoint `/api/v1/stock/…`                      | Izin             | Isi                                                                                                           |
+| ----------------------------------------------- | ---------------- | ------------------------------------------------------------------------------------------------------------- |
+| `GET locations?purpose=own\|destination`        | `stock.read`     | Lokasi dalam lingkup (unit penugasan; manajemen semua) atau semua tujuan mutasi                               |
+| `GET balances?stockLocationId=&expiring=1`      | `stock.read`     | Saldo per batch (qty > 0), urut obat lalu ED; `expired`/`expiringSoon` dari jam WIB server                    |
+| `GET movements?stockLocationId=&stockBatchId=`  | `stock.read`     | Kartu stok terbaru dulu dengan nomor dokumen (TRM/MUT) dan alasan                                             |
+| `GET transfers?status=`                         | `stock.read`     | Mutasi yang menyentuh lokasi dalam lingkup; `canReceive` dari lingkup `stock.transfer`                        |
+| `GET suppliers`, `GET drugs?q=`                 | `stock.receive`  | Pemasok aktif, obat formularium aktif (maks. 30)                                                              |
+| `POST receipts`                                 | `stock.receive`  | Nomor `TRM-YYMM-NNNN`, batch baru/ulang (ED sama), ledger `receipt`, event `stock.received`; batch ED ditolak |
+| `POST transfers` → `POST transfers/:id/receive` | `stock.transfer` | Kirim (`transfer_out`) lalu terima sekali di tujuan (`transfer_in`); event `stock.transferred` per langkah    |
+| `POST adjustments`                              | `stock.adjust`   | Selisih bertanda + alasan ≥ 10; batch ED hanya dikurangi (`write_off`); event `stock.adjusted`                |
+
+Tes: `apps/api/test/stock.test.ts` (saldo = Σ ledger, penyesuaian serentak tidak pernah negatif, mutasi setengah jalan
+tidak menggandakan stok, batch ED ditolak, lingkup + isolasi), E2E `apps/web/e2e/depo-api.spec.ts`.
 
 ### Booking (F02, fase 2 potongan 3)
 

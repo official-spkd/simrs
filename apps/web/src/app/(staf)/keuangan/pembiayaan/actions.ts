@@ -32,6 +32,8 @@ export interface FinancingActionResult {
   error?: string;
   message?: string;
   stale?: boolean;
+  /** Revisi toko setelah aksi berhasil; aksi berikutnya memakainya (`useStoreAction`). */
+  rev?: number;
 }
 
 const id = z.string().regex(/^[A-Za-z0-9-]{1,60}$/);
@@ -78,7 +80,9 @@ export async function recordFinancingEventAction(input: FinancingEventInput): Pr
     message: string,
   ): Promise<FinancingActionResult> => {
     const r = await commitEvent('pembiayaan-btn', event, { rev: e.rev, session: s });
-    return r.ok ? { ok: true, message: `${message} · ${formatJam(at)}` } : { error: r.error, stale: r.stale };
+    return r.ok
+      ? { ok: true, message: `${message} · ${formatJam(at)}`, rev: r.rev }
+      : { error: r.error, stale: r.stale };
   };
   const basisOf = (batchIds: readonly string[]) =>
     data.pool

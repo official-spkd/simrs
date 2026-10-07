@@ -9,8 +9,8 @@ import { createAccount, loginAs } from './support/accounts';
  * layar api tanpa "Belum tersambung".
  */
 
-/** Layar penunjang yang sudah tersambung API: Bank darah + Gizi (4.9, `gizi-bank-darah-api.spec.ts`). */
-const CONNECTED = new Set(['bank-darah', 'gizi']);
+/** Layar penunjang yang jalur api-nya sudah diisi (4.6a: Depo; 4.9: Bank darah + Gizi, `gizi-bank-darah-api.spec.ts`). */
+const CONNECTED = new Set(['depo', 'bank-darah', 'gizi']);
 
 const PERFORMERS: ReadonlyArray<{ role: string; screens: readonly string[] }> = [
   { role: 'analis_lab', screens: ['lab', 'mikro', 'bank-darah', 'kritis'] },
@@ -37,10 +37,14 @@ test.describe('layar penunjang hibrida di mode api (4.0c)', () => {
         if (!s) throw new Error(`layar ${id} tidak ada`);
         const res = await page.goto(s.route);
         expect(res?.status(), `${role} ${s.route}`).toBe(200);
+        if (CONNECTED.has(id)) {
+          // Sudah tersambung API (Depo 4.6a, Bank darah + Gizi 4.9): halaman api, tanpa "Belum tersambung".
+          await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
+          await expect(page.getByText('Belum tersambung', { exact: true })).toHaveCount(0);
+          continue;
+        }
         await expect(page.getByRole('heading', { name: s.label, level: 1 })).toBeVisible();
-        await expect(page.getByText('Belum tersambung', { exact: true })).toHaveCount(
-          CONNECTED.has(id) ? 0 : 1,
-        );
+        await expect(page.getByText('Belum tersambung', { exact: true })).toBeVisible();
         await expect(page.getByText('Mode presentasi · data fiktif')).toHaveCount(0);
       }
     }

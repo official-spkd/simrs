@@ -26,7 +26,8 @@ database (ADR-0028, ADR-0077).
 4. **Radiologi:** dosis CT wajib (CHECK); tanpa PACS/DICOM MWL di fase 4, accession siap untuk itu.
 5. **Kamar operasi:** jadwal tanpa tumpang tindih per kamar (`EXCLUDE USING gist`, `btree_gist`); daftar tilik WHO
    berversi per RS dengan urutan sign in → time out → sign out dan kelengkapan dijaga trigger (`CHECKLIST_ORDER`,
-   `CHECKLIST_INCOMPLETE`), butir persetujuan diisi sistem; peristiwa berurutan induksi → insisi → tutup → keluar;
+   `CHECKLIST_INCOMPLETE`); templat seed sign in berisi 6 butir, termasuk butir sistem `sign-in-consent` yang diisi
+   dari data persetujuan tindakan dan tidak bisa dicentang manual; peristiwa berurutan induksi → insisi → tutup → keluar;
    insisi terkunci sampai time out kecuali override beralasan ≥ 15 karakter (pengaturan RS; hanya pemegang izin
    `surgery.override`, ditinjau mutu, diperiksa API); sign out butuh insisi tercatat + hitung akhir cocok atau
    ditindaklanjuti (`COUNT_MISMATCH`).
