@@ -7,6 +7,7 @@ import {
   medicationAdministrationInputSchema,
   medicationDoubleCheckInputSchema,
   nursingCarePlanInputSchema,
+  nursingEncounterQuerySchema,
   wristbandScanInputSchema,
   type FluidBalanceInput,
   type MedicationAdministrationInput,
@@ -44,6 +45,20 @@ export class NursingController {
     const scan = await this.db.transaction(() => this.emar.scan(body));
     if (!scan.matched) throw clinicalError('WRISTBAND_MISMATCH');
     return scan;
+  }
+
+  /** Pindaian cocok yang masih berlaku (cek ganda dua sesi: perawat kedua memilih pindaian rekan). */
+  @RequirePermission('medication', 'administer')
+  @Get('wristband-scans')
+  activeScans(@Query(new ZodValidationPipe(nursingEncounterQuerySchema)) q: { encounterId: string }) {
+    return this.emar.activeScans(q.encounterId);
+  }
+
+  /** Atestasi cek ganda atas pindaian yang masih berlaku (isi dosis beku untuk pemberian). */
+  @RequirePermission('medication', 'administer')
+  @Get('double-checks')
+  doubleChecks(@Query(new ZodValidationPipe(nursingEncounterQuerySchema)) q: { encounterId: string }) {
+    return this.emar.doubleChecks(q.encounterId);
   }
 
   @RequirePermission('clinical', 'read')
