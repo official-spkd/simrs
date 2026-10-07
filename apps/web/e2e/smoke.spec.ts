@@ -73,17 +73,20 @@ test.describe('smoke', () => {
       'daftar',
       'depo',
       'diagnostik',
+      'edukasi',
       'farmasi',
       'gizi',
       'igd',
       'jadwal',
       'kendali',
       'kiosk',
+      'konsul',
       'kritis',
       'lab',
       'mikro',
       'ok',
       'order',
+      'paket',
       'poli',
       'rad',
       'ranap',
@@ -125,8 +128,11 @@ test.describe('smoke', () => {
     expect(clinical.map((s) => s.id).sort()).toEqual([
       'bed',
       'consent',
+      'edukasi',
       'igd',
+      'konsul',
       'order',
+      'paket',
       'poli',
       'ranap',
       'resume',
@@ -148,7 +154,16 @@ test.describe('smoke', () => {
       await expect(page.getByText('Belum tersambung', { exact: true })).toHaveCount(0);
     }
     // Layar lain yang sudah tersambung API (W2: CPOE, W5a: tablet persetujuan) diperiksa terpisah di bawah.
-    const connected = new Set(['ranap', 'order', 'consent', 'igd', 'bed']);
+    // Edukasi, Konsultasi, dan Paket layanan tersambung API sejak 3.8 (A2): terbuka tanpa "Belum tersambung".
+    for (const id of ['edukasi', 'konsul', 'paket']) {
+      const s = clinical.find((x) => x.id === id);
+      expect(s, id).toBeDefined();
+      expect((await page.goto(s?.route ?? '/'))?.status(), id).toBe(200);
+      await expect(page.getByRole('heading', { level: 1 }).first()).toBeVisible();
+      await expect(page.getByText('Belum tersambung', { exact: true })).toHaveCount(0);
+      await expect(page.getByText('Akses ditolak')).toHaveCount(0);
+    }
+    const connected = new Set(['ranap', 'order', 'consent', 'igd', 'bed', 'edukasi', 'konsul', 'paket']);
     const routes = [
       ...clinical.filter((s) => !connected.has(s.id)).map((s) => ({ route: s.route, label: s.label })),
       { route: `/klinis/resume/${ENCOUNTER_ID.hartono}`, label: 'Resume medis' },
