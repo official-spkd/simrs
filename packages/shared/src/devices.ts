@@ -10,6 +10,14 @@ import { DEVICE_GRANTS, DEVICE_KINDS, type DeviceKind, permissionKey } from './a
 export const DEVICE_PRINCIPAL_KINDS = Object.keys(DEVICE_KINDS) as DeviceKind[];
 export type DevicePrincipalKind = DeviceKind;
 
+/**
+ * Perangkat yang dipakai lewat peramban (cookie BFF): mendaftar di `/perangkat/daftar` (`POST /devices/enrol`).
+ * Analyzer lab (`lab_analyzer`) mendaftar dari gateway-nya sendiri (`POST /devices/lis/enrol`) dan menerima kunci HMAC;
+ * kodenya tidak berlaku di halaman pendaftaran peramban, dan sebaliknya.
+ */
+export const BROWSER_DEVICE_KINDS = ['kiosk', 'queue_display'] as const satisfies readonly DeviceKind[];
+export const GATEWAY_DEVICE_KINDS = ['lab_analyzer'] as const satisfies readonly DeviceKind[];
+
 export const DEVICE_KIND_LABEL: Record<DevicePrincipalKind, string> = DEVICE_KINDS;
 
 /**
@@ -17,7 +25,7 @@ export const DEVICE_KIND_LABEL: Record<DevicePrincipalKind, string> = DEVICE_KIN
  * matriks peran (tidak bisa diberikan ke peran manusia dan tidak bisa diubah RS); perangkat juga tidak pernah mendapat
  * izin manusia.
  */
-export type DevicePermission = 'kiosk.use' | 'queue.display.read';
+export type DevicePermission = 'kiosk.use' | 'queue.display.read' | 'lab.analyzer.ingest';
 
 export function devicePermissions(kind: DevicePrincipalKind): readonly DevicePermission[] {
   return DEVICE_GRANTS[kind].map(([resource, action]) => permissionKey(resource, action) as DevicePermission);
@@ -137,8 +145,21 @@ export const enrolledDeviceSchema = z.object({
   device: z.object({ id: z.uuid(), kind: devicePrincipalKindSchema, name: z.string() }),
 });
 
+/**
+ * Jawaban pendaftaran analyzer lab (`POST /devices/lis/enrol`, fase 4 §4.1a): token `dv1` + kunci HMAC perangkat
+ * (base64url 32 bita) untuk `X-Device-Signature`. Keduanya hanya ditampilkan sekali; server menyimpan hash token dan
+ * kunci HMAC terenkripsi (ADR-0015).
+ */
+export const enrolledAnalyzerSchema = enrolledDeviceSchema.extend({
+  hmacKey: z.string().regex(/^[A-Za-z0-9_-]{43}$/),
+  ingestPath: z.string(),
+});
+export type EnrolledAnalyzer = z.infer<typeof enrolledAnalyzerSchema>;
+
 /** Halaman awal tiap jenis perangkat di web. */
 export const DEVICE_HOME: Record<DevicePrincipalKind, string> = {
   kiosk: '/kiosk',
   queue_display: '/display/antrean',
+  // Analyzer tidak memakai peramban; halaman pendaftaran menjelaskannya.
+  lab_analyzer: '/perangkat/daftar',
 };

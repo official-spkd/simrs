@@ -22,6 +22,9 @@ export const workerEnvSchema = envSchemas.base
     OUTBOX_POLL_MS: z.coerce.number().int().min(250).default(2000),
     OUTBOX_BATCH_SIZE: z.coerce.number().int().min(1).max(500).default(50),
     OUTBOX_HTTP_TIMEOUT_MS: z.coerce.number().int().min(100).default(10_000),
+    /** Pemroses pesan masuk (fase 4 §4.1a): selang putaran dan jumlah klaim per tenant per putaran. */
+    INBOUND_POLL_MS: z.coerce.number().int().min(250).default(2000),
+    INBOUND_BATCH_SIZE: z.coerce.number().int().min(1).max(500).default(50),
     /** Alamat web untuk tautan di email/WhatsApp notifikasi (P09). */
     WEB_BASE_URL: z.url().default('http://localhost:3000'),
     /**

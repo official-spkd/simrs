@@ -222,6 +222,7 @@ export async function sendLisResult(
  * - `POST /_panel/api/lis/send` → `{ barcode, template: dl|kimia|elektrolit|lipid, scenario?, duplicate?,
  *   badSignature?, unknownBarcode?, latencyMs? }` → `{ controlId, barcode, message, deliveries }`
  * - `POST /_panel/api/lis/reset` → riwayat kirim dikosongkan
+ * - `POST /_panel/api/lis/credentials` → `{ deviceToken, deviceSecret }` hasil pendaftaran analyzer di SIM RS
  * Riwayat kirim + target tampil di `GET /_panel/api/state` (`lis`).
  */
 export function registerLisPanel(app: FastifyInstance, config: MockConfig, state: MockState): void {
@@ -240,7 +241,27 @@ export function registerLisPanel(app: FastifyInstance, config: MockConfig, state
     state.lis.reset();
     return { ok: true };
   });
+
+  // Kredensial perangkat hasil pendaftaran gateway (`POST /api/v1/devices/lis/enrol` SIM RS, fase 4 §4.1a): token
+  // `dv1` + kunci HMAC baru diketahui setelah admin mendaftarkan analyzer, jadi E2E/penguji memasangnya saat jalan.
+  app.post('/_panel/api/lis/credentials', async (req, reply) => {
+    const parsed = lisCredentialsSchema.safeParse(req.body ?? {});
+    if (!parsed.success) {
+      return reply.code(400).send({
+        code: 'VALIDATION_FAILED',
+        message: parsed.error.issues[0]?.message ?? 'Kredensial analyzer tidak valid',
+      });
+    }
+    config.lis.deviceToken = parsed.data.deviceToken;
+    config.lis.deviceSecret = parsed.data.deviceSecret;
+    return { ok: true };
+  });
 }
+
+export const lisCredentialsSchema = z.strictObject({
+  deviceToken: z.string().trim().min(10, 'Token perangkat wajib').max(300),
+  deviceSecret: z.string().trim().min(16, 'Kunci HMAC minimal 16 karakter').max(200),
+});
 
 export function lisPanelSummary(config: MockConfig, state: MockState) {
   return {

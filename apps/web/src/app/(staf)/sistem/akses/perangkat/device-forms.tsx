@@ -70,10 +70,18 @@ export function CreateDevice({ units }: { units: Array<{ value: string; label: s
           <span data-testid="kode-pendaftaran" className="font-mono text-[28px] font-bold tracking-[0.15em]">
             {state.created.code}
           </span>
-          <span className="text-small text-ink-700">
-            Buka <strong>/perangkat/daftar</strong> di perangkat itu dan ketik kode ini sebelum pukul{' '}
-            {formatJam(state.created.expiresAt)}. Kode hanya bisa dipakai sekali; jangan kirim lewat pesan.
-          </span>
+          {state.created.kind === 'lab_analyzer' ? (
+            <span className="text-small text-ink-700">
+              Masukkan kode ini di konfigurasi gateway analyzer sebelum pukul{' '}
+              {formatJam(state.created.expiresAt)}. Gateway menukarnya sendiri dengan kredensial dan kunci
+              tanda tangan. Kode hanya bisa dipakai sekali; jangan kirim lewat pesan.
+            </span>
+          ) : (
+            <span className="text-small text-ink-700">
+              Buka <strong>/perangkat/daftar</strong> di perangkat itu dan ketik kode ini sebelum pukul{' '}
+              {formatJam(state.created.expiresAt)}. Kode hanya bisa dipakai sekali; jangan kirim lewat pesan.
+            </span>
+          )}
         </div>
       )}
     </section>

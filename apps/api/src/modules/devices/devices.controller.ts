@@ -94,6 +94,13 @@ export class DeviceEnrolmentController {
   enrol(@Body(new ZodValidationPipe(enrolDeviceSchema)) body: EnrolDeviceInput, @Req() req: Request) {
     return this.devices.enrol(body, meta(req));
   }
+
+  /** S01 · Gateway analyzer lab: token `dv1` + kunci HMAC perangkat (fase 4 §4.1a). */
+  @Post('lis/enrol')
+  @HttpCode(200)
+  enrolAnalyzer(@Body(new ZodValidationPipe(enrolDeviceSchema)) body: EnrolDeviceInput, @Req() req: Request) {
+    return this.devices.enrolAnalyzer(body, meta(req));
+  }
 }
 
 /** Endpoint milik perangkat itu sendiri. */

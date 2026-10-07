@@ -837,3 +837,31 @@ describe('bank darah', () => {
     expect(await dbError(issue(B, ab.id, 'KTG-0005'))).toMatch(/BATCH_EXPIRED/);
   });
 });
+
+describe('pesan masuk generik (fase 4 §4.1a)', () => {
+  const insert = (c: Ctx, over: Record<string, unknown>) =>
+    inT(c, (tx) =>
+      tx.inboundEvent.create({
+        data: {
+          id: newId(),
+          tenantId: c.tenantId,
+          source: 'uji',
+          idempotencyKey: newId(),
+          headers: {},
+          rawBody: 'MSH|^~\\&|X',
+          ...over,
+        },
+      }),
+    );
+
+  it('HL7 analyzer wajib tanpa PID/NK1 berisi dan bertanda perangkat; status baku; processed_at hanya untuk processed', async () => {
+    expect(await dbError(insert(A, { source: 'lis-hl7', rawBody: 'MSH|^~\\&|X\rPID|1||RM1||Siti' }))).toMatch(
+      /inbound_events_hl7_redacted|inbound_events_lis_device/,
+    );
+    expect(await dbError(insert(A, { status: 'selesai' }))).toMatch(/inbound_events_values_valid/);
+    expect(await dbError(insert(A, { status: 'processed' }))).toMatch(/inbound_events_values_valid/);
+    const ok = await insert(A, { rawBody: 'MSH|^~\\&|X\rPID|1\rNK1|1\rOBR|1' });
+    expect(ok.status).toBe('received');
+    expect(await inT(B, (tx) => tx.inboundEvent.count({ where: { id: ok.id } }))).toBe(0);
+  });
+});

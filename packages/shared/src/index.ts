@@ -14,6 +14,7 @@ export * from './forms';
 export * from './front-office-outbox';
 export * from './ids';
 export * from './inbound';
+export * from './support-realtime';
 export * from './integrations/lis/hl7';
 export * from './integrations/bpjs';
 export * from './integrations/dukcapil';

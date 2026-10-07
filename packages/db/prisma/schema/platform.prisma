@@ -250,15 +250,25 @@ model InboundEvent {
   idempotencyKey String      @map("idempotency_key")
   headers        Json
   rawBody        String      @map("raw_body")
+  /// received | processing | processed | failed (dicoba lagi) | dead (berhenti, tampil di layar); CHECK database.
   status         String      @default("received")
   receivedAt     DateTime    @default(now()) @map("received_at") @db.Timestamptz(3)
   processedAt    DateTime?   @map("processed_at") @db.Timestamptz(3)
+  /// Potongan galat terakhir tanpa PHI (maks. 500 karakter).
   error          String?
+  /// Fase 4 §4.1a · percobaan proses yang sudah dijalankan worker (retry eksponensial, `INBOUND_MAX_ATTEMPTS`).
+  attempts       Int         @default(0)
+  /// Jadwal proses berikutnya; saat `processing` = batas sewa klaim.
+  nextAttemptAt  DateTime    @default(now()) @map("next_attempt_at") @db.Timestamptz(3)
+  /// Perangkat pengirim (analyzer lab, ADR-0027); kosong untuk webhook pihak ketiga.
+  deviceId       String?     @map("device_id") @db.Uuid
 
-  tenant Tenant @relation(fields: [tenantId], references: [id])
+  tenant Tenant            @relation(fields: [tenantId], references: [id])
+  device RegisteredDevice? @relation(fields: [tenantId, deviceId], references: [tenantId, id])
 
   @@unique([tenantId, id])
   @@unique([tenantId, source, idempotencyKey])
+  @@index([tenantId, status, nextAttemptAt])
   @@map("inbound_events")
 }
 

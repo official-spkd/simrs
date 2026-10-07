@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import type { TenantTx } from '@simrs/db';
-import { isUuid, newId } from '@simrs/shared';
+import { isUuid, isWorkerEmittedEvent, newId } from '@simrs/shared';
 import { requestContext } from '../../common/request-context';
 import { DOMAIN_EVENT_NAMES, type DomainEventMap, type DomainEventName } from './domain-event-map';
 
@@ -85,6 +85,13 @@ export class DomainEvents {
   ): () => void {
     if (!(DOMAIN_EVENT_NAMES as readonly string[]).includes(name)) {
       throw new Error(`Event domain tidak dikenal: ${name}`);
+    }
+    // Event yang juga ditulis worker tidak menjalankan penangan in-process: reaksinya wajib lewat outbox/pg_notify.
+    if (isWorkerEmittedEvent(name)) {
+      throw new Error(
+        `Event ${name} juga ditulis worker; penangan in-process API tidak akan jalan untuknya. Pakai outbox di ` +
+          'transaksi penulis, pg_notify/SSE, atau pembaca ulang domain_events (WORKER_EMITTED_EVENTS).',
+      );
     }
     const registration: Registration = {
       label: options.label ?? (handler.name || 'anonim'),
