@@ -232,7 +232,14 @@ test('rantai rawat jalan (api): booking JKN → anjungan → SEP → poli + CPOE
   try {
     await loginAs(doc, doctor, '/');
     const nav = doc.getByRole('navigation', { name: 'Navigasi utama' });
-    await nav.getByRole('link', { name: 'Pasien saya' }).click();
+    const mine = nav.getByRole('link', { name: 'Pasien saya' });
+    // Menu berkelompok terlipat bila layar peran banyak: buka grup Klinis dulu.
+    if (!(await mine.isVisible()))
+      await nav
+        .locator('summary', { hasText: /klinis/i })
+        .first()
+        .click();
+    await mine.click();
     await expect(doc.getByRole('heading', { name: 'Pemeriksaan pasien', level: 1 })).toBeVisible();
     await doc.goto(`/klinis/poli?pasien=${patient.id}`);
     await expect(doc.getByText(patientName).first()).toBeVisible();
