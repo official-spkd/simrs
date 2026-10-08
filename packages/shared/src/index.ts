@@ -44,6 +44,8 @@ export * from './schemas/penunjang-api';
 export * from './schemas/gizi-darah';
 export * from './schemas/kamar-operasi';
 export * from './schemas/surgery-board';
+export * from './schemas/surgery-specimen';
+export * from './schemas/anestesi';
 export * from './schemas/stock';
 export * from './schemas/keuangan';
 export * from './schemas/rawat-inap';

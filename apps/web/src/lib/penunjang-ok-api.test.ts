@@ -6,6 +6,7 @@ import {
   ganttStatus,
   manualRemaining,
   nextEvent,
+  signInBlockers,
   statusNote,
   wibInstant,
 } from './penunjang-ok-api';
@@ -61,6 +62,8 @@ const base = (over: Partial<SurgeryCaseView> = {}): SurgeryCaseView => ({
   unreconciled: [],
   supplies: [],
   report: null,
+  anesthesia: { preAssessment: null, records: [] },
+  specimens: [],
   cancelReason: null,
   ...over,
 });
@@ -104,6 +107,21 @@ describe('penunjang-ok-api', () => {
     );
     expect(eventBlock(base())).toBe('Induksi terkunci sampai sign in dikonfirmasi.');
     expect(nextEvent(base({ status: 'batal' }))).toBeNull();
+  });
+
+  it('sign in tertahan tanpa persetujuan atau asesmen pra-anestesi final (4.7b)', () => {
+    expect(signInBlockers(base())).toEqual([
+      'Persetujuan tindakan bertanda tangan belum ada.',
+      'Asesmen pra-anestesi final belum ada.',
+    ]);
+    const ready = base({
+      consent: { id: U(9), procedure: 'Kolesistektomi', decidedAt: T },
+      anesthesia: {
+        preAssessment: { id: U(8), version: 1, recordedAt: T, author: 'dr. Anestesi Fiktif', asa: 'ASA II' },
+        records: [],
+      },
+    });
+    expect(signInBlockers(ready)).toEqual([]);
   });
 
   it('jam WIB → ISO; isian salah → null', () => {

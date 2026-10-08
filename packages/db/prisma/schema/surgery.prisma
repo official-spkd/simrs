@@ -43,6 +43,7 @@ model SurgeryCase {
   discrepancies     SurgeryCountDiscrepancy[]
   reports           OperativeReport[]
   supplyUsages      SurgerySupplyUsage[]
+  specimens         SurgerySpecimen[]
   paReports         PaReport[]
 
   @@unique([tenantId, id])
@@ -229,6 +230,7 @@ model OperativeReport {
   supersededBy   OperativeReport[] @relation("OperativeReportVersion")
   addendumTarget OperativeReport?  @relation("OperativeReportAddendum", fields: [tenantId, addendumOf], references: [tenantId, id])
   addenda        OperativeReport[] @relation("OperativeReportAddendum")
+  specimens      SurgerySpecimen[]
 
   @@unique([tenantId, id])
   @@unique([tenantId, rootId, version])
@@ -255,4 +257,35 @@ model SurgerySupplyUsage {
   @@unique([tenantId, stockMovementId])
   @@index([tenantId, surgeryCaseId])
   @@map("surgery_supply_usages")
+}
+
+/// S06 → S02 · Spesimen operasi untuk patologi anatomi (4.7b, append-only). Satu baris per spesimen dari laporan
+/// operasi terkini; event `surgery.specimen_sent` → order PA (4.8). Token = `schemas/surgery-specimen.ts`.
+model SurgerySpecimen {
+  id                String   @id @db.Uuid
+  tenantId          String   @map("tenant_id") @db.Uuid
+  surgeryCaseId     String   @map("surgery_case_id") @db.Uuid
+  operativeReportId String   @map("operative_report_id") @db.Uuid
+  /// Urutan dalam kasus (label `OK-YYMM-NNNN-S<seq>`).
+  seq               Int
+  site              String
+  /// histopatologi | potong_beku | sitologi | imunohistokimia
+  examination       String
+  containers        Int
+  /// formalin_10 | segar | alkohol_95 | lainnya
+  fixative          String
+  clinicalNote      String   @map("clinical_note")
+  cito              Boolean  @default(false)
+  sentBy            String   @map("sent_by") @db.Uuid
+  sentAt            DateTime @default(now()) @map("sent_at") @db.Timestamptz(3)
+
+  tenant          Tenant          @relation(fields: [tenantId], references: [id])
+  surgeryCase     SurgeryCase     @relation(fields: [tenantId, surgeryCaseId], references: [tenantId, id])
+  operativeReport OperativeReport @relation(fields: [tenantId, operativeReportId], references: [tenantId, id])
+  sender          User            @relation("SurgerySpecimenSender", fields: [tenantId, sentBy], references: [tenantId, id])
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, surgeryCaseId, seq])
+  @@index([tenantId, operativeReportId])
+  @@map("surgery_specimens")
 }

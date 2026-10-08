@@ -13,6 +13,8 @@ import {
   type SurgeryEventInput,
   surgeryEventInputSchema,
   surgerySupplyInputSchema,
+  type SurgerySpecimenInput,
+  surgerySpecimenInputSchema,
   type SurgicalCountInput,
   surgicalCountInputSchema,
 } from '@simrs/shared';
@@ -155,6 +157,16 @@ export class SurgeryController {
     @Body(new ZodValidationPipe(operativeReportCreateSchema)) body: OperativeReportCreateInput,
   ) {
     return this.surgery.report(id, body);
+  }
+
+  /** 4.7b · Spesimen PA dari laporan operasi terkini (operator) → event `surgery.specimen_sent`. */
+  @RequirePermission('surgery', 'report')
+  @Post('cases/:id/specimens')
+  specimens(
+    @Param('id', uuid) id: string,
+    @Body(new ZodValidationPipe(surgerySpecimenInputSchema)) body: SurgerySpecimenInput,
+  ) {
+    return this.surgery.specimens(id, body);
   }
 
   private async surgeryAccessCheck(id: string): Promise<void> {

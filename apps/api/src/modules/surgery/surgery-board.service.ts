@@ -1,11 +1,16 @@
 import { Injectable } from '@nestjs/common';
 import {
+  ANESTHESIA_RECORD_FORM_CODE,
+  asaLabel,
   CHECKLIST_PHASES,
   type ChecklistPhaseId,
   isoDateJakarta,
+  type OperativeReportView,
+  PRE_ANESTHESIA_FORM_CODE,
   type SignatureStatus,
   type SurgeryBoard,
   type SurgeryCaseView,
+  type SurgerySpecimenView,
   unreconciledCountItems,
 } from '@simrs/shared';
 import { ageYears } from '../../infra/clinical/clinical-context';
@@ -170,17 +175,21 @@ export class SurgeryBoardService {
             },
           },
         },
+        // Versi terkini setiap rantai (utama + adendum); salah entri tidak tampil.
         reports: {
-          where: { status: 'final', addendumOf: null, supersededBy: { none: {} } },
-          orderBy: [{ recordedAt: 'desc' }, { id: 'desc' }],
-          take: 1,
+          where: { status: 'final', supersededBy: { none: {} } },
+          orderBy: [{ recordedAt: 'asc' }, { id: 'asc' }],
           include: { author: { select: { displayName: true } } },
+        },
+        specimens: {
+          orderBy: { seq: 'asc' },
+          include: { sender: { select: { displayName: true } } },
         },
       },
     });
     const patientIds = [...new Set(rows.map((r) => r.patientId))];
     const encounterIds = [...new Set(rows.map((r) => r.encounterId))];
-    const [allergies, coverages, consents, docs] = await Promise.all([
+    const [allergies, coverages, consents, docs, anesthesia] = await Promise.all([
       tx.allergyIntolerance.findMany({
         where: {
           patientId: { in: patientIds },
@@ -213,6 +222,7 @@ export class SurgeryBoardService {
           },
         },
       }),
+      this.anesthesiaForms(encounterIds),
     ]);
     return rows.map((r) => {
       const items = r.checklistTemplate.items as TemplateItems;
@@ -225,8 +235,30 @@ export class SurgeryBoardService {
       }
       const resolved = r.discrepancies.map((d) => d.itemCode);
       const consent = consents.get(r.encounterId) ?? null;
-      const report = r.reports[0];
-      const doc = report ? docs.find((d) => d.sourceId === report.id) : undefined;
+      const reportView = (x: (typeof r.reports)[number]): OperativeReportView => {
+        const doc = docs.find((d) => d.sourceId === x.id);
+        return {
+          id: x.id,
+          version: x.version,
+          recordedAt: x.recordedAt.toISOString(),
+          author: x.author.displayName,
+          preOpDiagnosis: x.preOpDiagnosis as { icd10: string; label: string },
+          postOpDiagnosis: x.postOpDiagnosis as { icd10: string; label: string },
+          procedureCodes: x.procedureCodes,
+          findings: x.findings,
+          complications: x.complications,
+          bloodLossMl: x.bloodLossMl,
+          implants: x.implants,
+          paSpecimen: x.paSpecimen,
+          signatureStatus: (doc?.signatures[0]?.status as SignatureStatus | undefined) ?? null,
+          documentId: doc?.id ?? null,
+        };
+      };
+      const main = r.reports.filter((x) => x.addendumOf === null).at(-1);
+      const mainChain = main
+        ? new Set(r.reports.filter((x) => x.rootId === main.rootId).map((x) => x.id))
+        : null;
+      const anesth = anesthesia.get(r.encounterId);
       return {
         id: r.id,
         caseNo: r.caseNo,
@@ -307,21 +339,102 @@ export class SurgeryBoardService {
           quantity: Math.abs(s.stockMovement.quantity),
           implant: s.implant,
         })),
-        report: report
+        report: main
           ? {
-              id: report.id,
-              version: report.version,
-              recordedAt: report.recordedAt.toISOString(),
-              author: report.author.displayName,
-              postOpDiagnosis: report.postOpDiagnosis as { icd10: string; label: string },
-              procedureCodes: report.procedureCodes,
-              signatureStatus: (doc?.signatures[0]?.status as SignatureStatus | undefined) ?? null,
-              documentId: doc?.id ?? null,
+              ...reportView(main),
+              correctionReason: main.correctionReason,
+              // Adendum menunjuk versi mana pun dari rantai laporan utama (versi lama tetap sah sebagai sasaran).
+              addenda: r.reports
+                .filter((x) => x.addendumOf !== null && (mainChain?.has(x.addendumOf) ?? false))
+                .map(reportView),
             }
           : null,
+        anesthesia: { preAssessment: anesth?.pre ?? null, records: anesth?.records ?? [] },
+        specimens: r.specimens.map((sp): SurgerySpecimenView => ({
+          id: sp.id,
+          labelNo: `${r.caseNo}-S${sp.seq}`,
+          site: sp.site,
+          examination: sp.examination as SurgerySpecimenView['examination'],
+          containers: sp.containers,
+          fixative: sp.fixative as SurgerySpecimenView['fixative'],
+          clinicalNote: sp.clinicalNote,
+          cito: sp.cito,
+          operativeReportId: sp.operativeReportId,
+          sentAt: sp.sentAt.toISOString(),
+          sentBy: sp.sender.displayName,
+        })),
         cancelReason: r.cancelReason,
       };
     });
+  }
+
+  /**
+   * Formulir anestesi P07 per kunjungan (4.7b): asesmen pra-anestesi final terkini (syarat sign in) dan catatan anestesi.
+   * Versi terkini rantai = tidak digantikan; versi terkini berstatus salah entri tidak dihitung.
+   */
+  async anesthesiaForms(encounterIds: string[]): Promise<
+    Map<
+      string,
+      {
+        pre: SurgeryCaseView['anesthesia']['preAssessment'];
+        records: SurgeryCaseView['anesthesia']['records'];
+      }
+    >
+  > {
+    const out = new Map<
+      string,
+      {
+        pre: SurgeryCaseView['anesthesia']['preAssessment'];
+        records: SurgeryCaseView['anesthesia']['records'];
+      }
+    >();
+    if (encounterIds.length === 0) return out;
+    const rows = await this.db.tx().formResponse.findMany({
+      where: {
+        encounterId: { in: encounterIds },
+        formCode: { in: [PRE_ANESTHESIA_FORM_CODE, ANESTHESIA_RECORD_FORM_CODE] },
+        status: 'final',
+        supersededBy: { none: {} },
+      },
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+      select: {
+        id: true,
+        encounterId: true,
+        formCode: true,
+        version: true,
+        answers: true,
+        createdAt: true,
+        createdBy: true,
+      },
+    });
+    const names = await this.userNames(rows.map((r) => r.createdBy));
+    for (const r of rows) {
+      if (!r.encounterId) continue;
+      const cur = out.get(r.encounterId) ?? { pre: null, records: [] };
+      const base = {
+        id: r.id,
+        version: r.version,
+        recordedAt: r.createdAt.toISOString(),
+        author: (r.createdBy && names.get(r.createdBy)) || 'Petugas',
+      };
+      if (r.formCode === PRE_ANESTHESIA_FORM_CODE) {
+        cur.pre ??= { ...base, asa: asaLabel((r.answers ?? {}) as Record<string, unknown>) };
+      } else {
+        cur.records.push(base);
+      }
+      out.set(r.encounterId, cur);
+    }
+    return out;
+  }
+
+  private async userNames(ids: Array<string | null>): Promise<Map<string, string>> {
+    const unique = [...new Set(ids.filter((x): x is string => !!x))];
+    if (unique.length === 0) return new Map();
+    const users = await this.db.tx().user.findMany({
+      where: { id: { in: unique } },
+      select: { id: true, displayName: true },
+    });
+    return new Map(users.map((u) => [u.id, u.displayName]));
   }
 
   /**

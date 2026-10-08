@@ -215,6 +215,7 @@ describe('DomainEvents (unit)', () => {
         'stock.transferred',
         'surgery.case_scheduled',
         'surgery.incision_recorded',
+        'surgery.specimen_sent',
         'surgery.case_completed',
         'surgery.case_cancelled',
         'blood.unit_issued',

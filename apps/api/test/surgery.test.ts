@@ -19,6 +19,7 @@ import { testDbUrls } from '@simrs/db/testing';
 import { newId } from '@simrs/shared';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { surgeryActivityChannel } from '../src/modules/surgery/surgery-activity.channel';
 import {
   bearer,
   createTestApp,
@@ -149,6 +150,32 @@ async function consent(e: { patientId: string; encounterId: string }) {
     }),
   );
   return id;
+}
+
+/** Asesmen pra-anestesi final (formulir P07, 4.7b) oleh dokter tim lewat API formulir. */
+async function preAnesthesia(e: { patientId: string; encounterId: string }, who = 'dokterOp') {
+  const r = await as(who)
+    .post(`/patients/${e.patientId}/forms/asesmen_pra_anestesi/responses`, {
+      encounterId: e.encounterId,
+      answers: {
+        asa: 'asa_2',
+        darurat: 'tidak',
+        puasa_sejak: new Date(Date.now() - 8 * 3_600_000).toISOString(),
+        mallampati: 'm1',
+        teknik: 'umum',
+        rencana: 'Anestesi umum dengan pipa endotrakeal, analgesia pascaoperasi',
+        persetujuan_anestesi: 'ya',
+      },
+    })
+    .expect(201);
+  return r.body.id as string;
+}
+
+/** Persetujuan tindakan + asesmen pra-anestesi: syarat sign in. */
+async function readyForSignIn(e: { patientId: string; encounterId: string }) {
+  const consentId = await consent(e);
+  await preAnesthesia(e);
+  return consentId;
 }
 
 const ITEMS = {
@@ -290,8 +317,17 @@ describe('daftar tilik WHO, insisi, hitung kasa', () => {
     // Induksi sebelum sign in → 409.
     expect((await event(c.caseId, 'induksi')).body.code).toBe('CHECKLIST_ORDER');
     const consentId = await consent(c);
+    // 4.7b: tanpa asesmen pra-anestesi final → 409; setelah diisi dokter tim → sign in boleh.
+    const noPre = await confirm(c.caseId, 'sign-in');
+    expect(noPre.status).toBe(409);
+    expect(noPre.body).toMatchObject({ code: 'CHECKLIST_INCOMPLETE', details: { preAnesthesia: false } });
+    await preAnesthesia(c);
     const signIn = await confirm(c.caseId, 'sign-in').expect(200);
-    expect(signIn.body).toMatchObject({ status: 'persiapan', consent: { id: consentId } });
+    expect(signIn.body).toMatchObject({
+      status: 'persiapan',
+      consent: { id: consentId },
+      anesthesia: { preAssessment: { asa: 'ASA II', version: 1 }, records: [] },
+    });
     expect(
       signIn.body.checklist[0].items.find((i: { code: string }) => i.code === 'sign-in-consent'),
     ).toMatchObject({ system: true, checked: true });
@@ -361,6 +397,90 @@ describe('daftar tilik WHO, insisi, hitung kasa', () => {
       signatureStatus: 'pending',
     });
     await as('dokterOp').post(`/surgery/cases/${c.caseId}/reports`, report).expect(409);
+    // 4.7b · Koreksi berversi beralasan dan adendum lewat API yang sama; sasaran harus laporan kasus ini. Versi yang
+    // TTE-nya berjalan/sah terkunci (ADR-0028): koreksi hanya setelah TTE gagal, selain itu adendum.
+    const v1 = rep.body.report.id as string;
+    const koreksiV1 = {
+      ...report,
+      bloodLossMl: 80,
+      revision: { kind: 'koreksi', supersedesId: v1, correctionReason: 'Perdarahan salah ketik, dikoreksi' },
+    };
+    const locked = await as('dokterOp').post(`/surgery/cases/${c.caseId}/reports`, koreksiV1);
+    expect(locked.status).toBe(409);
+    expect(locked.body.code).toBe('RECORD_LOCKED');
+    await asOwner(A.id, (tx) =>
+      tx.documentSignature.updateMany({
+        where: { documentId: rep.body.report.documentId },
+        data: { status: 'failed' },
+      }),
+    );
+    const corrected = await as('dokterOp').post(`/surgery/cases/${c.caseId}/reports`, koreksiV1).expect(201);
+    expect(corrected.body.report).toMatchObject({
+      version: 2,
+      bloodLossMl: 80,
+      correctionReason: 'Perdarahan salah ketik, dikoreksi',
+      addenda: [],
+    });
+    const v2 = corrected.body.report.id as string;
+    const withAddendum = await as('dokterOp')
+      .post(`/surgery/cases/${c.caseId}/reports`, {
+        ...report,
+        findings: 'Adendum: kandung empedu dikirim utuh ke PA, tidak ada kebocoran empedu.',
+        revision: { kind: 'addendum', addendumOf: v2 },
+      })
+      .expect(201);
+    expect(withAddendum.body.report).toMatchObject({ id: v2, version: 2 });
+    expect(withAddendum.body.report.addenda).toEqual([
+      expect.objectContaining({ findings: expect.stringContaining('Adendum') }),
+    ]);
+    const other = await scheduleCase(rooms[3]);
+    await as('dokterOp')
+      .post(`/surgery/cases/${other.caseId}/reports`, {
+        ...report,
+        revision: { kind: 'koreksi', supersedesId: v2, correctionReason: 'Mencoba koreksi lintas kasus' },
+      })
+      .expect(404);
+    // 4.7b · Spesimen PA terstruktur dari laporan terkini → event `surgery.specimen_sent`; perawat 403.
+    const specimen = {
+      site: 'Kandung empedu',
+      examination: 'histopatologi',
+      containers: 1,
+      fixative: 'formalin_10',
+      clinicalNote: 'Kolelitiasis, singkirkan keganasan',
+      cito: false,
+    };
+    await as('perawatOk')
+      .post(`/surgery/cases/${c.caseId}/specimens`, { items: [specimen] })
+      .expect(403);
+    await as('dokterOp')
+      .post(`/surgery/cases/${c.caseId}/specimens`, {
+        items: [{ ...specimen, examination: 'potong_beku' }],
+      })
+      .expect(400);
+    const sent = await as('dokterOp')
+      .post(`/surgery/cases/${c.caseId}/specimens`, {
+        items: [specimen, { ...specimen, site: 'Kelenjar getah bening Calot', cito: true }],
+      })
+      .expect(201);
+    const caseNo = (await run(A.id, (tx) => tx.surgeryCase.findUniqueOrThrow({ where: { id: c.caseId } })))
+      .caseNo;
+    expect(sent.body.specimens).toEqual([
+      expect.objectContaining({ labelNo: `${caseNo}-S1`, operativeReportId: v2, site: 'Kandung empedu' }),
+      expect.objectContaining({ labelNo: `${caseNo}-S2`, cito: true }),
+    ]);
+    const evs = await run(A.id, (tx) =>
+      tx.domainEvent.findMany({
+        where: { name: 'surgery.specimen_sent', payload: { path: ['surgeryCaseId'], equals: c.caseId } },
+      }),
+    );
+    expect(evs).toHaveLength(2);
+    expect(evs[0]?.payload).toMatchObject({ operativeReportId: v2, examination: 'histopatologi' });
+    // Spesimen append-only (juga bagi DB).
+    await expect(
+      run(A.id, (tx) =>
+        tx.surgerySpecimen.updateMany({ where: { surgeryCaseId: c.caseId }, data: { containers: 3 } }),
+      ),
+    ).rejects.toThrow();
     const done = await event(c.caseId, 'keluar').expect(201);
     expect(done.body.status).toBe('selesai');
     expect(
@@ -374,7 +494,7 @@ describe('daftar tilik WHO, insisi, hitung kasa', () => {
 
   it('override insisi: < 15 karakter 400; perawat 403; dokter tercatat + audit + notifikasi mutu', async () => {
     const c = await scheduleCase(rooms[3]);
-    await consent(c);
+    await readyForSignIn(c);
     await checkAll(c.caseId, 'sign-in');
     await confirm(c.caseId, 'sign-in').expect(200);
     await event(c.caseId, 'insisi', 'terlalu pendek').expect(400);
@@ -401,7 +521,7 @@ describe('daftar tilik WHO, insisi, hitung kasa', () => {
 
   it('time out memeriksa ulang persetujuan: dicabut sesudah sign in → 409', async () => {
     const c = await scheduleCase(rooms[1]);
-    const consentId = await consent(c);
+    const consentId = await readyForSignIn(c);
     await checkAll(c.caseId, 'sign-in');
     await confirm(c.caseId, 'sign-in').expect(200);
     await checkAll(c.caseId, 'time-out');
@@ -435,7 +555,7 @@ describe('daftar tilik WHO, insisi, hitung kasa', () => {
 
   it('dua konfirmasi sign in serentak: hanya satu; urutan juga ditegakkan DB (SQL langsung)', async () => {
     const c = await scheduleCase(rooms[0]);
-    await consent(c);
+    await readyForSignIn(c);
     await checkAll(c.caseId, 'sign-in');
     const both = await Promise.all([confirm(c.caseId, 'sign-in'), confirm(c.caseId, 'sign-in')]);
     expect(both.map((r) => r.status).sort()).toEqual([200, 409]);
@@ -466,6 +586,65 @@ describe('daftar tilik WHO, insisi, hitung kasa', () => {
         }),
       ),
     ).rejects.toThrow(/TIMEOUT_REQUIRED/);
+  });
+});
+
+describe('anestesi P07 dan aliran aktivitas (4.7b)', () => {
+  it('asesmen pra-anestesi salah entri → sign in tertahan lagi; catatan anestesi tampil', async () => {
+    const c = await scheduleCase(rooms[1]);
+    await consent(c);
+    const pre = await preAnesthesia(c);
+    await checkAll(c.caseId, 'sign-in');
+    await as('dokterOp')
+      .post(`/form-responses/${pre}/void`, { reason: 'Diisi untuk pasien yang salah' })
+      .expect(200);
+    const r = await confirm(c.caseId, 'sign-in');
+    expect(r.status).toBe(409);
+    expect(r.body.details).toEqual({ preAnesthesia: false });
+    await as('dokterOp')
+      .post(`/patients/${c.patientId}/forms/catatan_anestesi/responses`, {
+        encounterId: c.encounterId,
+        answers: {
+          teknik: 'umum',
+          jalan_napas: 'ett',
+          obat: 'Propofol 120 mg, fentanil 100 mcg, rokuronium 40 mg',
+          kondisi_akhir: 'stabil_rr',
+        },
+      })
+      .expect(201);
+    const view = await as('dokterOp').get(`/surgery/cases/${c.caseId}`).expect(200);
+    expect(view.body.anesthesia.preAssessment).toBeNull();
+    expect(view.body.anesthesia.records).toHaveLength(1);
+  });
+
+  it('kanal aktivitas: baris butir tilik dan formulir anestesi menjadi sinyal kasus tanpa PHI', async () => {
+    const c = await scheduleCase(rooms[2]);
+    await as('perawatOk')
+      .post(`/surgery/cases/${c.caseId}/checklist/items`, { phase: 'sign-in', itemCode: 'sign-in-1' })
+      .expect(200);
+    const check = await run(A.id, (tx) =>
+      tx.surgicalSafetyCheck.findFirstOrThrow({ where: { surgeryCaseId: c.caseId } }),
+    );
+    const ev = await run(A.id, (tx) => surgeryActivityChannel.load(tx, check.id));
+    expect(ev).toEqual({
+      id: check.id,
+      event: 'surgery.activity',
+      data: {
+        eventId: check.id,
+        source: 'check',
+        surgeryCaseId: c.caseId,
+        encounterId: c.encounterId,
+        unitId: unitA.OK,
+        date: c.times.startsAt.slice(0, 10),
+      },
+    });
+    const pre = await preAnesthesia(c);
+    expect((await run(A.id, (tx) => surgeryActivityChannel.load(tx, pre)))?.data).toMatchObject({
+      source: 'anesthesia_form',
+      surgeryCaseId: c.caseId,
+    });
+    // Tenant lain tidak melihat baris (RLS) → tidak ada sinyal.
+    expect(await run(B.id, (tx) => surgeryActivityChannel.load(tx, check.id))).toBeNull();
   });
 });
 
