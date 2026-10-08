@@ -1,6 +1,6 @@
 # ADR-0106 · Kamar operasi API: persetujuan di sign in dan time out, butir sistem, tim operasi sebagai rawat bersama
 
-Status: diusulkan · 7 Okt 2026 (fase 4 potongan 4.7, agen A4)
+Status: diusulkan · 7 Okt 2026 (fase 4 potongan 4.7, agen A4) · diperbarui 8 Okt 2026
 
 ## Konteks
 
@@ -52,3 +52,30 @@ skema atau rencana fase 4 §4.7:
   laporan (baru penanda).
 - Status registri layar `ok` tetap `demo`, sama dengan layar hibrida lain (IGD, Depo). Menu mode api mengikuti izin
   `surgery.read`.
+
+## Pembaruan 8 Okt 2026 · 4.7b (anestesi P07, revisi laporan, spesimen PA, SSE aktivitas)
+
+1. **Asesmen pra-anestesi dan catatan anestesi = formulir P07 pustaka** (`asesmen_pra_anestesi`,
+   `catatan_anestesi` di `schemas/anestesi.ts`, hak tulis `dokter`), diseed `seedSupportMasters`, diisi lewat API
+   formulir biasa (`POST /patients/:id/forms/:code/responses` + `encounterId`). Tidak ada tabel anestesi baru: formulir
+   tetap data yang bisa diterbitkan ulang komite RM selama kode dan kunci `asa` tetap.
+2. **Sign in menuntut asesmen pra-anestesi final** untuk kunjungan kasus: isian terkini rantai versi berstatus `final`
+   (salah entri tidak dihitung). Tanpa itu 409 `CHECKLIST_INCOMPLETE` dengan `details.preAnesthesia = false`. Gerbang
+   ini di service, seperti persetujuan tindakan, karena kode formulir bisa diatur RS.
+3. **Revisi laporan operasi** memakai API 4.7 (`revision`): adendum kapan saja; koreksi beralasan hanya bila TTE versi
+   itu gagal (versi ber-TTE berjalan/sah terkunci, ADR-0028 → 409 `RECORD_LOCKED`). Sasaran revisi harus laporan kasus
+   yang sama (lain → 404). Judul dokumen TTE: "Koreksi laporan operasi" / "Adendum laporan operasi".
+4. **Spesimen PA terstruktur** di `surgery_specimens` (append-only, label `OK-YYMM-NNNN-S<n>`, trigger: laporan final
+   non-adendum kasus yang sama), dikirim operator setelah laporan menyatakan ada spesimen. Setiap spesimen menerbitkan
+   `surgery.specimen_sent` (muatan tanpa isi klinis). Kontrak untuk order PA 4.8 (A2) ada di
+   `packages/shared/src/schemas/surgery-specimen.ts`; penangan event membaca baris spesimen di transaksi yang sama.
+5. **SSE aktivitas papan OK** di kanal baru `support_surgery_activity`: `app_notify_row` AFTER INSERT di semua tabel
+   append-only kasus (riwayat status, butir tilik, konfirmasi, peristiwa, hitung, tindak lanjut, BHP, laporan,
+   spesimen) dan di `form_responses` untuk dua kode formulir anestesi. Endpoint `GET /surgery/board/events?date=`
+   (lingkup sama dengan papan, berlangganan diaudit). Kanal 4.1a `support_surgery_board` tidak diubah; layar OK pindah ke
+   aliran aktivitas. Tanpa `replay`: sambung ulang dengan `Last-Event-ID` menerima `reset` lalu layar memuat ulang.
+
+Konsekuensi tambahan: catatan "belum di 4.7" untuk formulir anestesi, order PA, dan SSE butir di atas tertutup, kecuali
+pembuatan order PA itu sendiri (penangan event di 4.8). Penata anestesi (perawat) belum bisa mengisi catatan anestesi
+karena hak tulis pustaka hanya `dokter` dan lingkup tulis formulir perawat = unit bangsal pasien; RS bisa menerbitkan
+versi formulir dengan hak tulis lain bila lingkupnya disesuaikan.

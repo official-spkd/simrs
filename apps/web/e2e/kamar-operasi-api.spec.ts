@@ -8,7 +8,9 @@ import { admitPatient, createStaff, createWard, type Inpatient } from './support
  * kunjungan rawat inap, daftar tilik WHO (butir persetujuan diisi sistem dari persetujuan tindakan 3.7), konfirmasi
  * time out nonaktif sampai semua butir, insisi terkunci sebelum time out, hitung kasa selisih menahan sign out sampai
  * ditindaklanjuti, laporan operasi ber-TTE operator, pasien keluar → selesai. Override insisi oleh dokter beralasan
- * tercatat. Tanggal jadwal acak di masa depan agar run berulang tidak bertumpang tindih. Data fiktif.
+ * tercatat. 4.7b: sign in menunggu asesmen pra-anestesi final (formulir P07 diisi dokter), jendela lain terbarui lewat
+ * SSE aktivitas, adendum laporan, dan spesimen PA terstruktur. Tanggal jadwal acak di masa depan agar run berulang
+ * tidak bertumpang tindih. Data fiktif.
  */
 
 const RSFA = TENANTS.RSFA;
@@ -35,9 +37,12 @@ test.afterEach(async () => {
   expect(errors).toEqual([]);
 });
 
-/** Tanggal acak 2033 (jadwal kamar tidak bertumpang tindih antar-run). */
+/**
+ * Tanggal acak 2033–2052 (jadwal kamar tidak bertumpang tindih antar-run; kasus tes tidak dibatalkan, jadi rentang 1
+ * tahun sempat bentrok setelah puluhan run di DB slot yang sama).
+ */
 function randomDate(): string {
-  const d = new Date(Date.UTC(2033, 0, 1) + Math.floor(Math.random() * 360) * 86_400_000);
+  const d = new Date(Date.UTC(2033, 0, 1) + Math.floor(Math.random() * 7300) * 86_400_000);
   return d.toISOString().slice(0, 10);
 }
 
@@ -60,6 +65,36 @@ async function signedConsent(p: Inpatient, doctor: Account): Promise<void> {
         information: Array.from({ length: 7 }, (_, i) => ({ item: i + 1, explained: true })),
         informerUserId: doctor.id,
         explainedAt: new Date(),
+      },
+    });
+  });
+}
+
+/** Asesmen pra-anestesi final (formulir P07 pustaka, 4.7b) lewat DB untuk tes yang tidak menguji pengisiannya. */
+async function preAnesthesiaDb(p: Inpatient, doctor: Account): Promise<void> {
+  await inTenant(RSFA, async (tx) => {
+    const def = await tx.formDefinition.findFirstOrThrow({
+      where: { code: 'asesmen_pra_anestesi', status: 'published' },
+    });
+    const id = newId();
+    await tx.formResponse.create({
+      data: {
+        id,
+        rootId: id,
+        tenantId: RSFA,
+        patientId: p.patientId,
+        encounterId: p.encounterId,
+        definitionId: def.id,
+        formCode: 'asesmen_pra_anestesi',
+        answers: {
+          asa: 'asa_3',
+          darurat: 'ya',
+          mallampati: 'm2',
+          teknik: 'umum',
+          rencana: 'Anestesi umum, ICU pascaoperasi bila perlu',
+          persetujuan_anestesi: 'ya',
+        },
+        createdBy: doctor.id,
       },
     });
   });
@@ -140,8 +175,40 @@ test.describe('Kamar operasi mode api (4.7)', () => {
       nurse.getByText(/Persetujuan tindakan "Kolesistektomi laparoskopik" final ber-TTE/),
     ).toBeVisible();
 
-    // Sign in: 5 butir manual (butir persetujuan diisi sistem) → konfirmasi.
+    // 4.7b · Sign in tertahan tanpa asesmen pra-anestesi final (alasan tertulis, bukan tombol mati).
     await checkPhase(nurse, 'sign-in');
+    await expect(nurse.getByText('Asesmen pra-anestesi final belum ada.')).toBeVisible();
+    await expect(nurse.getByRole('button', { name: 'Konfirmasi sign in' })).toBeDisabled();
+    await expect(nurse.locator('[data-live-status="tersambung"]')).toBeVisible();
+
+    // Dokter (operator, tim) mengisi formulir P07 asesmen pra-anestesi; jendela perawat terbarui lewat SSE aktivitas.
+    const doc = await as(browser, dokter, `/penunjang/kamar-operasi?tanggal=${date}`);
+    const anest = doc.getByRole('region', { name: 'Anestesi' });
+    await anest.getByRole('button', { name: 'Isi asesmen pra-anestesi' }).click();
+    const preForm = doc.getByRole('form', { name: 'Isi Asesmen pra-anestesi' });
+    await preForm.getByRole('radio', { name: /ASA II · penyakit sistemik ringan/ }).check();
+    await preForm
+      .getByRole('group', { name: /Operasi darurat/ })
+      .getByRole('radio', { name: 'Tidak' })
+      .check();
+    await preForm.getByLabel(/Mulai puasa/).fill(`${date}T01:00`);
+    await preForm
+      .getByRole('group', { name: /Mallampati/ })
+      .getByRole('radio', { name: 'I', exact: true })
+      .check();
+    await preForm.getByRole('radio', { name: 'Anestesi umum' }).check();
+    await preForm.getByLabel(/Rencana anestesi dan pascaanestesi/).fill('Anestesi umum, pipa endotrakeal');
+    await preForm
+      .getByRole('group', { name: /Risiko anestesi dijelaskan/ })
+      .getByRole('radio', { name: 'Ya' })
+      .check();
+    await preForm.getByRole('button', { name: 'Simpan asesmen (final)' }).click();
+    await expect(anest.getByText(/Asesmen pra-anestesi final · ASA II/)).toBeVisible();
+    await expect(
+      nurse.getByRole('region', { name: 'Anestesi' }).getByText(/Asesmen pra-anestesi final · ASA II/),
+    ).toBeVisible();
+
+    // Sign in: 5 butir manual (butir persetujuan diisi sistem) → konfirmasi.
     await nurse.getByRole('button', { name: 'Konfirmasi sign in' }).click();
     await expect(nurse.getByText(/Sign in dikonfirmasi · induksi dapat dimulai/)).toBeVisible();
     await nurse.getByRole('button', { name: 'Catat induksi' }).click();
@@ -184,17 +251,36 @@ test.describe('Kamar operasi mode api (4.7)', () => {
     await nurse.getByRole('button', { name: 'Konfirmasi sign out' }).click();
     await expect(nurse.getByText(/Sign out dikonfirmasi · pasien boleh dipindahkan/)).toBeVisible();
 
-    // Operator menulis laporan operasi ber-TTE.
-    const doc = await as(browser, dokter, `/penunjang/kamar-operasi?tanggal=${date}`);
+    // Operator menulis laporan operasi ber-TTE (jendela dokter yang sama, sudah terbarui lewat SSE).
     const report = doc.getByRole('region', { name: 'Laporan operasi' });
     await report.getByLabel('Diagnosa pra-bedah (ICD-10)').fill('K80.2 Batu kandung empedu');
     await report.getByLabel('Diagnosa pasca-bedah (ICD-10)').fill('K80.2 Batu kandung empedu');
     await report
       .getByLabel('Temuan operasi')
       .fill('Kandung empedu berisi batu multipel, dinding tidak menebal.');
+    await report.getByLabel('Spesimen dikirim ke patologi anatomi').check();
     await report.getByRole('button', { name: 'Simpan dan tanda tangani (TTE operator)' }).click();
     await expect(doc.getByText('Laporan operasi tersimpan; TTE operator diminta.')).toBeVisible();
     await expect(report.getByText(/Versi 1 · dr\. Operator/)).toBeVisible();
+    // 4.7b · Versi ber-TTE terkunci → adendum; spesimen PA terstruktur dari laporan.
+    await expect(report.getByRole('button', { name: 'Koreksi laporan' })).toHaveCount(0);
+    await report.getByRole('button', { name: 'Tambah adendum' }).click();
+    await report
+      .getByLabel('Isi adendum')
+      .fill('Adendum: kandung empedu dikirim utuh, tidak ada kebocoran empedu.');
+    await report.getByRole('button', { name: 'Simpan adendum (TTE operator)' }).click();
+    await expect(doc.getByText('Adendum laporan tersimpan; TTE operator diminta.')).toBeVisible();
+    await expect(report.getByRole('list', { name: 'Adendum laporan' })).toContainText(
+      'kandung empedu dikirim utuh',
+    );
+    const pa = doc.getByRole('region', { name: 'Spesimen patologi anatomi' });
+    await pa.getByLabel('Asal jaringan').fill('Kandung empedu');
+    await pa
+      .getByLabel('Diagnosis klinis / pertanyaan untuk patolog')
+      .fill('Kolelitiasis, singkirkan keganasan');
+    await pa.getByRole('button', { name: 'Kirim spesimen ke PA' }).click();
+    await expect(doc.getByText('Spesimen dikirim ke patologi anatomi.')).toBeVisible();
+    await expect(pa.getByText(/OK-\d{4}-\d{4}-S1/)).toBeVisible();
 
     await nurse.getByRole('button', { name: 'Catat pasien keluar kamar' }).click();
     await expect(nurse.getByText('Pasien keluar kamar dicatat.')).toBeVisible();
@@ -209,15 +295,18 @@ test.describe('Kamar operasi mode api (4.7)', () => {
     const tag = newId().slice(-4).toUpperCase();
     const { dokter, perawat, patient } = await setup(tag);
     const date = randomDate();
+    await preAnesthesiaDb(patient, dokter);
     const nurse = await as(browser, perawat, `/penunjang/kamar-operasi?tanggal=${date}`);
     await schedule(nurse, patient, dokter, date, 'Kamar operasi 3', '13.00');
-    // Jendela dokter (operator, anggota tim) terbuka sebelum sign in: perubahan status dari perawat sampai lewat SSE
-    // papan OK (kanal 4.1a) tanpa muat ulang manual.
+    // Jendela dokter (operator, anggota tim) terbuka sebelum sign in: centang butir dan perubahan status dari perawat
+    // sampai lewat SSE aktivitas papan OK (4.7b) tanpa muat ulang manual.
     const doc = await as(browser, dokter, `/penunjang/kamar-operasi?tanggal=${date}`);
     const docCase = doc.getByRole('region', { name: 'Daftar tilik keselamatan' });
     await expect(docCase.getByText('Terjadwal', { exact: true })).toBeVisible();
     await expect(doc.locator('[data-live-status="tersambung"]')).toBeVisible();
 
+    await checkPhase(nurse, 'sign-in', 1);
+    await expect(doc.locator('input[data-phase="sign-in"][data-item="sign-in-1"]')).toBeChecked();
     await checkPhase(nurse, 'sign-in');
     await nurse.getByRole('button', { name: 'Konfirmasi sign in' }).click();
     await expect(nurse.getByText(/Sign in dikonfirmasi/)).toBeVisible();

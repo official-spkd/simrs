@@ -111,6 +111,17 @@ export function eventBlock(c: SurgeryCaseView): string | null {
   return null;
 }
 
+/**
+ * Syarat sign in di luar butir manual (4.7/4.7b; server menegakkan ulang): persetujuan tindakan final yang berlaku dan
+ * asesmen pra-anestesi final. Kosong = boleh dikonfirmasi bila butir lengkap.
+ */
+export function signInBlockers(c: Pick<SurgeryCaseView, 'consent' | 'anesthesia'>): string[] {
+  return [
+    ...(c.consent ? [] : ['Persetujuan tindakan bertanda tangan belum ada.']),
+    ...(c.anesthesia.preAssessment ? [] : ['Asesmen pra-anestesi final belum ada.']),
+  ];
+}
+
 /** Jam WIB `HH:MM` + tanggal → ISO dengan zona WIB. */
 export function wibInstant(date: string, hhmm: string): string | null {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !/^([01]\d|2[0-3])[:.][0-5]\d$/.test(hhmm)) return null;
