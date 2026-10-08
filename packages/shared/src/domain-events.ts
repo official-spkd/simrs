@@ -290,6 +290,8 @@ export const DOMAIN_EVENT_SCHEMAS = {
     encounterId: z.uuid(),
     patientId: z.uuid(),
     status: z.enum(MEDICATION_ADMINISTRATION_STATUSES),
+    /** Label lokal stok ruangan (ditagih eMAR); false = etiket farmasi (ditagih saat serah, 4.6b). Opsional: event lama. */
+    wardStock: z.boolean().optional(),
   }),
   /** K04 · Admisi rawat inap (bed terisi, gelang terbit). */
   'adt.admitted': z.strictObject({

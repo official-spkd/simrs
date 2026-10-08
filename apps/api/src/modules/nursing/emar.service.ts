@@ -29,6 +29,7 @@ import { BillableRecorder, SatusehatRecorder } from '../../infra/clinical/stagin
 import { DomainEvents } from '../../infra/events/domain-events';
 import { TenantDb } from '../../infra/tenant-db';
 import { PatientAccessService } from '../authz/patient-access.service';
+import { DispensingService } from '../dispensing/dispensing.service';
 import { MedicationSchedulesService } from './medication-schedules.service';
 
 /** Isi dosis beku atestasi cek ganda (`medication_double_checks.content`, ditulis `doubleCheck`). */
@@ -54,6 +55,7 @@ export class EmarService {
     private readonly satusehat: SatusehatRecorder,
     private readonly billable: BillableRecorder,
     private readonly events: DomainEvents,
+    private readonly dispensing: DispensingService,
   ) {}
 
   async scan(input: WristbandScanInput) {
@@ -105,8 +107,16 @@ export class EmarService {
       orderBy: [{ changedAt: 'desc' }, { id: 'desc' }],
     });
     if (status?.status !== 'aktif') throw conflict('Order obat sudah dibatalkan atau tidak aktif');
-    // Sampai label farmasi fase 4 tersedia, label lokal adalah UUID baris order obat (juga berlaku untuk racikan).
-    if (input.labelCode !== med.id) throw invalid('Label obat tidak sesuai dengan order dosis ini');
+    // Label = etiket farmasi (`OBT-…`, 4.6b, F3-5) dari obat yang sudah diserahkan untuk order ini, atau label lokal
+    // stok ruangan = UUID baris order obat (juga untuk racikan). Tagihan obat: farmasi saat serah (keputusan fase 4
+    // no. 11); eMAR hanya menagih stok ruangan.
+    const wardStock = input.labelCode === med.id;
+    if (!wardStock) {
+      const label = await this.dispensing.resolveLabel(input.labelCode);
+      if (label?.medicationRequestId !== med.id)
+        throw invalid('Label obat tidak sesuai dengan order dosis ini');
+      if (!label.handedOver) throw conflict('Obat berlabel ini belum diserahkan farmasi');
+    }
     const scan = await tx.wristbandScan.findUnique({ where: { id: input.scanId } });
     const [{ now }] = await tx.$queryRaw<[{ now: Date }]>`SELECT clock_timestamp() AS now`;
     const validMinutes = await readTenantSetting(tx, 'emar.scan_valid_minutes');
@@ -170,9 +180,24 @@ export class EmarService {
     if ((late || input.status !== 'given') && (input.reason ?? '').trim().length < 10)
       throw invalid('Pemberian terlambat, ditunda, atau ditolak wajib alasan minimal 10 karakter');
     if (input.status === 'given' && (await readTenantSetting(tx, 'emar.require_pharmacy_review'))) {
-      throw conflict('Telaah farmasi diwajibkan RS; sambungan telaah farmasi fase 4 belum tersedia');
+      // Telaah farmasi 4.5: order harus lolos telaah (setujui, atau sebagian yang memuat order ini).
+      const rx = await tx.pharmacyPrescription.findUnique({
+        where: { tenantId_orderGroupId: { tenantId, orderGroupId: med.orderGroupId } },
+        select: {
+          reviews: {
+            orderBy: [{ reviewedAt: 'desc' }, { id: 'desc' }],
+            take: 1,
+            select: { decision: true, medicationRequestIds: true },
+          },
+        },
+      });
+      const review = rx?.reviews[0];
+      const approved =
+        review?.decision === 'setujui' ||
+        (review?.decision === 'sebagian' && review.medicationRequestIds.includes(med.id));
+      if (!approved) throw conflict('Telaah farmasi diwajibkan RS; order ini belum lolos telaah farmasi');
     }
-    return { med, enc, scan, late, author, occurredAt, now };
+    return { med, enc, scan, late, author, occurredAt, now, wardStock };
   }
 
   async doubleCheck(input: MedicationDoubleCheckInput) {
@@ -246,7 +271,7 @@ export class EmarService {
       }),
     );
     await this.satusehat.record('MedicationAdministration', id);
-    if (input.status === 'given')
+    if (input.status === 'given' && dose.wardStock)
       await this.billable.record({
         encounterId: dose.enc.id,
         patientId: dose.enc.patientId,
@@ -261,6 +286,7 @@ export class EmarService {
       encounterId: dose.enc.id,
       patientId: dose.enc.patientId,
       status: input.status,
+      wardStock: dose.wardStock,
     });
     this.db.audit({
       action: 'create',

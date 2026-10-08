@@ -580,7 +580,8 @@ export class PharmacyClinicalService {
     });
   }
 
-  private async setStatus(id: string, from: string, to: PrescriptionStatus, reason: string | null) {
+  /** Ubah status resep + riwayat (dipakai juga dispensing 4.6b: penyiapan → serah → selesai). */
+  async setStatus(id: string, from: string, to: PrescriptionStatus, reason: string | null) {
     if (from === to) return;
     await this.tx().pharmacyPrescription.update({ where: { id }, data: { status: to } });
     await this.history(id, from, to, reason);
