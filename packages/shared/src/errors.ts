@@ -284,6 +284,16 @@ export const SUPPORT_ERRORS = {
     message: 'Nomor kantong tidak cocok dengan kantong yang dikeluarkan untuk pasien ini',
   },
   TRANSFUSION_STATE: { status: 409, message: 'Status transfusi tidak mengizinkan tindakan ini' },
+  // S02 · 4.8 (ADR-0120)
+  MICRO_STAGE_ORDER: { status: 409, message: 'Laporan akhir hanya setelah laporan awal dirilis' },
+  MICRO_STAGE_CLOSED: {
+    status: 409,
+    message: 'Tahap laporan ini sudah divalidasi; isolat dan uji kepekaannya terkunci',
+  },
+  VALIDATOR_SAME_USER: {
+    status: 409,
+    message: 'Rilis klinis oleh dokter lain dari validator teknis',
+  },
   // S07/S08 · 4.9b (ADR-0108)
   BLOOD_REQUEST_CLOSED: { status: 409, message: 'Permintaan darah sudah selesai atau batal' },
   DIET_VERIFIED: { status: 409, message: 'Order diet sudah diverifikasi atau tidak aktif' },

@@ -42,6 +42,7 @@ export * from './schemas/inpatient';
 export * from './schemas/penunjang';
 export * from './schemas/penunjang-api';
 export * from './schemas/gizi-darah';
+export * from './schemas/mikro-diagnostik';
 export * from './schemas/kamar-operasi';
 export * from './schemas/surgery-board';
 export * from './schemas/surgery-specimen';

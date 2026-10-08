@@ -283,6 +283,7 @@ model SurgerySpecimen {
   surgeryCase     SurgeryCase     @relation(fields: [tenantId, surgeryCaseId], references: [tenantId, id])
   operativeReport OperativeReport @relation(fields: [tenantId, operativeReportId], references: [tenantId, id])
   sender          User            @relation("SurgerySpecimenSender", fields: [tenantId, sentBy], references: [tenantId, id])
+  paReports       PaReport[]
 
   @@unique([tenantId, id])
   @@unique([tenantId, surgeryCaseId, seq])
