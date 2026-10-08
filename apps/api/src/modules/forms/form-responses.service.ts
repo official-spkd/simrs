@@ -75,8 +75,18 @@ export class FormResponsesService {
     return scoreForm(schema, answers);
   }
 
-  async create(patientId: string, code: string, answers: FormAnswers, encounterId: string | null = null) {
-    await this.assertAccess(patientId);
+  /**
+   * `accessChecked`: pemanggil modul lain sudah memeriksa akses pasien dengan aturannya sendiri (mis. tampilan layanan
+   * penunjang S10, ADR-0120); hak tulis per profesi tetap diperiksa di sini.
+   */
+  async create(
+    patientId: string,
+    code: string,
+    answers: FormAnswers,
+    encounterId: string | null = null,
+    opts: { accessChecked?: boolean } = {},
+  ) {
+    if (!opts.accessChecked) await this.assertAccess(patientId);
     return this.insert(patientId, code, answers, encounterId, true);
   }
 

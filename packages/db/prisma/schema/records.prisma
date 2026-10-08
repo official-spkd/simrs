@@ -70,6 +70,8 @@ model FormResponse {
   supersedes   FormResponse?  @relation("FormResponseVersion", fields: [tenantId, supersedesId], references: [tenantId, id])
   supersededBy FormResponse[] @relation("FormResponseVersion")
 
+  diagnosticReports DiagnosticReport[]
+
   @@unique([tenantId, id])
   @@unique([tenantId, rootId, version])
   @@index([tenantId, patientId, formCode])
@@ -83,6 +85,7 @@ model FormResponse {
 /// ADR-0020).
 model Document {
   labValidations LabValidation[]
+  microReports   MicroReport[]
   id             String          @id @db.Uuid
   tenantId       String          @map("tenant_id") @db.Uuid
   patientId      String          @map("patient_id") @db.Uuid

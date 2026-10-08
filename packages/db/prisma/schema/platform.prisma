@@ -67,6 +67,7 @@ model Tenant {
   transfusionReactions                TransfusionReaction[]
   bloodIssueChecks                    BloodIssueCheck[]
   bloodUnitDisposals                  BloodUnitDisposal[]
+  microReports                        MicroReport[]
   dietNpoOrders                       DietNpoOrder[]
   nutritionScreenings                 NutritionScreening[]
   transfusions                        Transfusion[]

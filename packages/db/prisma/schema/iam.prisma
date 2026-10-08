@@ -12,6 +12,8 @@ model User {
   criticalReportRecipients     CriticalResultReport[]           @relation("CriticalReportRecipient")
   criticalReportReporters      CriticalResultReport[]           @relation("CriticalReportReporter")
   microIsolateRecorders        MicroIsolate[]                   @relation("MicroIsolateRecorder")
+  microReportTechnicals        MicroReport[]                    @relation("MicroReportTechnical")
+  microReportClinicals         MicroReport[]                    @relation("MicroReportClinical")
   imagingIdentityConfirmers    ImagingStudy[]                   @relation("ImagingIdentityConfirmer")
   imagingOverriders            ImagingStudy[]                   @relation("ImagingOverrider")
   imagingAcceptors             ImagingStudy[]                   @relation("ImagingAcceptor")
