@@ -2,6 +2,10 @@ import { Body, Controller, Get, Param, ParseUUIDPipe, Post, Put, Query } from '@
 import { ApiTags } from '@nestjs/swagger';
 import {
   type BloodBoardQuery,
+  type BloodDisposalInput,
+  bloodDisposalInputSchema,
+  type BloodRequestCancelInput,
+  bloodRequestCancelInputSchema,
   bloodBoardQuerySchema,
   type BloodGroupInput,
   bloodGroupInputSchema,
@@ -65,6 +69,28 @@ export class BloodBankController {
   @Post('requests')
   create(@Body(new ZodValidationPipe(bloodRequestInputSchema)) body: BloodRequestInput) {
     return this.bank.createRequest(body);
+  }
+
+  /** Pembatalan beralasan; service memeriksa peminta (`request`) atau bank darah (`crossmatch`). */
+  @RequirePermission('blood_bank', 'read')
+  @Post('requests/:id/cancel')
+  cancel(
+    @Param('id', uuid) id: string,
+    @Body(new ZodValidationPipe(bloodRequestCancelInputSchema)) body: BloodRequestCancelInput,
+  ) {
+    return this.bank.cancel(id, body);
+  }
+
+  @RequirePermission('blood_bank', 'issue')
+  @Post('disposals')
+  requestDisposal(@Body(new ZodValidationPipe(bloodDisposalInputSchema)) body: BloodDisposalInput) {
+    return this.bank.requestDisposal(body);
+  }
+
+  @RequirePermission('blood_bank', 'issue')
+  @Post('disposals/:id/confirm')
+  confirmDisposal(@Param('id', uuid) id: string) {
+    return this.bank.confirmDisposal(id);
   }
 
   @RequirePermission('blood_bank', 'crossmatch')

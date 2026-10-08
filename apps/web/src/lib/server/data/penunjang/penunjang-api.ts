@@ -6,6 +6,8 @@ import {
   dietOrderRecordSchema,
   type DietTypeOption,
   dietTypeOptionSchema,
+  type EncounterNutrition,
+  encounterNutritionSchema,
   type MealList,
   mealListSchema,
   type MealListQuery,
@@ -37,4 +39,11 @@ export function encounterDietOrders(encounterId: string): Promise<DietOrderRecor
 export function bloodBoard(encounterId?: string | null): Promise<BloodBoard> {
   const q = encounterId ? `?encounterId=${z.uuid().parse(encounterId)}` : '';
   return api(`/api/v1/blood/board${q}`, { schema: bloodBoardSchema });
+}
+
+/** Order diet + puasa + skrining MST satu kunjungan (4.9b). */
+export function encounterNutrition(encounterId: string): Promise<EncounterNutrition> {
+  return api(`/api/v1/encounters/${z.uuid().parse(encounterId)}/nutrition`, {
+    schema: encounterNutritionSchema,
+  });
 }

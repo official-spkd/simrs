@@ -34,9 +34,19 @@ export function toUnit(
     expiresAt: Date;
     status: string;
     component: { id: string; code: string; name: string; aboRule: string };
+    disposal?: {
+      id: string;
+      category: string;
+      reason: string;
+      requestedBy: string;
+      requestedAt: Date;
+      confirmedBy: string | null;
+    } | null;
   },
   now: Date,
+  names: Map<string, string> = new Map(),
 ): BloodUnitRecord {
+  const d = u.disposal && !u.disposal.confirmedBy ? u.disposal : null;
   return {
     id: u.id,
     bagNo: u.bagNo,
@@ -47,6 +57,15 @@ export function toUnit(
     expiresAt: u.expiresAt.toISOString(),
     status: u.status as BloodUnitRecord['status'],
     expired: u.expiresAt.getTime() <= now.getTime(),
+    disposal: d
+      ? {
+          id: d.id,
+          category: d.category as 'kedaluwarsa' | 'rusak',
+          reason: d.reason,
+          requestedBy: { id: d.requestedBy, name: names.get(d.requestedBy) ?? '–' },
+          requestedAt: d.requestedAt.toISOString(),
+        }
+      : null,
   };
 }
 
@@ -147,6 +166,7 @@ export async function loadRequests(
   for (const r of rows) {
     userIds.push(
       r.requestedBy,
+      r.cancelledBy ?? '',
       ...r.crossmatches.map((c) => c.testedBy),
       ...r.issueChecks.map((c) => c.checkedBy),
     );
@@ -186,6 +206,9 @@ export async function loadRequests(
       status: r.status as BloodRequestRecord['status'],
       requestedBy: person(r.requestedBy),
       requestedAt: r.requestedAt.toISOString(),
+      cancelReason: r.cancelReason,
+      cancelledBy: r.cancelledBy ? person(r.cancelledBy) : null,
+      cancelledAt: r.cancelledAt?.toISOString() ?? null,
       crossmatches: r.crossmatches.map((c) => ({
         id: c.id,
         bloodUnitId: c.bloodUnitId,

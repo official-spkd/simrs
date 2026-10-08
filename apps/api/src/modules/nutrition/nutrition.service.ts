@@ -5,12 +5,18 @@ import {
   type DietOrderInput,
   type DietOrderRecord,
   type DietTypeOption,
+  type EncounterNutrition,
   isoDateJakarta,
   type MealList,
   type MealListQuery,
   type MealListRow,
   type MealServiceRecord,
+  mstScore,
   newId,
+  type NpoInput,
+  type NpoRecord,
+  type NutritionScreeningInput,
+  type NutritionScreeningRecord,
 } from '@simrs/shared';
 import type { z } from 'zod';
 import type { mealServiceInputSchema } from '@simrs/shared';
@@ -20,6 +26,7 @@ import {
   inSupportWindow,
   patientsLite,
   supportScope,
+  supportWrite,
   userNames,
 } from '../../infra/clinical/support-access';
 import { TenantDb } from '../../infra/tenant-db';
@@ -45,6 +52,8 @@ interface OrderRow {
   endedAt: Date | null;
   orderedBy: string;
   orderedAt: Date;
+  verifiedBy: string | null;
+  verifiedAt: Date | null;
   dietType: { id: string; code: string; name: string };
 }
 
@@ -59,6 +68,8 @@ const ORDER_SELECT = {
   endedAt: true,
   orderedBy: true,
   orderedAt: true,
+  verifiedBy: true,
+  verifiedAt: true,
   dietType: { select: { id: true, code: true, name: true } },
 } as const;
 
@@ -237,6 +248,19 @@ export class NutritionService {
       },
       orderBy: [{ recordedAt: 'desc' }, { id: 'desc' }],
     });
+    const encounterIds = [...new Set(orders.map((o) => o.encounterId))];
+    const [npos, screenings] = await Promise.all([
+      tx.dietNpoOrder.findMany({
+        where: { encounterId: { in: encounterIds }, liftedAt: null },
+        select: { encounterId: true, reason: true, plannedUntil: true },
+      }),
+      tx.nutritionScreening.findMany({
+        where: { encounterId: { in: encounterIds } },
+        orderBy: [{ screenedAt: 'desc' }, { id: 'desc' }],
+        distinct: ['encounterId'],
+        select: { encounterId: true, score: true, atRisk: true, screenedAt: true },
+      }),
+    ]);
     const names = await userNames(
       tx,
       services.map((s) => s.recordedBy),
@@ -269,6 +293,15 @@ export class NutritionService {
         notes: o.notes,
         allergies: allergies.status === 'ada' ? allergyLabels(allergies) : [],
         service: svc ? this.toService(svc, names) : null,
+        verified: o.verifiedBy !== null,
+        npo: (() => {
+          const n = npos.find((x) => x.encounterId === o.encounterId);
+          return n ? { reason: n.reason, plannedUntil: n.plannedUntil?.toISOString() ?? null } : null;
+        })(),
+        screening: (() => {
+          const sc = screenings.find((x) => x.encounterId === o.encounterId);
+          return sc ? { score: sc.score, atRisk: sc.atRisk, screenedAt: sc.screenedAt.toISOString() } : null;
+        })(),
       });
     }
     allRows.sort(
@@ -315,17 +348,19 @@ export class NutritionService {
         fields: ['servedAt'],
       });
     }
-    const row = await tx.mealService.create({
-      data: {
-        id: newId(),
-        tenantId: this.db.tenantId(),
-        dietOrderId: order.id,
-        meal: input.meal,
-        servedAt,
-        leftover: input.leftover,
-        recordedBy: me.userId,
-      },
-    });
+    const row = await supportWrite(() =>
+      tx.mealService.create({
+        data: {
+          id: newId(),
+          tenantId: this.db.tenantId(),
+          dietOrderId: order.id,
+          meal: input.meal,
+          servedAt,
+          leftover: input.leftover,
+          recordedBy: me.userId,
+        },
+      }),
+    );
     this.db.audit({
       action: 'create',
       resourceType: 'meal_service',
@@ -362,7 +397,7 @@ export class NutritionService {
   private async toRecords(rows: OrderRow[]): Promise<DietOrderRecord[]> {
     const names = await userNames(
       this.db.tx(),
-      rows.map((r) => r.orderedBy),
+      rows.flatMap((r) => [r.orderedBy, r.verifiedBy]),
     );
     return rows.map((r) => ({
       id: r.id,
@@ -376,6 +411,189 @@ export class NutritionService {
       endedAt: r.endedAt?.toISOString() ?? null,
       orderedBy: { id: r.orderedBy, name: names.get(r.orderedBy) ?? '–' },
       orderedAt: r.orderedAt.toISOString(),
+      verifiedBy: r.verifiedBy ? { id: r.verifiedBy, name: names.get(r.verifiedBy) ?? '–' } : null,
+      verifiedAt: r.verifiedAt?.toISOString() ?? null,
     }));
+  }
+
+  // ─── 4.9b (ADR-0106): skrining MST, puasa, verifikasi order diet ─────────────────────────────────────────
+
+  /** Order diet + puasa + skrining satu kunjungan (terbaru dulu). */
+  async encounterNutrition(encounterId: string): Promise<EncounterNutrition> {
+    const orders = await this.listForEncounter(encounterId);
+    const tx = this.db.tx();
+    const [npo, screenings] = await Promise.all([
+      tx.dietNpoOrder.findMany({ where: { encounterId }, orderBy: [{ orderedAt: 'desc' }, { id: 'desc' }] }),
+      tx.nutritionScreening.findMany({
+        where: { encounterId },
+        orderBy: [{ screenedAt: 'desc' }, { id: 'desc' }],
+      }),
+    ]);
+    const names = await userNames(tx, [
+      ...npo.flatMap((n) => [n.orderedBy, n.liftedBy]),
+      ...screenings.map((x) => x.screenedBy),
+    ]);
+    return {
+      orders,
+      npo: npo.map((n) => this.toNpo(n, names)),
+      screenings: screenings.map((x) => this.toScreening(x, names)),
+    };
+  }
+
+  /** Skrining MST (append-only); skor dihitung server dan diperiksa ulang CHECK database. */
+  async screen(input: NutritionScreeningInput): Promise<NutritionScreeningRecord> {
+    const me = this.records.author();
+    const enc = await this.encounterFor(input.encounterId);
+    if (enc.status !== 'in_progress') {
+      throw new AppError('CONFLICT', 'Skrining gizi untuk kunjungan yang sedang berjalan', 409);
+    }
+    const { score, atRisk } = mstScore(input.weightLoss, input.poorAppetite);
+    const row = await this.db.tx().nutritionScreening.create({
+      data: {
+        id: newId(),
+        tenantId: this.db.tenantId(),
+        encounterId: enc.id,
+        patientId: enc.patientId,
+        weightLoss: input.weightLoss,
+        poorAppetite: input.poorAppetite,
+        score,
+        atRisk,
+        screenedBy: me.userId,
+      },
+    });
+    this.db.audit({
+      action: 'create',
+      resourceType: 'nutrition_screening',
+      resourceId: row.id,
+      patientId: enc.patientId,
+      details: { score, atRisk },
+    });
+    return this.toScreening(row, await userNames(this.db.tx(), [me.userId]));
+  }
+
+  /** Puasa (NPO): satu aktif per kunjungan; makanan tidak diantar sampai dicabut. */
+  async startNpo(input: NpoInput): Promise<NpoRecord> {
+    const me = this.records.author();
+    const enc = await this.encounterFor(input.encounterId);
+    if (enc.status !== 'in_progress') {
+      throw new AppError('CONFLICT', 'Puasa untuk kunjungan yang sedang berjalan', 409);
+    }
+    const tx = this.db.tx();
+    if (
+      await tx.dietNpoOrder.findFirst({
+        where: { encounterId: enc.id, liftedAt: null },
+        select: { id: true },
+      })
+    ) {
+      throw new AppError('CONFLICT', 'Pasien sudah dalam status puasa', 409);
+    }
+    const row = await tx.dietNpoOrder.create({
+      data: {
+        id: newId(),
+        tenantId: this.db.tenantId(),
+        encounterId: enc.id,
+        patientId: enc.patientId,
+        reason: input.reason,
+        plannedUntil: input.plannedUntil ? new Date(input.plannedUntil) : null,
+        orderedBy: me.userId,
+      },
+    });
+    this.db.audit({
+      action: 'create',
+      resourceType: 'diet_npo',
+      resourceId: row.id,
+      patientId: enc.patientId,
+    });
+    return this.toNpo(row, await userNames(tx, [me.userId]));
+  }
+
+  async liftNpo(id: string): Promise<NpoRecord> {
+    const me = this.records.author();
+    const tx = this.db.tx();
+    const npo = await tx.dietNpoOrder.findUnique({ where: { id } });
+    if (!npo) throw new AppError('NOT_FOUND', 'Order puasa tidak ditemukan', 404);
+    const scope = await supportScope(this.db, this.access);
+    await assertSupportItem(scope, this.access, npo.patientId, npo.liftedAt === null);
+    if (npo.liftedAt) throw new AppError('CONFLICT', 'Puasa sudah dicabut', 409);
+    const row = await supportWrite(() =>
+      tx.dietNpoOrder.update({ where: { id }, data: { liftedBy: me.userId, liftedAt: new Date() } }),
+    );
+    this.db.audit({ action: 'update', resourceType: 'diet_npo', resourceId: id, patientId: npo.patientId });
+    return this.toNpo(row, await userNames(tx, [row.orderedBy, me.userId]));
+  }
+
+  /** Verifikasi ahli gizi (`nutrition.verify`): butuh skrining MST kunjungan (trigger). Sekali per order. */
+  async verify(id: string): Promise<DietOrderRecord> {
+    const me = this.records.author();
+    const tx = this.db.tx();
+    const order = await tx.dietOrder.findUnique({ where: { id }, select: ORDER_SELECT });
+    if (!order) throw new AppError('NOT_FOUND', 'Order diet tidak ditemukan', 404);
+    const scope = await supportScope(this.db, this.access);
+    await assertSupportItem(scope, this.access, order.patientId, order.status === 'aktif');
+    const row = await supportWrite(() =>
+      tx.dietOrder.update({
+        where: { id },
+        data: { verifiedBy: me.userId, verifiedAt: new Date() },
+        select: ORDER_SELECT,
+      }),
+    );
+    this.db.audit({
+      action: 'update',
+      resourceType: 'diet_order',
+      resourceId: id,
+      patientId: order.patientId,
+      details: { verified: true },
+    });
+    return (await this.toRecords([row]))[0] as DietOrderRecord;
+  }
+
+  private toNpo(
+    n: {
+      id: string;
+      encounterId: string;
+      reason: string;
+      plannedUntil: Date | null;
+      orderedBy: string;
+      orderedAt: Date;
+      liftedBy: string | null;
+      liftedAt: Date | null;
+    },
+    names: Map<string, string>,
+  ): NpoRecord {
+    return {
+      id: n.id,
+      encounterId: n.encounterId,
+      reason: n.reason,
+      plannedUntil: n.plannedUntil?.toISOString() ?? null,
+      orderedBy: { id: n.orderedBy, name: names.get(n.orderedBy) ?? '–' },
+      orderedAt: n.orderedAt.toISOString(),
+      liftedBy: n.liftedBy ? { id: n.liftedBy, name: names.get(n.liftedBy) ?? '–' } : null,
+      liftedAt: n.liftedAt?.toISOString() ?? null,
+    };
+  }
+
+  private toScreening(
+    x: {
+      id: string;
+      encounterId: string;
+      weightLoss: string;
+      poorAppetite: boolean;
+      score: number;
+      atRisk: boolean;
+      screenedBy: string;
+      screenedAt: Date;
+    },
+    names: Map<string, string>,
+  ): NutritionScreeningRecord {
+    return {
+      id: x.id,
+      encounterId: x.encounterId,
+      weightLoss: x.weightLoss as NutritionScreeningRecord['weightLoss'],
+      poorAppetite: x.poorAppetite,
+      score: x.score,
+      atRisk: x.atRisk,
+      screenedBy: { id: x.screenedBy, name: names.get(x.screenedBy) ?? '–' },
+      screenedAt: x.screenedAt.toISOString(),
+    };
   }
 }

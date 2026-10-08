@@ -521,6 +521,18 @@ Gerbang ditegakkan database (trigger `blood_issues`, `transfusions`), tidak hany
 
 Gelang tidak terbaca → cetak ulang gelang beralasan (ADR-0096); verifikasi manual mode presentasi tidak ada di mode api.
 
+**4.9b (ADR-0106).**
+
+- **Reaksi transfusi.** Dugaan reaksi (dari TTV) dan laporan reaksi mengirim notifikasi in-app + WhatsApp ke dua
+  kelompok: DPJP + tim perawatan, dan petugas bank darah. Isinya tanpa nama pasien; rincian ada di layar ini. Reaksi
+  **berat** juga muncul sebagai nilai kritis (sumber `transfusion`) yang wajib dilaporkan dengan read-back di Pusat
+  hasil kritis.
+- **Batalkan permintaan …** (DPJP peminta atau bank darah): alasan minimal 10 karakter. Kantong yang dicadangkan dan
+  belum keluar kembali tersedia. Cek ganda lama tidak bisa dipakai lagi.
+- **Musnahkan…** di "Stok kantong": petugas pertama memilih kategori kedaluwarsa (hanya bila ED sudah lewat) atau
+  rusak, lalu menulis alasan. Petugas LAIN menekan **Konfirmasi musnah (petugas kedua)** dari sesinya sendiri. Kantong
+  yang sedang diajukan tidak bisa keluar.
+
 ## Gizi
 
 ![Layar Gizi: tab Distribusi makan dengan pilihan jam makan, chip jumlah baki, puasa, konflik alergi, dan order belum diverifikasi, lalu kartu distribusi per bangsal berisi baki pasien](./gambar/gizi.png)
@@ -586,7 +598,16 @@ pasiennya.
 4. **Cetak daftar + label makanan** membuka `/cetak/gizi`: daftar per bangsal dan label 70 × 35 mm berisi dua pengenal,
    diet, tekstur, jam makan, catatan, dan ALERGI.
 
-Puasa (NPO), skrining MST, verifikasi order, dan ganti menu alergen di mode presentasi belum punya skema di mode api.
+**4.9b (ADR-0106).**
+
+- **Puasa (NPO)**: "Mulai puasa" (alasan minimal 10 karakter, rencana selesai opsional) dan **Cabut puasa**. Selama
+  puasa, baki ditandai "Puasa" dan makanan tidak bisa diantar.
+- **Skrining gizi (MST)**: penurunan berat badan 6 bulan + nafsu makan turun; skor ≥ 2 = berisiko.
+- **Verifikasi order diet**: hanya ahli gizi (`nutrition.verify`), dan butuh skrining MST kunjungan itu. Order yang
+  belum diverifikasi tidak bisa diantar.
+
+Gerbang antar ditegakkan trigger database (`DIET_NOT_VERIFIED`, `NPO_ACTIVE`). Ganti menu karena alergen (demo) belum
+ada di mode api karena skema belum punya menu/bahan.
 Asuhan gizi lewat formulir P07 (layar Asesmen).
 
 ## Mikrobiologi & PA

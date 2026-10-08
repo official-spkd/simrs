@@ -10,6 +10,8 @@ import {
   type BloodIssueCheckInput,
   bloodIssueBlock,
   type BloodIssueConfirmInput,
+  type BloodDisposalInput,
+  type BloodRequestCancelInput,
   type BloodRequestInput,
   type BloodRequestRecord,
   type BloodUnitInput,
@@ -27,8 +29,10 @@ import {
   patientsLite,
   supportScope,
   supportWrite,
+  userNames,
 } from '../../infra/clinical/support-access';
 import { DomainEvents } from '../../infra/events/domain-events';
+import { PermissionMatrix } from '../../infra/permission-matrix';
 import { TenantDb } from '../../infra/tenant-db';
 import { PatientAccessService } from '../authz/patient-access.service';
 import { COMPONENT_SELECT, loadRequests, toComponent, toUnit } from './blood-records';
@@ -53,6 +57,7 @@ export class BloodBankService {
     private readonly access: PatientAccessService,
     private readonly records: ClinicalRecordService,
     private readonly events: DomainEvents,
+    private readonly matrix: PermissionMatrix,
   ) {}
 
   async board(q: BloodBoardQuery): Promise<BloodBoard> {
@@ -96,17 +101,20 @@ export class BloodBankService {
     for (const pid of new Set(rows.map((r) => r.patient_id))) {
       this.db.audit({ action: 'read', resourceType: 'blood_request', patientId: pid });
     }
-    const units: BloodUnitRecord[] =
+    const stock =
       scope.view === 'layanan'
-        ? (
-            await tx.bloodUnit.findMany({
-              where: { status: { in: ['tersedia', 'dicadangkan'] } },
-              orderBy: [{ expiresAt: 'asc' }, { bagNo: 'asc' }],
-              take: MAX_UNITS,
-              include: { component: { select: COMPONENT_SELECT } },
-            })
-          ).map((u) => toUnit(u, now))
+        ? await tx.bloodUnit.findMany({
+            where: { status: { in: ['tersedia', 'dicadangkan'] } },
+            orderBy: [{ expiresAt: 'asc' }, { bagNo: 'asc' }],
+            take: MAX_UNITS,
+            include: { component: { select: COMPONENT_SELECT }, disposal: true },
+          })
         : [];
+    const disposalNames = await userNames(
+      tx,
+      stock.map((u) => u.disposal?.requestedBy ?? null),
+    );
+    const units: BloodUnitRecord[] = stock.map((u) => toUnit(u, now, disposalNames));
     return { ...base, requests, units };
   }
 
@@ -475,5 +483,120 @@ export class BloodBankService {
       details: { abo: input.abo },
     });
     return toUnit(row, new Date());
+  }
+
+  // ─── 4.9b (ADR-0106): pembatalan permintaan, pemusnahan kantong ───────────────────────────────────────────
+
+  private async holds(resource: string, action: string): Promise<boolean> {
+    const role = this.db.actor().role;
+    return !!role && !!(await this.matrix.scope(this.db.tenantId(), role, resource, action));
+  }
+
+  /**
+   * Batal beralasan oleh peminta (`blood_bank.request`) atau bank darah (`crossmatch`). Kantong yang dicadangkan untuk
+   * permintaan ini dan belum keluar kembali `tersedia`; cek ganda yang belum dipakai tidak bisa lagi mengeluarkan
+   * kantong (trigger `BLOOD_REQUEST_CLOSED`).
+   */
+  async cancel(id: string, input: BloodRequestCancelInput): Promise<BloodRequestRecord> {
+    const me = this.records.author();
+    if (!(await this.holds('blood_bank', 'request')) && !(await this.holds('blood_bank', 'crossmatch'))) {
+      throw new AppError('FORBIDDEN', 'Pembatalan oleh DPJP peminta atau petugas bank darah', 403);
+    }
+    const { r } = await this.requestFor(id, true);
+    this.active(r);
+    const tx = this.db.tx();
+    const reserved = await tx.crossmatch.findMany({
+      where: { bloodRequestId: id, result: 'cocok', bloodUnit: { status: 'dicadangkan', issue: null } },
+      select: { bloodUnitId: true },
+    });
+    const released = [...new Set(reserved.map((x) => x.bloodUnitId))];
+    if (released.length > 0) {
+      await tx.bloodUnit.updateMany({
+        where: { id: { in: released }, status: 'dicadangkan' },
+        data: { status: 'tersedia' },
+      });
+    }
+    await supportWrite(() =>
+      tx.bloodRequest.update({
+        where: { id },
+        data: {
+          status: 'batal',
+          cancelReason: input.reason,
+          cancelledBy: me.userId,
+          cancelledAt: new Date(),
+        },
+      }),
+    );
+    this.db.audit({
+      action: 'update',
+      resourceType: 'blood_request',
+      resourceId: id,
+      patientId: r.patientId,
+      details: { cancelled: true, releasedUnits: released.length },
+    });
+    return this.record(id, r.encounterId);
+  }
+
+  /** Pengajuan pemusnahan oleh petugas pertama (bank darah); kantong keluar/dimusnahkan ditolak trigger. */
+  async requestDisposal(input: BloodDisposalInput): Promise<BloodUnitRecord> {
+    const me = this.records.author();
+    const tx = this.db.tx();
+    const unit = await tx.bloodUnit.findUnique({ where: { id: input.bloodUnitId }, select: { id: true } });
+    if (!unit) throw new AppError('NOT_FOUND', 'Kantong tidak ditemukan', 404);
+    if (await tx.bloodUnitDisposal.findFirst({ where: { bloodUnitId: unit.id }, select: { id: true } })) {
+      throw new AppError('CONFLICT', 'Kantong ini sudah diajukan untuk dimusnahkan', 409);
+    }
+    const id = newId();
+    await supportWrite(() =>
+      tx.bloodUnitDisposal.create({
+        data: {
+          id,
+          tenantId: this.db.tenantId(),
+          bloodUnitId: unit.id,
+          category: input.category,
+          reason: input.reason,
+          requestedBy: me.userId,
+        },
+      }),
+    );
+    this.db.audit({
+      action: 'create',
+      resourceType: 'blood_unit_disposal',
+      resourceId: id,
+      details: { bloodUnitId: unit.id, category: input.category },
+    });
+    return this.unitRecord(unit.id);
+  }
+
+  /** Konfirmasi petugas KEDUA dari sesinya sendiri → kantong `dimusnahkan` (trigger, transaksi yang sama). */
+  async confirmDisposal(id: string): Promise<BloodUnitRecord> {
+    const me = this.records.author();
+    const tx = this.db.tx();
+    const d = await tx.bloodUnitDisposal.findUnique({ where: { id } });
+    if (!d) throw new AppError('NOT_FOUND', 'Pengajuan pemusnahan tidak ditemukan', 404);
+    if (d.confirmedBy) throw new AppError('CONFLICT', 'Pemusnahan sudah dikonfirmasi', 409);
+    if (d.requestedBy === me.userId) throw supportError('BLOOD_SECOND_CHECKER_SAME');
+    await supportWrite(() =>
+      tx.bloodUnitDisposal.update({
+        where: { id },
+        data: { confirmedBy: me.userId, confirmedAt: new Date() },
+      }),
+    );
+    this.db.audit({
+      action: 'update',
+      resourceType: 'blood_unit_disposal',
+      resourceId: id,
+      details: { bloodUnitId: d.bloodUnitId, confirmed: true },
+    });
+    return this.unitRecord(d.bloodUnitId);
+  }
+
+  private async unitRecord(unitId: string): Promise<BloodUnitRecord> {
+    const tx = this.db.tx();
+    const u = await tx.bloodUnit.findUniqueOrThrow({
+      where: { id: unitId },
+      include: { component: { select: COMPONENT_SELECT }, disposal: true },
+    });
+    return toUnit(u, new Date(), await userNames(tx, [u.disposal?.requestedBy ?? null]));
   }
 }

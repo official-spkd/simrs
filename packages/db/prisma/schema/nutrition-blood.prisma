@@ -18,8 +18,12 @@ model DietOrder {
   endedAt     DateTime? @map("ended_at") @db.Timestamptz(3)
   orderedBy   String    @map("ordered_by") @db.Uuid
   orderedAt   DateTime  @default(now()) @map("ordered_at") @db.Timestamptz(3)
+  /// Verifikasi ahli gizi (migrasi 20261008800000): makanan baru boleh diantar setelah terverifikasi.
+  verifiedBy  String?   @map("verified_by") @db.Uuid
+  verifiedAt  DateTime? @map("verified_at") @db.Timestamptz(3)
 
   tenant    Tenant        @relation(fields: [tenantId], references: [id])
+  verifier  User?         @relation("DietOrderVerifier", fields: [tenantId, verifiedBy], references: [tenantId, id])
   encounter Encounter     @relation(fields: [tenantId, encounterId], references: [tenantId, id])
   patient   Patient       @relation(fields: [tenantId, patientId], references: [tenantId, id])
   dietType  DietType      @relation(fields: [tenantId, dietTypeId], references: [tenantId, id])
@@ -71,11 +75,12 @@ model BloodUnit {
   createdBy   String?  @map("created_by") @db.Uuid
   updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  tenant       Tenant            @relation(fields: [tenantId], references: [id])
-  component    BloodComponent    @relation(fields: [tenantId, componentId], references: [tenantId, id])
+  tenant       Tenant             @relation(fields: [tenantId], references: [id])
+  component    BloodComponent     @relation(fields: [tenantId, componentId], references: [tenantId, id])
   crossmatches Crossmatch[]
   issue        BloodIssue?
   issueChecks  BloodIssueCheck[]
+  disposal     BloodUnitDisposal?
 
   @@unique([tenantId, id])
   @@unique([tenantId, bagNo])
@@ -85,25 +90,30 @@ model BloodUnit {
 
 /// S08 · Permintaan darah (nomor `BD-YYMM-NNNN`). Hanya status diubah.
 model BloodRequest {
-  id          String   @id @db.Uuid
-  tenantId    String   @map("tenant_id") @db.Uuid
-  requestNo   String   @map("request_no")
-  encounterId String   @map("encounter_id") @db.Uuid
-  patientId   String   @map("patient_id") @db.Uuid
-  componentId String   @map("component_id") @db.Uuid
-  units       Int
+  id           String    @id @db.Uuid
+  tenantId     String    @map("tenant_id") @db.Uuid
+  requestNo    String    @map("request_no")
+  encounterId  String    @map("encounter_id") @db.Uuid
+  patientId    String    @map("patient_id") @db.Uuid
+  componentId  String    @map("component_id") @db.Uuid
+  units        Int
   /// rutin | cito | darurat
-  urgency     String
-  indication  String
-  patientAbo  String?  @map("patient_abo")
-  patientRh   String?  @map("patient_rh")
+  urgency      String
+  indication   String
+  patientAbo   String?   @map("patient_abo")
+  patientRh    String?   @map("patient_rh")
   /// diminta | diproses | selesai | batal
-  status      String   @default("diminta")
-  requestedBy String   @map("requested_by") @db.Uuid
-  requestedAt DateTime @default(now()) @map("requested_at") @db.Timestamptz(3)
-  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  status       String    @default("diminta")
+  requestedBy  String    @map("requested_by") @db.Uuid
+  requestedAt  DateTime  @default(now()) @map("requested_at") @db.Timestamptz(3)
+  updatedAt    DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  /// Pembatalan beralasan (migrasi 20261008800000): kantong yang belum keluar dilepas.
+  cancelReason String?   @map("cancel_reason")
+  cancelledBy  String?   @map("cancelled_by") @db.Uuid
+  cancelledAt  DateTime? @map("cancelled_at") @db.Timestamptz(3)
 
   tenant       Tenant            @relation(fields: [tenantId], references: [id])
+  canceller    User?             @relation("BloodRequestCanceller", fields: [tenantId, cancelledBy], references: [tenantId, id])
   encounter    Encounter         @relation(fields: [tenantId, encounterId], references: [tenantId, id])
   patient      Patient           @relation(fields: [tenantId, patientId], references: [tenantId, id])
   component    BloodComponent    @relation(fields: [tenantId, componentId], references: [tenantId, id])
@@ -184,9 +194,10 @@ model TransfusionReaction {
   reportedBy   String   @map("reported_by") @db.Uuid
   reportedAt   DateTime @default(now()) @map("reported_at") @db.Timestamptz(3)
 
-  tenant     Tenant     @relation(fields: [tenantId], references: [id])
-  bloodIssue BloodIssue @relation(fields: [tenantId, bloodIssueId], references: [tenantId, id])
-  reporter   User       @relation("TransfusionReactionReporter", fields: [tenantId, reportedBy], references: [tenantId, id])
+  tenant          Tenant           @relation(fields: [tenantId], references: [id])
+  bloodIssue      BloodIssue       @relation(fields: [tenantId, bloodIssueId], references: [tenantId, id])
+  reporter        User             @relation("TransfusionReactionReporter", fields: [tenantId, reportedBy], references: [tenantId, id])
+  criticalResults CriticalResult[]
 
   @@unique([tenantId, id])
   @@index([tenantId, bloodIssueId])
@@ -284,4 +295,81 @@ model TransfusionVital {
   @@unique([tenantId, id])
   @@index([tenantId, transfusionId, recordedAt])
   @@map("transfusion_vitals")
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════════════════════════════════
+// Fase 4 · 4.9b · S07 puasa + skrining MST, S08 pemusnahan kantong (migrasi 20261008800000, ADR-0106).
+// ═══════════════════════════════════════════════════════════════════════════════════════════════════════════
+
+/// S08 · Pemusnahan kantong (dua petugas, sesi masing-masing): petugas pertama mengajukan beralasan, petugas KEDUA
+/// mengonfirmasi; kantong lalu `dimusnahkan`. Satu per kantong; hanya kolom konfirmasi yang diubah.
+model BloodUnitDisposal {
+  id          String    @id @db.Uuid
+  tenantId    String    @map("tenant_id") @db.Uuid
+  bloodUnitId String    @map("blood_unit_id") @db.Uuid
+  /// kedaluwarsa | rusak
+  category    String
+  reason      String
+  requestedBy String    @map("requested_by") @db.Uuid
+  requestedAt DateTime  @default(now()) @map("requested_at") @db.Timestamptz(3)
+  confirmedBy String?   @map("confirmed_by") @db.Uuid
+  confirmedAt DateTime? @map("confirmed_at") @db.Timestamptz(3)
+
+  tenant    Tenant    @relation(fields: [tenantId], references: [id])
+  bloodUnit BloodUnit @relation(fields: [tenantId, bloodUnitId], references: [tenantId, id])
+  requester User      @relation("BloodDisposalRequester", fields: [tenantId, requestedBy], references: [tenantId, id])
+  confirmer User?     @relation("BloodDisposalConfirmer", fields: [tenantId, confirmedBy], references: [tenantId, id])
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, bloodUnitId])
+  @@map("blood_unit_disposals")
+}
+
+/// S07 · Puasa (NPO) per kunjungan: selama aktif makanan tidak diantar (trigger `meal_services`). Dicabut sekali.
+model DietNpoOrder {
+  id           String    @id @db.Uuid
+  tenantId     String    @map("tenant_id") @db.Uuid
+  encounterId  String    @map("encounter_id") @db.Uuid
+  patientId    String    @map("patient_id") @db.Uuid
+  reason       String
+  /// Rencana selesai (informasi untuk dapur); puasa tetap aktif sampai dicabut.
+  plannedUntil DateTime? @map("planned_until") @db.Timestamptz(3)
+  orderedBy    String    @map("ordered_by") @db.Uuid
+  orderedAt    DateTime  @default(now()) @map("ordered_at") @db.Timestamptz(3)
+  liftedBy     String?   @map("lifted_by") @db.Uuid
+  liftedAt     DateTime? @map("lifted_at") @db.Timestamptz(3)
+
+  tenant    Tenant    @relation(fields: [tenantId], references: [id])
+  encounter Encounter @relation(fields: [tenantId, encounterId], references: [tenantId, id])
+  patient   Patient   @relation(fields: [tenantId, patientId], references: [tenantId, id])
+  orderer   User      @relation("DietNpoOrderer", fields: [tenantId, orderedBy], references: [tenantId, id])
+  lifter    User?     @relation("DietNpoLifter", fields: [tenantId, liftedBy], references: [tenantId, id])
+
+  @@unique([tenantId, id])
+  @@index([tenantId, encounterId])
+  @@map("diet_npo_orders")
+}
+
+/// S07 · Skrining gizi MST (append-only, waktu server). Skor = penurunan BB (0–4) + nafsu makan turun (1); ≥ 2 berisiko.
+model NutritionScreening {
+  id           String   @id @db.Uuid
+  tenantId     String   @map("tenant_id") @db.Uuid
+  encounterId  String   @map("encounter_id") @db.Uuid
+  patientId    String   @map("patient_id") @db.Uuid
+  /// tidak | tidak_yakin | 1_5 | 6_10 | 11_15 | lebih_15
+  weightLoss   String   @map("weight_loss")
+  poorAppetite Boolean  @map("poor_appetite")
+  score        Int
+  atRisk       Boolean  @map("at_risk")
+  screenedBy   String   @map("screened_by") @db.Uuid
+  screenedAt   DateTime @default(now()) @map("screened_at") @db.Timestamptz(3)
+
+  tenant    Tenant    @relation(fields: [tenantId], references: [id])
+  encounter Encounter @relation(fields: [tenantId, encounterId], references: [tenantId, id])
+  patient   Patient   @relation(fields: [tenantId, patientId], references: [tenantId, id])
+  screener  User      @relation("NutritionScreener", fields: [tenantId, screenedBy], references: [tenantId, id])
+
+  @@unique([tenantId, id])
+  @@index([tenantId, encounterId, screenedAt])
+  @@map("nutrition_screenings")
 }
