@@ -1,10 +1,26 @@
 import 'server-only';
-import { type LabSample, type LabWorklist, labWorklistSchema } from '@simrs/shared';
+import {
+  type LabInboundIssue,
+  labInboundIssueSchema,
+  type LabOrderDetail,
+  labOrderDetailSchema,
+  type LabQcRun,
+  labQcRunSchema,
+  type LabSample,
+  type LabTestDefinition,
+  labTestDefinitionSchema,
+  type LabWorklist,
+  type LabWorklistItem,
+  labWorklistItemSchema,
+  labWorklistSchema,
+} from '@simrs/shared';
+import { z } from 'zod';
 import { demoLabWorklist } from '../../../demo/fixtures/penunjang';
 import type { SupportState } from '../../../penunjang-demo';
 import { applyStoredReportToSample } from '../../../penunjang-kritis';
 import { type ScenarioResults, scenarioLabSamples } from '../../../penunjang-skenario';
 import type { SessionView } from '../../../session-view';
+import { api } from '../../api';
 import { scenarioRuns } from '../../demo/scenario-context';
 import { readDomain } from '../../demo/state';
 import { notImplemented } from '../not-implemented';
@@ -12,7 +28,7 @@ import { isDemoData } from './shared';
 
 /**
  * S01 · Data layar Laboratorium. Mode presentasi: worklist dummy + sampel pasien skenario + keadaan tersimpan di toko
- * demo (`penunjang`, `hasil-kritis`, ADR-0085). Mode api diisi potongan 4.2.
+ * demo (`penunjang`, `hasil-kritis`, ADR-0085). Mode api (potongan 4.2): pemuat `…Api` di bawah, ke `/api/v1/lab`.
  */
 
 export type StoredLabWorklist = LabWorklist & {
@@ -62,4 +78,29 @@ export async function getLabWorklist(scenario: ScenarioResults): Promise<StoredL
 export async function findLabSample(session: SessionView, id: string): Promise<LabSample | undefined> {
   const { results } = await scenarioRuns(session);
   return (await getLabWorklist(results)).samples.find((s) => s.id === id);
+}
+
+// ═════════════════════════════ Mode api (potongan 4.2) ═════════════════════════════
+
+/** Worklist unit lab: order CPOE baru (belum diterima) + order lab aktif, atau yang selesai ≤ 7 hari. */
+export function getLabWorklistApi(view: 'aktif' | 'selesai'): Promise<LabWorklistItem[]> {
+  return api(`/api/v1/lab/worklist?view=${view}&limit=200`, { schema: z.array(labWorklistItemSchema) });
+}
+
+/** Detail order lab (audit `read` di API). */
+export function getLabOrderApi(id: string): Promise<LabOrderDetail> {
+  return api(`/api/v1/lab/orders/${encodeURIComponent(id)}`, { schema: labOrderDetailSchema });
+}
+
+/** Pesan analyzer gagal/berhenti diproses (tanpa isi pesan). */
+export function getLabInboundIssuesApi(): Promise<LabInboundIssue[]> {
+  return api('/api/v1/lab/inbound-issues', { schema: z.array(labInboundIssueSchema) });
+}
+
+export function getLabTestsApi(): Promise<LabTestDefinition[]> {
+  return api('/api/v1/lab/tests', { schema: z.array(labTestDefinitionSchema) });
+}
+
+export function getLabQcApi(): Promise<LabQcRun[]> {
+  return api('/api/v1/lab/qc', { schema: z.array(labQcRunSchema) });
 }

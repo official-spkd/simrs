@@ -100,6 +100,7 @@ export default defineConfig({
         'superadmin-demo-api.spec.ts',
         // Kredensial analyzer di mock = keadaan bersama (fase 4 §4.1a).
         'penunjang-ingest.spec.ts',
+        'lab-api.spec.ts',
       ],
       use: { ...devices['Desktop Chrome'], channel, viewport: { width: 768, height: 1024 } },
     },
