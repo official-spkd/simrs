@@ -362,6 +362,24 @@ describe('HL7 ORU^R01 dan tanda tangan perangkat', () => {
     expect(() => parseOru('MSH|^~\\&|A|B|C|D|x||ORU^R01|1|P|2.5\rOBX|1|NM|x||1')).toThrow(/OBR/);
   });
 
+  it('pengenal order/spesimen dari OBR, ORC, dan SPM (tanpa PID); OBR tanpa pengenal apa pun ditolak', () => {
+    const m = parseOru(
+      [
+        'MSH|^~\\&|ALAT|LAB|SIMRS|RS|20261007100000||ORU^R01|MSG-SPM|P|2.5',
+        'PID|1||RM-1||FIKTIF^PASIEN',
+        'ORC|RE|PL-9|FL-9',
+        'OBR|1|||ELEK',
+        'SPM|1|SPC-PLACER^L2610070033',
+        'OBX|1|NM|2823-3^Kalium^LN||4.1|mmol/L|||||F',
+      ].join('\r'),
+    );
+    expect(m.orders[0]?.identifiers).toEqual(['FL-9', 'PL-9', 'L2610070033', 'SPC-PLACER']);
+    expect(m.orders[0]?.specimenBarcode).toBe('FL-9');
+    expect(() => parseOru('MSH|^~\\&|A|B|C|D|x||ORU^R01|1|P|2.5\rOBR|1|||ELEK\rOBX|1|NM|x||1')).toThrow(
+      /pengenal spesimen/,
+    );
+  });
+
   it('redaksi daftar izin: hanya MSH/SFT/ORC/OBR/OBX/NTE/SPM/TQ1 tersimpan; PD1/PV1/GT1/IN1/MRG/segmen Z dan PID berawalan spasi jadi SEG|1', () => {
     const msg = [
       'MSH|^~\\&|ALAT|LAB|SIMRS|RS|20261007100000||ORU^R01|MSG-9|P|2.5',

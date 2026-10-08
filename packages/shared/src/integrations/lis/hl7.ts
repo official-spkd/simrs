@@ -58,7 +58,13 @@ export interface Hl7OruMessage {
   /** MSH-7 mentah (YYYYMMDDHHMMSS[+ZZZZ]). */
   sentAt: string | null;
   orders: Array<{
+    /** Pengenal utama spesimen: OBR-3 (filler), OBR-2 (placer), lalu ORC/SPM. */
     specimenBarcode: string;
+    /**
+     * Semua pengenal order/spesimen yang boleh dipakai mencocokkan (tanpa PID/PV1): OBR-3/OBR-2, ORC-3/ORC-2 (ORC sebelum
+     * OBR ini), SPM-2 (placer^filler) dari SPM sesudah OBR ini. Unik, urutan prioritas.
+     */
+    identifiers: string[];
     universalServiceId: string | null;
     observations: Hl7Observation[];
   }>;
@@ -178,19 +184,33 @@ export function parseOru(raw: string): Hl7OruMessage {
     orders: [],
   };
   let lastObs: Hl7Observation | null = null;
+  let orcIds: string[] = [];
+  const ids = (...values: string[]) => values.map((v) => v.trim()).filter((v) => v.length > 0);
   for (const seg of segments.slice(1)) {
     const type = segmentId(seg);
-    if (type === 'OBR') {
-      const filler = component(field(seg, 3, enc), 1, enc);
-      const placer = component(field(seg, 2, enc), 1, enc);
-      const barcode = (filler || placer).trim();
-      if (!barcode) throw new Hl7ParseError('OBR tanpa barcode spesimen (OBR-3/OBR-2)');
+    if (type === 'ORC') {
+      // ORC-3 filler order number, ORC-2 placer order number: berlaku untuk OBR berikutnya.
+      orcIds = ids(component(field(seg, 3, enc), 1, enc), component(field(seg, 2, enc), 1, enc));
+    } else if (type === 'OBR') {
+      const own = ids(component(field(seg, 3, enc), 1, enc), component(field(seg, 2, enc), 1, enc));
+      const identifiers = [...new Set([...own, ...orcIds])];
       message.orders.push({
-        specimenBarcode: barcode,
+        specimenBarcode: identifiers[0] ?? '',
+        identifiers,
         universalServiceId: orNull(component(field(seg, 4, enc), 1, enc)),
         observations: [],
       });
+      orcIds = [];
       lastObs = null;
+    } else if (type === 'SPM') {
+      // SPM-2 specimen ID (EIP: placer^filler) untuk order (OBR) terakhir.
+      const order = message.orders.at(-1);
+      if (!order) throw new Hl7ParseError('SPM muncul sebelum OBR');
+      const spm = field(seg, 2, enc);
+      for (const id of ids(component(spm, 2, enc), component(spm, 1, enc))) {
+        if (!order.identifiers.includes(id)) order.identifiers.push(id);
+      }
+      if (!order.specimenBarcode) order.specimenBarcode = order.identifiers[0] ?? '';
     } else if (type === 'OBX') {
       const order = message.orders.at(-1);
       if (!order) throw new Hl7ParseError('OBX muncul sebelum OBR');
@@ -218,6 +238,9 @@ export function parseOru(raw: string): Hl7OruMessage {
       if (!message.orders.at(-1)) throw new Hl7ParseError('NTE muncul sebelum OBR');
       lastObs?.notes.push(unescapeHl7(field(seg, 3, enc), enc));
     }
+  }
+  if (message.orders.some((o) => o.identifiers.length === 0)) {
+    throw new Hl7ParseError('OBR tanpa pengenal spesimen (OBR-3/OBR-2, ORC-3/ORC-2, atau SPM-2)');
   }
   return message;
 }

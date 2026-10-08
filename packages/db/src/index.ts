@@ -37,6 +37,20 @@ export {
 } from './inbound';
 export { notifyStaff, type StaffNotificationInput } from './notifications';
 export {
+  insertLabResult,
+  labOrderTests,
+  labResultsComplete,
+  labValueText,
+  prepareLabResult,
+  raiseCriticalResult,
+  refreshLabOrderProgress,
+  setLabOrderStatus,
+  testsForOrderables,
+  type LabResultFields,
+  type LabTestDef,
+  type RaisedCriticalRow,
+} from './lab';
+export {
   auditChainHead,
   type AuditAnchorRow,
   type AuditChainSegment,

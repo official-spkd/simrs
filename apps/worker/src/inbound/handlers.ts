@@ -1,5 +1,6 @@
 import type { InboundEvent, TenantTx } from '@simrs/db';
 import type { DomainEventPayload, InboundSource, WorkerEmittedEvent } from '@simrs/shared';
+import { lisHl7Handler } from './lis-hl7.handler';
 
 /**
  * Konteks penangan pesan masuk. `tx` = transaksi tenant yang SAMA dengan penanda `processed` (ADR-0017): hasil
@@ -57,4 +58,7 @@ export const INBOUND_HANDLER_REGISTRY = Symbol('INBOUND_HANDLER_REGISTRY');
 export const INBOUND_HANDLERS: ReadonlyMap<InboundSource, InboundHandler> = new Map<
   InboundSource,
   InboundHandler
->([]);
+>([
+  // Fase 4 · 4.2: hasil analyzer lab (barcode OBR → hasil awal bersumber analyzer).
+  ['lis-hl7', lisHl7Handler],
+]);
