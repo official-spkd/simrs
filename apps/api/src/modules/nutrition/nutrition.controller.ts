@@ -6,6 +6,10 @@ import {
   type MealListQuery,
   mealListQuerySchema,
   mealServiceInputSchema,
+  type NpoInput,
+  npoInputSchema,
+  type NutritionScreeningInput,
+  nutritionScreeningInputSchema,
 } from '@simrs/shared';
 import type { z } from 'zod';
 import { RequireModule } from '../../common/require-module.decorator';
@@ -42,6 +46,30 @@ export class NutritionController {
     return this.nutrition.end(id);
   }
 
+  @RequirePermission('nutrition', 'verify')
+  @Post('diet-orders/:id/verify')
+  verify(@Param('id', uuid) id: string) {
+    return this.nutrition.verify(id);
+  }
+
+  @RequirePermission('nutrition', 'write')
+  @Post('screenings')
+  screen(@Body(new ZodValidationPipe(nutritionScreeningInputSchema)) body: NutritionScreeningInput) {
+    return this.nutrition.screen(body);
+  }
+
+  @RequirePermission('nutrition', 'write')
+  @Post('npo')
+  startNpo(@Body(new ZodValidationPipe(npoInputSchema)) body: NpoInput) {
+    return this.nutrition.startNpo(body);
+  }
+
+  @RequirePermission('nutrition', 'write')
+  @Post('npo/:id/lift')
+  liftNpo(@Param('id', uuid) id: string) {
+    return this.nutrition.liftNpo(id);
+  }
+
   @RequirePermission('nutrition', 'read')
   @Get('meal-list')
   mealList(@Query(new ZodValidationPipe(mealListQuerySchema)) q: MealListQuery) {
@@ -69,5 +97,12 @@ export class EncounterNutritionController {
   @Get(':id/diet-orders')
   list(@Param('id', uuid) id: string) {
     return this.nutrition.listForEncounter(id);
+  }
+
+  /** Order diet + puasa + skrining MST kunjungan (4.9b). */
+  @RequirePermission('nutrition', 'read')
+  @Get(':id/nutrition')
+  nutritionOf(@Param('id', uuid) id: string) {
+    return this.nutrition.encounterNutrition(id);
   }
 }

@@ -17,6 +17,8 @@ model Patient {
   surgeryCases          SurgeryCase[]
   operativeReports      OperativeReport[]
   dietOrders            DietOrder[]
+  dietNpoOrders         DietNpoOrder[]
+  nutritionScreenings   NutritionScreening[]
   bloodRequests         BloodRequest[]
   bloodIssues           BloodIssue[]
   transfusions          Transfusion[]

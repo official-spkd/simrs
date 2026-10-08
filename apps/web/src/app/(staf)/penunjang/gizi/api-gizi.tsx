@@ -10,10 +10,17 @@ import {
 import { Alert, Chip } from '@simrs/ui';
 import Link from 'next/link';
 import { EncounterBanner, EncounterGate } from '@/components/klinis/encounter-screen';
-import { DietOrderForm, EndDietButton, MealRowActions } from '@/components/penunjang/gizi-api';
+import {
+  DietOrderForm,
+  EndDietButton,
+  MealRowActions,
+  NpoControl,
+  ScreeningForm,
+  VerifyDietButton,
+} from '@/components/penunjang/gizi-api';
 import { formatTglJam } from '@/lib/rawat-inap';
 import { resolveEncounter } from '@/lib/server/data/klinis/encounter-screen';
-import { dietTypes, encounterDietOrders, mealList } from '@/lib/server/data/penunjang/penunjang-api';
+import { dietTypes, encounterNutrition, mealList } from '@/lib/server/data/penunjang/penunjang-api';
 import { can, type SessionView } from '@/lib/session-view';
 
 const ROUTE = '/penunjang/gizi';
@@ -53,6 +60,7 @@ export async function ApiGizi({ session, query }: { session: SessionView; query:
   const meal = (MEALS as readonly string[]).includes(query.jam ?? '') ? (query.jam as Meal) : defaultMeal();
   const unitId = /^[0-9a-f-]{36}$/i.test(query.unit ?? '') ? query.unit : undefined;
   const canWrite = can(session, 'nutrition', 'write');
+  const canVerify = can(session, 'nutrition', 'verify');
   const [list, types] = await Promise.all([mealList({ date, meal, unitId }), dietTypes()]);
   const printHref = `/cetak/gizi?${new URLSearchParams({ tanggal: date, jam: meal, ...(unitId ? { unit: unitId } : {}) })}`;
 
@@ -64,7 +72,13 @@ export async function ApiGizi({ session, query }: { session: SessionView; query:
       </header>
 
       {query.kunjungan !== undefined || query.pilih ? (
-        <DietSection raw={query.kunjungan} canWrite={canWrite} today={today} types={types} />
+        <DietSection
+          raw={query.kunjungan}
+          canWrite={canWrite}
+          canVerify={canVerify}
+          today={today}
+          types={types}
+        />
       ) : (
         canWrite && (
           <Link
@@ -137,13 +151,13 @@ export async function ApiGizi({ session, query }: { session: SessionView; query:
             Tampilkan
           </button>
         </form>
-        <MealTable list={list} canWrite={canWrite} />
+        <MealTable list={list} canWrite={canWrite} canVerify={canVerify} />
       </section>
     </div>
   );
 }
 
-function MealTable({ list, canWrite }: { list: MealList; canWrite: boolean }) {
+function MealTable({ list, canWrite, canVerify }: { list: MealList; canWrite: boolean; canVerify: boolean }) {
   if (list.rows.length === 0) {
     return <p className="m-0 text-small text-ink-500">Belum ada order diet aktif untuk jam makan ini.</p>;
   }
@@ -170,6 +184,12 @@ function MealTable({ list, canWrite }: { list: MealList; canWrite: boolean }) {
               {r.dietType.name} · tekstur {TEXTURE_LABEL[r.texture].toLowerCase()}
               {r.notes ? ` · ${r.notes}` : ''}
             </span>
+            <span className="flex flex-wrap gap-1.5">
+              {r.npo && <Chip tone="warning">Puasa</Chip>}
+              {!r.verified && <Chip tone="warning">Belum diverifikasi</Chip>}
+              {r.screening?.atRisk && <Chip tone="danger">MST {r.screening.score} · berisiko</Chip>}
+              {!r.screening && <Chip tone="neutral">Belum skrining MST</Chip>}
+            </span>
             {r.allergies.length > 0 && (
               <span className="text-small font-semibold text-danger">Alergi: {r.allergies.join('; ')}</span>
             )}
@@ -179,7 +199,10 @@ function MealTable({ list, canWrite }: { list: MealList; canWrite: boolean }) {
                 : 'Belum diantar'}
             </span>
           </span>
-          <MealRowActions row={r} meal={list.meal} canWrite={canWrite} />
+          <span className="flex flex-col items-end gap-2">
+            {canVerify && !r.verified && r.screening && <VerifyDietButton dietOrderId={r.dietOrderId} />}
+            <MealRowActions row={r} meal={list.meal} canWrite={canWrite} />
+          </span>
         </li>
       ))}
     </ul>
@@ -189,18 +212,22 @@ function MealTable({ list, canWrite }: { list: MealList; canWrite: boolean }) {
 async function DietSection({
   raw,
   canWrite,
+  canVerify,
   today,
   types,
 }: {
   raw: string | undefined;
   canWrite: boolean;
+  canVerify: boolean;
   today: string;
   types: Awaited<ReturnType<typeof dietTypes>>;
 }) {
   const res = await resolveEncounter(raw);
   if (res.kind !== 'ok') return <EncounterGate res={res} route={ROUTE} />;
-  const orders = await encounterDietOrders(res.context.encounter.id);
+  const { orders, npo, screenings } = await encounterNutrition(res.context.encounter.id);
   const active = orders.find((o) => o.status === 'aktif');
+  const activeNpo = npo.find((n) => n.liftedAt === null) ?? null;
+  const lastScreen = screenings[0] ?? null;
   return (
     <>
       <EncounterBanner context={res.context} />
@@ -214,7 +241,16 @@ async function DietSection({
               {active.orderedBy.name}
               {active.notes ? ` · ${active.notes}` : ''}
             </p>
-            {canWrite && <EndDietButton dietOrderId={active.id} />}
+            <span className="flex flex-wrap items-center gap-2">
+              {active.verifiedBy ? (
+                <Chip tone="success">Diverifikasi {active.verifiedBy.name}</Chip>
+              ) : canVerify ? (
+                <VerifyDietButton dietOrderId={active.id} />
+              ) : (
+                <Chip tone="warning">Menunggu verifikasi ahli gizi</Chip>
+              )}
+              {canWrite && <EndDietButton dietOrderId={active.id} />}
+            </span>
           </div>
         ) : (
           <Alert level="info" title="Belum ada diet aktif">
@@ -222,6 +258,32 @@ async function DietSection({
           </Alert>
         )}
         {canWrite && <DietOrderForm encounterId={res.context.encounter.id} types={types} today={today} />}
+      </section>
+      <section aria-label="Puasa" className={CARD}>
+        <h2 className="m-0 text-body font-semibold">Puasa (NPO)</h2>
+        {canWrite ? (
+          <NpoControl
+            encounterId={res.context.encounter.id}
+            active={activeNpo ? { id: activeNpo.id, reason: activeNpo.reason } : null}
+          />
+        ) : (
+          <p className="m-0 text-small">{activeNpo ? `Puasa: ${activeNpo.reason}` : 'Tidak puasa.'}</p>
+        )}
+      </section>
+      <section aria-label="Skrining gizi" className={CARD}>
+        <h2 className="m-0 text-body font-semibold">Skrining gizi (MST)</h2>
+        {lastScreen ? (
+          <p className="m-0 text-small">
+            Terakhir: skor <strong>{lastScreen.score}</strong> ·{' '}
+            {lastScreen.atRisk ? 'berisiko malnutrisi (asuhan ahli gizi ≤ 24 jam)' : 'tidak berisiko'} ·{' '}
+            {lastScreen.screenedBy.name}, {formatTglJam(lastScreen.screenedAt)}
+          </p>
+        ) : (
+          <p className="m-0 text-small text-ink-500">
+            Belum diskrining. Verifikasi order diet butuh skrining MST.
+          </p>
+        )}
+        {canWrite && <ScreeningForm encounterId={res.context.encounter.id} />}
         {orders.length > 1 && (
           <details>
             <summary className="cursor-pointer text-small font-semibold">

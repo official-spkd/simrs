@@ -14,6 +14,9 @@ import {
 import { testDbUrls } from '@simrs/db/testing';
 import {
   dietOrderRecordSchema,
+  encounterNutritionSchema,
+  npoRecordSchema,
+  nutritionScreeningRecordSchema,
   isoDateJakarta,
   mealListSchema,
   mealServiceRecordSchema,
@@ -126,6 +129,14 @@ afterAll(async () => {
   await app?.close();
 });
 
+/** Skrining MST oleh perawat lalu verifikasi ahli gizi (syarat antar makanan, 4.9b). */
+async function verified(encounterId: string, dietOrderId: string) {
+  await as('perawat')
+    .post('/nutrition/screenings', { encounterId, weightLoss: 'tidak', poorAppetite: false })
+    .expect(201);
+  await as('gizi').post(`/nutrition/diet-orders/${dietOrderId}/verify`).expect(201);
+}
+
 describe('gizi (S07)', () => {
   it('order diet: satu aktif per kunjungan (order baru menutup yang lama); jenis diet nonaktif ditolak', async () => {
     const e = await admitted('MELATI', 'Ny. Diet Fiktif');
@@ -200,6 +211,12 @@ describe('gizi (S07)', () => {
     const e = await admitted('MELATI', 'Ny. Sisa Makan Fiktif');
     const d = (await as('perawat').post('/nutrition/diet-orders', order(e.encounterId)).expect(201)).body;
     const servedAt = new Date(Date.now() - 30 * 60_000).toISOString();
+    // 4.9b: order belum diverifikasi ahli gizi → tidak diantar.
+    const unverified = await as('gizi')
+      .post('/nutrition/meal-services', { dietOrderId: d.id, meal: 'siang', servedAt, leftover: null })
+      .expect(409);
+    expect(unverified.body.code).toBe('DIET_NOT_VERIFIED');
+    await verified(e.encounterId, d.id);
     await as('gizi')
       .post('/nutrition/meal-services', { dietOrderId: d.id, meal: 'siang', servedAt, leftover: null })
       .expect(201);
@@ -255,5 +272,70 @@ describe('gizi (S07)', () => {
       }),
     );
     await as('gizi').post('/nutrition/diet-orders', order(amb.id)).expect(409);
+  });
+
+  it('4.9b: skrining MST dihitung server; verifikasi hanya ahli gizi dan butuh skrining; puasa menahan antar sampai dicabut', async () => {
+    const e = await admitted('MELATI', 'Tn. Puasa Fiktif');
+    const d = (await as('perawat').post('/nutrition/diet-orders', order(e.encounterId)).expect(201)).body;
+    expect(d.verifiedBy).toBeNull();
+    // Perawat tidak memegang `nutrition.verify`.
+    await as('perawat').post(`/nutrition/diet-orders/${d.id}/verify`).expect(403);
+    const noScreen = await as('gizi').post(`/nutrition/diet-orders/${d.id}/verify`).expect(409);
+    expect(noScreen.body.code).toBe('NUTRITION_SCREENING_REQUIRED');
+    const sc = (
+      await as('perawat')
+        .post('/nutrition/screenings', { encounterId: e.encounterId, weightLoss: '6_10', poorAppetite: true })
+        .expect(201)
+    ).body;
+    expect(sc).toMatchObject({ score: 3, atRisk: true });
+    nutritionScreeningRecordSchema.parse(sc);
+    const v = (await as('gizi').post(`/nutrition/diet-orders/${d.id}/verify`).expect(201)).body;
+    expect(v.verifiedBy.id).toBe(users.gizi);
+    expect((await as('gizi').post(`/nutrition/diet-orders/${d.id}/verify`).expect(409)).body.code).toBe(
+      'DIET_VERIFIED',
+    );
+    // Puasa: satu aktif, alasan wajib, antar ditolak sampai dicabut.
+    await as('perawat')
+      .post('/nutrition/npo', { encounterId: e.encounterId, reason: 'pendek', plannedUntil: null })
+      .expect(400);
+    const npo = (
+      await as('perawat')
+        .post('/nutrition/npo', {
+          encounterId: e.encounterId,
+          reason: 'Persiapan endoskopi pukul 13.00',
+          plannedUntil: new Date(Date.now() + 3 * 3_600_000).toISOString(),
+        })
+        .expect(201)
+    ).body;
+    await as('perawat')
+      .post('/nutrition/npo', {
+        encounterId: e.encounterId,
+        reason: 'Persiapan endoskopi ulang',
+        plannedUntil: null,
+      })
+      .expect(409);
+    const servedAt = new Date().toISOString();
+    const held = await as('gizi')
+      .post('/nutrition/meal-services', { dietOrderId: d.id, meal: 'siang', servedAt, leftover: null })
+      .expect(409);
+    expect(held.body.code).toBe('NPO_ACTIVE');
+    const list = (await as('gizi').get(`/nutrition/meal-list?date=${today}&meal=siang`).expect(200)).body;
+    const row = list.rows.find((r: { dietOrderId: string }) => r.dietOrderId === d.id);
+    expect(row).toMatchObject({ verified: true, npo: { reason: 'Persiapan endoskopi pukul 13.00' } });
+    expect(row.screening).toMatchObject({ score: 3, atRisk: true });
+    const lifted = (await as('perawat').post(`/nutrition/npo/${npo.id}/lift`).expect(201)).body;
+    npoRecordSchema.parse(lifted);
+    expect(lifted.liftedBy.id).toBe(users.perawat);
+    await as('perawat').post(`/nutrition/npo/${npo.id}/lift`).expect(409);
+    await as('gizi')
+      .post('/nutrition/meal-services', { dietOrderId: d.id, meal: 'siang', servedAt, leftover: null })
+      .expect(201);
+    const all = (await as('perawat').get(`/encounters/${e.encounterId}/nutrition`).expect(200)).body;
+    encounterNutritionSchema.parse(all);
+    expect(all.npo).toHaveLength(1);
+    expect(all.screenings).toHaveLength(1);
+    await expect(
+      run(A.id, (tx) => tx.nutritionScreening.update({ where: { id: sc.id }, data: { score: 0 } })),
+    ).rejects.toThrow();
   });
 });
