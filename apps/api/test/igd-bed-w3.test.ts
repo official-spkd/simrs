@@ -283,6 +283,7 @@ describe('papan IGD untuk layar W3', () => {
       payer: { kind: 'bpjs' },
       status: 'pemeriksaan',
       bedId: igdBed,
+      triaged: true,
       triage: null,
       sep: { status: 'pending', number: null },
     });

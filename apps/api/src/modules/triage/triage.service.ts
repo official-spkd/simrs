@@ -452,6 +452,7 @@ export class TriageService {
         zone: (st?.zone as EdZone | null | undefined) ?? null,
         bedId: a?.locationId ?? null,
         bedCode: a?.location.code ?? null,
+        triaged: !!t,
         triage:
           t && view === 'klinis'
             ? {

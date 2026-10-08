@@ -1099,7 +1099,15 @@ export const edBoardItemSchema = z.strictObject({
   zone: z.enum(ED_ZONES).nullable(),
   bedId: uuid.nullable(),
   bedCode: z.string().nullable(),
-  /** Triase final terkini (versi terbaru rantai); `id` = dasar koreksi (`revision.kind = koreksi`). */
+  /**
+   * Sudah ada triase final (penanda nonklinis, ADR-0109): syarat keputusan rawat inap, juga di papan administratif yang
+   * tidak memuat isi triase.
+   */
+  triaged: z.boolean(),
+  /**
+   * Triase final terkini (versi terbaru rantai); `id` = dasar koreksi (`revision.kind = koreksi`). Null di papan
+   * administratif.
+   */
   triage: z
     .strictObject({
       id: uuid,
