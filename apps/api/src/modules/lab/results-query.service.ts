@@ -50,7 +50,10 @@ const MS_PER_YEAR = 365.2425 * 86_400_000;
 export class ResultsQueryService {
   constructor(private readonly db: TenantDb) {}
 
-  /** Hasil rilis terbaru per LOINC (versi terkini; yang dibatalkan `entered_in_error` diabaikan). */
+  /**
+   * Hasil rilis terbaru per LOINC (versi terkini; yang dibatalkan `entered_in_error` diabaikan). Order yang sedang
+   * divalidasi ulang setelah koreksi tidak ikut sampai dirilis ulang (audit BUG 4.2).
+   */
   async latest(patientId: string, loincCodes: readonly string[]): Promise<LatestLabResult[]> {
     if (loincCodes.length === 0) return [];
     const rows = await this.db.tx().$queryRaw<Row[]>`
@@ -61,7 +64,9 @@ export class ResultsQueryService {
       WHERE r.patient_id IN (SELECT app_patient_group(${patientId}::uuid))
         AND r.loinc = ANY(${[...loincCodes]}::text[])
         AND r.status = 'final'
-        AND o.released_at IS NOT NULL
+        -- Rilis yang masih berlaku: order dibuka lagi oleh koreksi (status hasil/validasi_teknis) tidak terbaca
+        -- sampai dirilis ulang, agar nilai koreksi yang belum divalidasi tidak dipakai CDS/eGFR.
+        AND o.released_at IS NOT NULL AND o.status = 'selesai'
       ORDER BY r.loinc, r.occurred_at DESC, r.id DESC`;
     return rows.map((r) => ({
       labResultId: r.id,

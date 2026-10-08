@@ -186,7 +186,7 @@ export async function prepareLabResult(
       AND r.test_definition_id = ${input.def.id}::uuid
       AND r.lab_order_id <> ${input.order.id}::uuid
       AND r.status = 'final' AND r.value_numeric IS NOT NULL
-      AND o.released_at IS NOT NULL AND r.occurred_at < ${input.occurredAt}
+      AND o.released_at IS NOT NULL AND o.status = 'selesai' AND r.occurred_at < ${input.occurredAt}
     ORDER BY r.occurred_at DESC, r.id DESC
     LIMIT 5`;
   const prevValues = previous.map((p) => Number(p.value)).reverse();
