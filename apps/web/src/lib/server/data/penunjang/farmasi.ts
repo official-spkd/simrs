@@ -1,5 +1,7 @@
 import 'server-only';
 import {
+  type DispenseView,
+  dispenseViewSchema,
   type PharmacyIncoming,
   pharmacyIncomingSchema,
   type PharmacyPrescription,
@@ -25,7 +27,7 @@ import { isDemoData } from './shared';
 /**
  * S04/S05 · Data layar Farmasi (telaah, penyiapan, serah terima). Mode presentasi: antrean dummy + resep pasien
  * skenario + keadaan tersimpan di toko demo `penunjang`. Mode api: telaah `/api/v1/pharmacy/*` (potongan 4.5);
- * penyiapan dan serah terima menyusul 4.6b.
+ * penyiapan, serah terima, dan retur `/api/v1/dispensing/*` (4.6b).
  */
 
 export type StoredPharmacyQueue = PharmacyQueue & {
@@ -80,4 +82,18 @@ export function getPharmacyQueueApi(): Promise<PharmacyQueueRow[]> {
 /** Resep lengkap untuk telaah: item, temuan CDS terbaru, telaah, intervensi. */
 export function getPharmacyPrescriptionApi(id: string): Promise<PharmacyPrescriptionView> {
   return api(`/api/v1/pharmacy/prescriptions/${id}`, { schema: pharmacyPrescriptionViewSchema });
+}
+
+// ─── Mode api (potongan 4.6b) ────────────────────────────────────────────────────────────────────────────────────
+
+/** Penyiapan obat satu resep (terbaru dulu). */
+export function getDispensesApi(prescriptionId: string): Promise<DispenseView[]> {
+  return api(`/api/v1/dispensing/prescriptions/${prescriptionId}/dispenses`, {
+    schema: z.array(dispenseViewSchema),
+  });
+}
+
+/** Satu penyiapan untuk cetak etiket. */
+export function getDispenseApi(dispenseId: string): Promise<DispenseView> {
+  return api(`/api/v1/dispensing/dispenses/${dispenseId}`, { schema: dispenseViewSchema });
 }

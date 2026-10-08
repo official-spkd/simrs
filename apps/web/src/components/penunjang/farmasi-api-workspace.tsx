@@ -3,6 +3,7 @@
 import {
   formatTanggalWaktu,
   MEDICATION_FREQUENCIES,
+  type DispenseView,
   type PharmacyAlertView,
   type PharmacyIncoming,
   type PharmacyPrescriptionView,
@@ -21,6 +22,7 @@ import {
   interventionAction,
   reviewAction,
 } from '@/app/(staf)/penunjang/farmasi/actions';
+import { type DispenseCan, FarmasiDispense } from './farmasi-api-dispense';
 
 type Notice = { ok: boolean; text: string } | null;
 type Done = { ok: true; prescription: PharmacyPrescriptionView } | { ok: false; message: string };
@@ -486,12 +488,16 @@ function ReviewForm({ rx, onDone }: { rx: PharmacyPrescriptionView; onDone: (r: 
 function Detail({
   rx,
   balances,
+  dispenses,
   canWrite,
+  dispense,
   onNotice,
 }: {
   rx: PharmacyPrescriptionView;
   balances: readonly StockBalance[] | null;
+  dispenses: readonly DispenseView[];
   canWrite: boolean;
+  dispense: DispenseCan;
   onNotice: (n: Notice) => void;
 }) {
   const [pending, setPending] = useState(false);
@@ -586,27 +592,34 @@ function Detail({
         </ul>
       )}
       {canAct && <ReviewForm rx={rx} onDone={onDone} />}
+      <FarmasiDispense rx={rx} dispenses={dispenses} balances={balances} can={dispense} onNotice={onNotice} />
     </section>
   );
 }
 
 /**
- * S04 · Farmasi mode api (potongan 4.5): kiriman masuk → terima resep, antrean resep, dan panel telaah (item + stok
- * depo dari API stok, temuan CDS dan tindak lanjutnya, intervensi, telaah tiga aspek). Tombol mengikuti izin
- * `pharmacy.review.write`; API menegakkan ulang gerbang CDS dan lingkup depo.
+ * S04/S05 · Farmasi mode api: kiriman masuk → terima resep, antrean resep, panel telaah (item + stok depo dari API
+ * stok, temuan CDS dan tindak lanjutnya, intervensi, telaah tiga aspek; potongan 4.5), lalu penyiapan FEFO, cek ganda,
+ * serah terima, dan retur (4.6b). Tombol mengikuti izin `pharmacy.review.write` dan `pharmacy.dispense.*`; API
+ * menegakkan ulang gerbang CDS, FEFO, cek ganda, dan lingkup depo.
  */
 export function FarmasiApiWorkspace({
   incoming,
   queue,
   detail,
   balances,
+  dispenses,
   canWrite,
+  dispense,
 }: {
   incoming: readonly PharmacyIncoming[];
   queue: readonly PharmacyQueueRow[];
   detail: PharmacyPrescriptionView | null;
   balances: readonly StockBalance[] | null;
+  dispenses: readonly DispenseView[];
   canWrite: boolean;
+  /** Izin `pharmacy.dispense.*` (penyiapan, cek ganda, serah, retur; potongan 4.6b). */
+  dispense: DispenseCan;
 }) {
   const [notice, setNotice] = useState<Notice>(null);
   return (
@@ -638,7 +651,14 @@ export function FarmasiApiWorkspace({
           </section>
         </aside>
         {detail ? (
-          <Detail rx={detail} balances={balances} canWrite={canWrite} onNotice={setNotice} />
+          <Detail
+            rx={detail}
+            balances={balances}
+            dispenses={dispenses}
+            canWrite={canWrite}
+            dispense={dispense}
+            onNotice={setNotice}
+          />
         ) : (
           <p className="m-0 text-small text-ink-500">Pilih resep di antrean atau terima kiriman baru.</p>
         )}

@@ -21,18 +21,18 @@ skenario Simulasi ada di [Simulasi dan operasional](./18-simulasi-dan-operasiona
 
 ## Ringkasan layar
 
-| Layar               | Rute                       | Peran (mode presentasi)                  | Komponen | Status                                   |
-| ------------------- | -------------------------- | ---------------------------------------- | -------- | ---------------------------------------- |
-| Laboratorium        | `/penunjang/lab`           | analis lab                               | S01, S09 | 🟨 demo; api: belum tersambung (4.2)     |
-| Radiologi           | `/penunjang/radiologi`     | radiografer                              | S03      | 🟨 demo tanpa mockup; API belum (fase 4) |
-| Farmasi             | `/penunjang/farmasi`       | apoteker                                 | S04, S05 | 🟨 demo; API telaah (4.5)                |
-| Kamar operasi       | `/penunjang/kamar-operasi` | dokter, perawat                          | S06      | 🟨 demo; API belum (fase 4)              |
-| Pusat hasil kritis  | `/penunjang/hasil-kritis`  | analis lab, radiografer, dokter, perawat | S09      | 🟨 demo tanpa mockup; API belum (fase 4) |
-| Depo & stok farmasi | `/penunjang/depo`          | apoteker                                 | S05      | 🟨 demo tanpa mockup; API belum (fase 4) |
-| Bank darah          | `/penunjang/bank-darah`    | analis lab, perawat, bidan, dokter       | S08      | ✅ demo + api (4.9)                      |
-| Gizi                | `/penunjang/gizi`          | ahli gizi, perawat, dokter               | S07      | ✅ demo + api (4.9)                      |
-| Mikrobiologi & PA   | `/penunjang/mikrobiologi`  | analis lab, dokter                       | S02      | 🟨 demo tanpa mockup; API belum (fase 4) |
-| Diagnostik lain     | `/penunjang/diagnostik`    | dokter, perawat                          | S10      | 🟨 demo tanpa mockup; API belum (fase 4) |
+| Layar               | Rute                       | Peran (mode presentasi)                  | Komponen | Status                                       |
+| ------------------- | -------------------------- | ---------------------------------------- | -------- | -------------------------------------------- |
+| Laboratorium        | `/penunjang/lab`           | analis lab                               | S01, S09 | 🟨 demo; api: belum tersambung (4.2)         |
+| Radiologi           | `/penunjang/radiologi`     | radiografer                              | S03      | 🟨 demo tanpa mockup; API belum (fase 4)     |
+| Farmasi             | `/penunjang/farmasi`       | apoteker                                 | S04, S05 | 🟨 demo; API telaah + dispensing (4.5, 4.6b) |
+| Kamar operasi       | `/penunjang/kamar-operasi` | dokter, perawat                          | S06      | 🟨 demo; API belum (fase 4)                  |
+| Pusat hasil kritis  | `/penunjang/hasil-kritis`  | analis lab, radiografer, dokter, perawat | S09      | 🟨 demo tanpa mockup; API belum (fase 4)     |
+| Depo & stok farmasi | `/penunjang/depo`          | apoteker                                 | S05      | 🟨 demo tanpa mockup; API belum (fase 4)     |
+| Bank darah          | `/penunjang/bank-darah`    | analis lab, perawat, bidan, dokter       | S08      | ✅ demo + api (4.9)                          |
+| Gizi                | `/penunjang/gizi`          | ahli gizi, perawat, dokter               | S07      | ✅ demo + api (4.9)                          |
+| Mikrobiologi & PA   | `/penunjang/mikrobiologi`  | analis lab, dokter                       | S02      | 🟨 demo tanpa mockup; API belum (fase 4)     |
+| Diagnostik lain     | `/penunjang/diagnostik`    | dokter, perawat                          | S10      | 🟨 demo tanpa mockup; API belum (fase 4)     |
 
 Legenda: 🟨 berjalan di mode presentasi, belum tersambung ke API · ✅ tersambung · ⬜ belum dibangun.
 
@@ -175,7 +175,7 @@ dengan templat yang ditandatangani radiolog.
 | Rute     | `/penunjang/farmasi`                                                                                                                                                                             |
 | Pemakai  | apoteker                                                                                                                                                                                         |
 | Komponen | S04 farmasi klinis, S05 dispensing dan depo                                                                                                                                                      |
-| Status   | demo (mode presentasi); mode api telaah klinis (potongan 4.5); penyiapan dan serah terima menyusul 4.6b                                                                                          |
+| Status   | demo (mode presentasi); mode api telaah klinis (potongan 4.5) dan dispensing (4.6b)                                                                                                              |
 | Mockup   | `design/mockups/Farmasi.dc.html`                                                                                                                                                                 |
 | Kode web | `apps/web/src/app/(staf)/penunjang/farmasi/` · `apps/web/src/components/penunjang/farmasi-*.tsx` · `apps/web/src/lib/penunjang-farmasi.ts` · `apps/web/src/lib/server/data/penunjang/farmasi.ts` |
 | Kode API | `apps/api/src/modules/pharmacy-clinical/` (`/api/v1/pharmacy`, 4.5) · sumber resep: `apps/api/src/modules/orders/` (3.4) · stok: `apps/api/src/modules/stock/`                                   |
@@ -219,7 +219,7 @@ obat dengan cek ganda untuk obat high alert, lalu menyerahkan obat dan mengurang
 - Stok di bawah minimum ditandai "di bawah minimum".
 
 **Mode api (potongan 4.5, telaah klinis).** Peran berizin `pharmacy.review.read` (apoteker) melihat data dari
-`/api/v1/pharmacy/*` (ADR-0107). Penyiapan, cek ganda, dan serah terima menyusul potongan 4.6b.
+`/api/v1/pharmacy/*` (ADR-0107); penyiapan, cek ganda, serah terima, dan retur dari `/api/v1/dispensing/*` (ADR-0125).
 
 1. Kolom kiri **Kiriman masuk** berisi kiriman CPOE 7 hari terakhir yang masih punya obat aktif dan ditujukan ke depo
    unit Anda. Depo tujuan mengikuti kelas kunjungan: rawat jalan ke Depo farmasi rawat jalan, rawat inap ke Depo
@@ -246,6 +246,28 @@ obat dengan cek ganda untuk obat high alert, lalu menyerahkan obat dan mengurang
 Gerbang server: **Setujui** ditolak "Masih ada peringatan CDS mayor/sedang yang belum ditindaklanjuti"
 (`CDS_UNRESOLVED`, 409) selama ada temuan mayor/sedang terbuka atau override dokter yang belum ditinjau. Override
 apoteker tanpa alasan ditolak. Apoteker depo lain (mis. depo IGD) mendapat 403 untuk resep depo farmasi.
+
+**Penyiapan dan serah terima (potongan 4.6b).** Bagian **Penyiapan dan serah terima** muncul di panel resep berstatus
+**Penyiapan**.
+
+1. Form **Penyiapan obat**: isi **Jumlah** tiap obat. **Batch** bawaan "FEFO otomatis (ED terdekat dulu)": server
+   mengambil batch layak dengan ED terdekat dan memecahnya lintas batch bila perlu. Memilih batch lain wajib alasan
+   minimal 10 karakter. Tekan **Siapkan obat**: stok depo berkurang lewat ledger (`dispense`) dan setiap batch mendapat
+   label dosis `OBT-…`. Resep berubah ke **Serah terima**. Racikan belum bisa disiapkan dari layar ini.
+2. **Cetak etiket** membuka `/cetak/etiket-obat/<id>`: etiket 70 × 35 mm berisi nama + No. RM, obat, aturan pakai,
+   batch + ED, dan label dosis yang dipindai eMAR.
+3. Obat kewaspadaan tinggi: apoteker LAIN (bukan penyiap) membuka resep dari sesinya sendiri dan menekan **Konfirmasi
+   cek ganda**. Penyiap yang menekannya mendapat "Cek ganda harus oleh apoteker lain, bukan penyiap".
+4. Form **Serah terima obat**: pilih **Penerima** (Pasien sendiri, Keluarga, Perawat ruangan), tulis nama penerima,
+   centang "PIO (informasi obat) sudah diberikan", lalu **Serahkan obat**. Tanpa cek ganda, obat kewaspadaan tinggi
+   ditolak: "Obat kewaspadaan tinggi wajib cek ganda apoteker kedua sebelum diserahkan". Serah terima adalah titik tagih
+   obat (satu peristiwa biaya per item) dan resep berubah ke **Selesai**.
+5. Form **Retur obat** (setelah serah): pilih item, jumlah, kondisi **Layak, kembali ke stok** atau **Tidak layak (hapus
+   buku)**, dan alasan minimal 10 karakter. Retur layak menambah saldo depo; tidak layak hanya dicatat. Total retur tidak
+   boleh melebihi jumlah yang diserahkan. Perawat boleh mencatat retur untuk pasien yang dirawatnya.
+
+eMAR menerima label `OBT-…` untuk order yang sama setelah obat diserahkan; dosis berlabel farmasi tidak ditagih lagi
+oleh eMAR (label lokal UUID order tetap untuk stok ruangan dan ditagih eMAR).
 
 ## Kamar operasi
 

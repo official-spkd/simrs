@@ -11,7 +11,7 @@ type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 /**
  * S04/S05 · Layar hibrida Farmasi (rencana fase 4 potongan 4.0c, pola 3.0d klinis): mode presentasi memakai data dummy
  * (`demo-farmasi.tsx` + `actions-demo.ts`, dibekukan); mode api (`api-farmasi.tsx` + `actions.ts`) untuk peran ber-izin
- * `pharmacy.review.read`: telaah klinis potongan 4.5; penyiapan dan serah terima menyusul 4.6b. `?resep=<id>` = resep
+ * `pharmacy.review.read`: telaah klinis (4.5), penyiapan, serah terima, dan retur (4.6b). `?resep=<id>` = resep
  * yang dibuka.
  */
 export default async function FarmasiPage({ searchParams }: { searchParams: SearchParams }) {
