@@ -121,6 +121,7 @@ async function schedule(
   date: string,
   room: string,
   start: string,
+  penata: Account | null = null,
 ) {
   await page.getByRole('button', { name: '+ Jadwalkan operasi' }).click();
   const form = page.getByRole('region', { name: 'Jadwalkan operasi' });
@@ -136,6 +137,11 @@ async function schedule(
   await form
     .getByRole('combobox', { name: 'Operator', exact: true })
     .selectOption({ label: dokter.displayName });
+  if (penata) {
+    await form
+      .getByRole('combobox', { name: 'Penata anestesi (opsional)' })
+      .selectOption({ label: penata.displayName });
+  }
   await form.getByRole('button', { name: 'Simpan jadwal' }).click();
   await expect(page.getByText(/Operasi OK-\d{4}-\d{4} dijadwalkan/)).toBeVisible();
 }
@@ -165,7 +171,8 @@ test.describe('Kamar operasi mode api (4.7)', () => {
     await expect(
       nurse.getByRole('heading', { name: /Kamar operasi · jadwal dan keselamatan/ }),
     ).toBeVisible();
-    await schedule(nurse, patient, dokter, date, 'Kamar operasi 2', '09.00');
+    // Perawat OK sekaligus penata anestesi kasus ini (4.7c): menulis catatan anestesi lewat tim kasus.
+    await schedule(nurse, patient, dokter, date, 'Kamar operasi 2', '09.00', perawat);
     await expect(
       nurse
         .getByRole('region', { name: 'Jadwal kamar' })
@@ -213,6 +220,19 @@ test.describe('Kamar operasi mode api (4.7)', () => {
     await expect(nurse.getByText(/Sign in dikonfirmasi · induksi dapat dimulai/)).toBeVisible();
     await nurse.getByRole('button', { name: 'Catat induksi' }).click();
     await expect(nurse.getByText('Induksi dicatat.')).toBeVisible();
+    const anestNurse = nurse.getByRole('region', { name: 'Anestesi' });
+    await anestNurse.getByRole('button', { name: 'Isi catatan anestesi' }).click();
+    const rec = nurse.getByRole('form', { name: 'Isi Catatan anestesi' });
+    await rec
+      .getByRole('group', { name: /Teknik yang dilakukan/ })
+      .getByRole('radio', { name: 'Anestesi umum' })
+      .check();
+    await rec.getByRole('radio', { name: 'Pipa endotrakeal' }).check();
+    await rec.getByLabel(/Obat dan dosis/).fill('Propofol 120 mg, fentanil 100 mcg');
+    await rec.getByRole('radio', { name: 'Stabil, ke ruang pulih' }).check();
+    await rec.getByRole('button', { name: 'Simpan catatan anestesi (final)' }).click();
+    await expect(nurse.getByText('Catatan anestesi tersimpan final.')).toBeVisible();
+    await expect(anestNurse.getByText(new RegExp(`Catatan anestesi · ${perawat.displayName}`))).toBeVisible();
 
     // Time out 4 dari 5: konfirmasi nonaktif, insisi terkunci dengan alasan tertulis.
     await checkPhase(nurse, 'time-out', 4);
