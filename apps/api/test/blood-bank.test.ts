@@ -491,4 +491,160 @@ describe('bank darah (S08)', () => {
       })
       .expect(403);
   });
+
+  it('4.9b: reaksi transfusi → notifikasi tanpa PHI ke DPJP + bank darah; reaksi berat jadi nilai kritis', async () => {
+    const e = await admitted('Ny. Reaksi Berat Fiktif');
+    const { unit, issueId } = await issued(e);
+    const t = (
+      await as('perawat')
+        .post('/blood/transfusions', {
+          bloodIssueId: issueId,
+          wristbandCode: e.band,
+          bagNo: unit.bagNo,
+          baseline: VITALS,
+        })
+        .expect(201)
+    ).body;
+    await as('perawat2')
+      .post(`/blood/transfusions/${t.id}/verify`, { wristbandCode: e.band, bagNo: unit.bagNo })
+      .expect(201);
+    await as('perawat')
+      .post(`/blood/transfusions/${t.id}/vitals`, {
+        label: '15_menit',
+        ...VITALS,
+        systolic: 85,
+        signs: ['Sesak napas'],
+      })
+      .expect(201);
+    await as('perawat')
+      .post('/blood/reactions', {
+        bloodIssueId: issueId,
+        occurredAt: new Date().toISOString(),
+        severity: 'berat',
+        description: 'Sesak napas, hipotensi 85/60, urtikaria luas; dicurigai reaksi hemolitik akut',
+      })
+      .expect(201);
+    const notes = await run(A.id, (tx) =>
+      tx.notification.findMany({
+        where: { kind: 'transfusion_reaction', link: `/penunjang/bank-darah?kunjungan=${e.encounterId}` },
+        select: { recipientUserId: true, title: true, body: true },
+      }),
+    );
+    const to = new Set(notes.map((n) => n.recipientUserId));
+    expect(to.has(users.dokter as string)).toBe(true);
+    expect(to.has(users.analis as string)).toBe(true);
+    expect(to.has(users.perawat as string)).toBe(false);
+    for (const n of notes) expect(`${n.title} ${n.body}`).not.toContain('Reaksi Berat Fiktif');
+    const crit = await run(A.id, (tx) =>
+      tx.criticalResult.findFirst({ where: { source: 'transfusion', encounterId: e.encounterId } }),
+    );
+    expect(crit).toMatchObject({ status: 'terbuka', analyte: 'Reaksi transfusi berat' });
+    const ev = await run(A.id, (tx) =>
+      tx.domainEvent.findFirst({
+        where: { name: 'critical_result.raised' },
+        orderBy: { occurredAt: 'desc' },
+      }),
+    );
+    expect(ev?.payload).toMatchObject({ source: 'transfusion', criticalResultId: crit?.id });
+  });
+
+  it('4.9b: batal beralasan melepas kantong yang belum keluar; cek ganda lama tidak bisa mengeluarkan', async () => {
+    const e = await admitted('Tn. Batal Darah Fiktif');
+    const rq = (
+      await as('dokter')
+        .post('/blood/requests', ask(e.encounterId, { units: 2 }))
+        .expect(201)
+    ).body;
+    await as('analis').put(`/blood/requests/${rq.id}/group`, { abo: 'B', rh: 'pos' }).expect(200);
+    const u = await bag('PRC', 'B', 'pos');
+    await as('analis')
+      .post('/blood/crossmatches', {
+        bloodRequestId: rq.id,
+        bloodUnitId: u.id,
+        result: 'cocok',
+        method: 'Gel',
+      })
+      .expect(201);
+    const checked = (
+      await as('analis')
+        .post('/blood/issue-checks', {
+          bloodRequestId: rq.id,
+          bloodUnitId: u.id,
+          checklist: CHECKLIST,
+          emergencyReason: null,
+        })
+        .expect(201)
+    ).body;
+    await as('perawat')
+      .post(`/blood/requests/${rq.id}/cancel`, { reason: 'Hb naik setelah koreksi cairan' })
+      .expect(403);
+    await as('dokter').post(`/blood/requests/${rq.id}/cancel`, { reason: 'pendek' }).expect(400);
+    const cancelled = (
+      await as('dokter')
+        .post(`/blood/requests/${rq.id}/cancel`, { reason: 'Hb naik setelah koreksi cairan' })
+        .expect(201)
+    ).body;
+    bloodRequestRecordSchema.parse(cancelled);
+    expect(cancelled).toMatchObject({ status: 'batal', cancelReason: 'Hb naik setelah koreksi cairan' });
+    expect(cancelled.cancelledBy.id).toBe(users.dokter);
+    const unitRow = await run(A.id, (tx) => tx.bloodUnit.findUniqueOrThrow({ where: { id: u.id } }));
+    expect(unitRow.status).toBe('tersedia');
+    expect(
+      (await as('analis2').post('/blood/issues', { issueCheckId: checked.issueChecks[0].id }).expect(409))
+        .body.code,
+    ).toBe('CONFLICT');
+    await as('analis')
+      .post(`/blood/requests/${rq.id}/cancel`, { reason: 'Pembatalan kedua tidak boleh' })
+      .expect(409);
+  });
+
+  it('4.9b: pemusnahan kantong dua petugas; kedaluwarsa hanya bila ED lewat; kantong musnah tidak keluar', async () => {
+    const fresh = await bag('PRC', 'O', 'pos');
+    const early = await as('analis')
+      .post('/blood/disposals', {
+        bloodUnitId: fresh.id,
+        category: 'kedaluwarsa',
+        reason: 'Kantong melewati masa simpan',
+      })
+      .expect(422);
+    expect(early.body.code).toBe('VALIDATION_FAILED');
+    const req = (
+      await as('analis')
+        .post('/blood/disposals', {
+          bloodUnitId: fresh.id,
+          category: 'rusak',
+          reason: 'Kantong bocor di sambungan selang',
+        })
+        .expect(201)
+    ).body;
+    expect(req.disposal).toMatchObject({ category: 'rusak' });
+    await as('perawat')
+      .post('/blood/disposals', { bloodUnitId: fresh.id, category: 'rusak', reason: 'Kantong bocor lagi' })
+      .expect(403);
+    const self = await as('analis').post(`/blood/disposals/${req.disposal.id}/confirm`).expect(409);
+    expect(self.body.code).toBe('BLOOD_SECOND_CHECKER_SAME');
+    const done = (await as('analis2').post(`/blood/disposals/${req.disposal.id}/confirm`).expect(201)).body;
+    expect(done.status).toBe('dimusnahkan');
+    await as('analis2').post(`/blood/disposals/${req.disposal.id}/confirm`).expect(409);
+    const expired = await bag('PRC', 'A', 'neg');
+    await owner(
+      A.id,
+      (tx) =>
+        tx.$executeRaw`UPDATE blood_units SET expires_at = now() - interval '1 hour' WHERE id = ${expired.id}::uuid`,
+    );
+    const ed = (
+      await as('analis')
+        .post('/blood/disposals', {
+          bloodUnitId: expired.id,
+          category: 'kedaluwarsa',
+          reason: 'Lewat tanggal kedaluwarsa',
+        })
+        .expect(201)
+    ).body;
+    await as('analis2').post(`/blood/disposals/${ed.disposal.id}/confirm`).expect(201);
+    const audits = await run(A.id, (tx) =>
+      tx.auditEvent.count({ where: { resourceType: 'blood_unit_disposal' } }),
+    );
+    expect(audits).toBeGreaterThanOrEqual(4);
+  });
 });

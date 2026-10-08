@@ -101,7 +101,8 @@ test.describe('Gizi + Bank darah mode api', () => {
     await card(lab2)
       .getByRole('button', { name: `Keluarkan kantong ${bagNo} (petugas kedua)` })
       .click();
-    await expect(status(lab2, `Kantong ${bagNo} dikeluarkan`)).toBeVisible();
+    // Permintaan selesai → panel pengeluaran hilang; kantong tampil sebagai sudah keluar.
+    await expect(card(lab2).getByRole('region', { name: `Kantong ${bagNo}` })).toContainText('Belum dipasang');
 
     // 4 · Perawat pemasang: gelang salah ditolak; gelang + kantong benar → menunggu petugas kedua.
     const ns = await as(browser, nurse, '/penunjang/bank-darah');
@@ -177,10 +178,34 @@ test.describe('Gizi + Bank darah mode api', () => {
       'Aktif: Diet diabetes 1.700 kkal',
     );
 
+    // 4.9b: skrining MST oleh perawat; puasa menahan antar sampai dicabut.
+    const mst = ns.getByRole('form', { name: 'Skrining gizi MST' });
+    await mst
+      .getByLabel('Penurunan berat badan tanpa disengaja (6 bulan)')
+      .selectOption({ label: 'Turun 6–10 kg' });
+    await mst.getByLabel('Asupan makan berkurang karena nafsu makan turun').check();
+    await expect(mst).toContainText('Skor MST 3 · berisiko malnutrisi');
+    await mst.getByRole('button', { name: 'Simpan skrining' }).click();
+    await expect(status(ns, 'Skrining MST tercatat: skor 3')).toBeVisible();
+    const npo = ns.getByRole('form', { name: 'Mulai puasa' });
+    await npo.getByLabel('Alasan puasa').fill('Persiapan USG abdomen pukul 10.00');
+    await npo.getByRole('button', { name: 'Mulai puasa' }).click();
+    await expect(status(ns, 'Puasa dimulai')).toBeVisible();
+
+    // Ahli gizi: order belum terverifikasi + puasa → tidak bisa diantar; verifikasi, lalu perawat mencabut puasa.
     const gz = await as(browser, nutritionist, `/penunjang/gizi?jam=siang&unit=${ward.unitId}`);
     const row = gz.getByRole('listitem', { name: `Makan ${p.patientName}` });
     await expect(row).toContainText(p.mrn);
     await expect(row).toContainText('Tanpa santan');
+    await expect(row).toContainText('Puasa: Persiapan USG abdomen pukul 10.00');
+    await expect(row.getByRole('button', { name: 'Catat diantar' })).toHaveCount(0);
+    await expect(row).toContainText('MST 3 · berisiko');
+    await row.getByRole('button', { name: 'Verifikasi order diet' }).click();
+    await expect(status(gz, 'Order diet terverifikasi')).toBeVisible();
+    await ns.reload();
+    await ns.getByRole('region', { name: 'Puasa' }).getByRole('button', { name: 'Cabut puasa' }).click();
+    await expect(status(ns, 'Puasa dicabut')).toBeVisible();
+    await gz.goto(`/penunjang/gizi?jam=siang&unit=${ward.unitId}`);
     await row.getByRole('button', { name: 'Catat diantar' }).click();
     await expect(status(gz, 'Makanan tercatat diantar')).toBeVisible();
     await row.getByLabel(`Sisa makanan ${p.patientName}`).selectOption({ label: 'Sisa ½' });
