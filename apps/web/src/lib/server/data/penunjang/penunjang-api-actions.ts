@@ -11,6 +11,9 @@ import {
   MEAL_LEFTOVERS,
   mealServiceRecordSchema,
   MEALS,
+  MST_WEIGHT_LOSS,
+  npoRecordSchema,
+  nutritionScreeningRecordSchema,
   RH_FACTORS,
   SAFETY_REASON_MIN,
   transfusionRecordSchema,
@@ -133,6 +136,88 @@ export async function recordMealAction(raw: unknown): Promise<PenunjangActionRes
         schema: mealServiceRecordSchema,
       }),
     (m) => ({ ok: true, message: m.leftover ? 'Sisa makanan tercatat.' : 'Makanan tercatat diantar.' }),
+  );
+}
+
+const screenInput = z.strictObject({
+  encounterId: uuid,
+  weightLoss: z.enum(MST_WEIGHT_LOSS, 'Pilih penurunan berat badan.'),
+  poorAppetite: z.boolean(),
+});
+
+/** Skrining gizi MST (4.9b); skor dihitung server. */
+export async function screenNutritionAction(raw: unknown): Promise<PenunjangActionResult> {
+  const denied = await authorize('nutrition', 'write', NO_NUTRITION);
+  if (denied) return denied;
+  const input = screenInput.safeParse(raw);
+  if (!input.success) return invalid(input.error);
+  return run(
+    () =>
+      api('/api/v1/nutrition/screenings', {
+        method: 'POST',
+        body: input.data,
+        schema: nutritionScreeningRecordSchema,
+      }),
+    (r) => ({
+      ok: true,
+      message: `Skrining MST tercatat: skor ${r.score}${r.atRisk ? ' (berisiko malnutrisi, asuhan ahli gizi ≤ 24 jam)' : ''}.`,
+    }),
+  );
+}
+
+const npoInput = z.strictObject({
+  encounterId: uuid,
+  reason: z
+    .string()
+    .trim()
+    .min(SAFETY_REASON_MIN, `Tulis alasan puasa minimal ${SAFETY_REASON_MIN} karakter.`)
+    .max(500),
+  plannedUntil: z.union([z.literal(''), z.string().regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/)]),
+});
+
+export async function startNpoAction(raw: unknown): Promise<PenunjangActionResult> {
+  const denied = await authorize('nutrition', 'write', NO_NUTRITION);
+  if (denied) return denied;
+  const input = npoInput.safeParse(raw);
+  if (!input.success) return invalid(input.error);
+  const { plannedUntil, ...rest } = input.data;
+  return run(
+    () =>
+      api('/api/v1/nutrition/npo', {
+        method: 'POST',
+        body: {
+          ...rest,
+          plannedUntil: plannedUntil ? new Date(`${plannedUntil}:00+07:00`).toISOString() : null,
+        },
+        schema: npoRecordSchema,
+      }),
+    () => ({ ok: true, message: 'Puasa dimulai; makanan tidak diantar sampai puasa dicabut.' }),
+  );
+}
+
+export async function liftNpoAction(id: unknown): Promise<PenunjangActionResult> {
+  const denied = await authorize('nutrition', 'write', NO_NUTRITION);
+  if (denied) return denied;
+  const v = uuid.safeParse(id);
+  if (!v.success) return { ok: false, message: 'Order puasa tidak valid.' };
+  return run(
+    () => api(`/api/v1/nutrition/npo/${v.data}/lift`, { method: 'POST', schema: npoRecordSchema }),
+    () => ({ ok: true, message: 'Puasa dicabut.' }),
+  );
+}
+
+export async function verifyDietAction(id: unknown): Promise<PenunjangActionResult> {
+  const denied = await authorize('nutrition', 'verify', 'Verifikasi order diet oleh ahli gizi.');
+  if (denied) return denied;
+  const v = uuid.safeParse(id);
+  if (!v.success) return { ok: false, message: 'Order diet tidak valid.' };
+  return run(
+    () =>
+      api(`/api/v1/nutrition/diet-orders/${v.data}/verify`, {
+        method: 'POST',
+        schema: dietOrderRecordSchema,
+      }),
+    () => ({ ok: true, message: 'Order diet terverifikasi; makanan boleh disiapkan dan diantar.' }),
   );
 }
 
@@ -441,5 +526,70 @@ export async function reportReactionAction(raw: unknown): Promise<PenunjangActio
         schema: transfusionRecordSchema.nullable(),
       }),
     () => ({ ok: true, message: 'Laporan reaksi transfusi tercatat.' }),
+  );
+}
+
+// ─── 4.9b · pembatalan + pemusnahan ───
+
+const cancelInput = z.strictObject({
+  requestId: uuid,
+  reason: z
+    .string()
+    .trim()
+    .min(SAFETY_REASON_MIN, `Tulis alasan pembatalan minimal ${SAFETY_REASON_MIN} karakter.`)
+    .max(500),
+});
+
+export async function cancelBloodRequestAction(raw: unknown): Promise<PenunjangActionResult> {
+  const denied = await authorize('blood_bank', 'read', NO_BANK);
+  if (denied) return denied;
+  const input = cancelInput.safeParse(raw);
+  if (!input.success) return invalid(input.error);
+  return run(
+    () =>
+      api(`/api/v1/blood/requests/${input.data.requestId}/cancel`, {
+        method: 'POST',
+        body: { reason: input.data.reason },
+        schema: bloodRequestRecordSchema,
+      }),
+    (r) => ({
+      ok: true,
+      message: `Permintaan ${r.requestNo} dibatalkan; kantong yang belum keluar dilepas.`,
+    }),
+  );
+}
+
+const disposalInput = z.strictObject({
+  bloodUnitId: uuid,
+  category: z.enum(['kedaluwarsa', 'rusak']),
+  reason: z
+    .string()
+    .trim()
+    .min(SAFETY_REASON_MIN, `Tulis alasan pemusnahan minimal ${SAFETY_REASON_MIN} karakter.`)
+    .max(500),
+});
+
+export async function requestDisposalAction(raw: unknown): Promise<PenunjangActionResult> {
+  const denied = await authorize('blood_bank', 'issue', NO_ISSUE);
+  if (denied) return denied;
+  const input = disposalInput.safeParse(raw);
+  if (!input.success) return invalid(input.error);
+  return run(
+    () => api('/api/v1/blood/disposals', { method: 'POST', body: input.data, schema: bloodUnitRecordSchema }),
+    (u) => ({
+      ok: true,
+      message: `Pemusnahan ${u.bagNo} diajukan; petugas kedua mengonfirmasi dari sesinya sendiri.`,
+    }),
+  );
+}
+
+export async function confirmDisposalAction(id: unknown): Promise<PenunjangActionResult> {
+  const denied = await authorize('blood_bank', 'issue', NO_ISSUE);
+  if (denied) return denied;
+  const v = uuid.safeParse(id);
+  if (!v.success) return { ok: false, message: 'Pengajuan tidak valid.' };
+  return run(
+    () => api(`/api/v1/blood/disposals/${v.data}/confirm`, { method: 'POST', schema: bloodUnitRecordSchema }),
+    (u) => ({ ok: true, message: `Kantong ${u.bagNo} dimusnahkan (dua petugas).` }),
   );
 }
