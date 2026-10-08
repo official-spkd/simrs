@@ -32,6 +32,8 @@ import { SurgeryBoardService } from './surgery-board.service';
 const ACTIVE_ENCOUNTER = ['planned', 'arrived', 'in_progress'];
 /** Peran tim operasi yang dokter (masuk tim perawatan kunjungan sebagai rawat bersama). */
 const DOCTOR_TEAM_ROLES: ReadonlySet<string> = new Set(['operator', 'asisten', 'anestesi']);
+/** Peran tim yang boleh meng-override insisi sebelum time out (ADR-0130). */
+const OVERRIDE_TEAM_ROLES = ['operator', 'anestesi'] as const;
 
 /**
  * S06 · Kamar operasi (rencana fase 4 §4.7, keputusan no. 13–14): jadwal kamar (EXCLUDE → 409 `ROOM_OVERLAP`), tim,
@@ -311,8 +313,21 @@ export class SurgeryService {
       throw new AppError('VALIDATION_FAILED', 'Alasan override hanya untuk insisi sebelum time out', 422);
     }
     if (override) {
-      if (!(await this.holds('surgery', 'override'))) {
-        throw new AppError('FORBIDDEN', 'Override insisi sebelum time out hanya oleh dokter berwenang', 403);
+      // Insisi tanpa time out = tanggung jawab operator atau dokter anestesi kasus ini (anggota tim aktif) yang
+      // memegang `surgery.override`; dokter lain yang sekadar berelasi dengan pasien (DPJP bangsal, asisten) ditolak.
+      const me = this.db.actorUserId();
+      const accountable = me
+        ? await tx.surgeryCaseTeam.findFirst({
+            where: { surgeryCaseId: c.id, userId: me, role: { in: [...OVERRIDE_TEAM_ROLES] }, endedAt: null },
+            select: { id: true },
+          })
+        : null;
+      if (!accountable || !(await this.holds('surgery', 'override'))) {
+        throw new AppError(
+          'FORBIDDEN',
+          'Override insisi sebelum time out hanya oleh operator atau dokter anestesi kasus ini',
+          403,
+        );
       }
       const min = await readTenantSetting(tx, 'surgery.override_reason_min');
       if (override.trim().length < min) {

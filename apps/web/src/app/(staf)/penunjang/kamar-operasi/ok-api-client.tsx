@@ -248,7 +248,13 @@ export function OkApiClient({
               key={`${sel.c.id}-ev`}
               c={sel.c}
               canWrite={perms.checklist}
-              canOverride={perms.override}
+              canOverride={
+                // ADR-0130: hanya operator/anestesi tim aktif kasus ini (server juga menolak 403 selain itu).
+                perms.override &&
+                sel.c.team.some(
+                  (t) => t.userId === userId && (t.role === 'operator' || t.role === 'anestesi'),
+                )
+              }
               onDone={done}
             />
             <CountPanel key={`${sel.c.id}-ct`} c={sel.c} canWrite={perms.count} onDone={done} />

@@ -718,7 +718,7 @@ di `surgery-access.ts`: `unit` = unit berjenis `kamar_operasi`; `relationship` =
 | `POST cases`, `POST cases/:id/cancel`            | `surgery.schedule`  | Jadwal (nomor `OK-YYMM-NNNN`, templat daftar tilik terbaru, dokter tim → rawat bersama); batal beralasan  |
 | `POST cases/:id/checklist/items`                 | `surgery.checklist` | Centang butir manual; butir sistem (persetujuan, hitung) ditolak                                          |
 | `POST cases/:id/checklist/confirm`               | `surgery.checklist` | Sign in/time out memeriksa persetujuan tindakan 3.7 yang berlaku; sign out mengisi butir hitung           |
-| `POST cases/:id/events`                          | `surgery.checklist` | Induksi/insisi/tutup/keluar; override insisi butuh `surgery.override` + alasan ≥ setelan RS               |
+| `POST cases/:id/events`                          | `surgery.checklist` | Induksi/insisi/tutup/keluar; override insisi: operator/anestesi tim aktif + `surgery.override` + alasan ≥ setelan RS (ADR-0130) |
 | `POST cases/:id/counts`, `…/count-discrepancies` | `surgery.count`     | Hitung awal/tambahan/akhir; tindak lanjut selisih; terkunci setelah sign out                              |
 | `POST cases/:id/supplies`                        | `surgery.checklist` | BHP/implan: ledger `usage` DEPO-OK + `surgery_supply_usages`                                              |
 | `POST cases/:id/reports`                         | `surgery.report`    | Laporan operasi berversi (`ClinicalRecordService`), TTE operator lewat `issueSigned`; hanya operator      |

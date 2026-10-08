@@ -1,6 +1,6 @@
 /**
  * S06 · Audit agen BUG atas gerbang keselamatan kamar operasi (4.7): konfirmasi time out dan insisi serentak (tepat
- * satu, tanpa 500). Data fiktif.
+ * satu, tanpa 500) dan override insisi sebelum time out hanya oleh operator/anestesi tim aktif (ADR-0130). Data fiktif.
  */
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import {
@@ -182,6 +182,9 @@ beforeAll(async () => {
     ['perawatMelati', A, 'perawat', 'MELATI'],
     ['dokterOp', A, 'dokter', 'OK'],
     ['dokterLain', A, 'dokter', 'MELATI'],
+    ['dokterDpjp', A, 'dokter', 'MELATI'],
+    ['dokterAsisten', A, 'dokter', 'OK'],
+    ['dokterAnestesi', A, 'dokter', 'OK'],
     ['kasir', A, 'kasir', undefined],
     ['apoteker', A, 'apoteker', 'FARMASI'],
     ['mutu', A, 'manajemen', undefined],
@@ -204,6 +207,38 @@ afterAll(async () => {
 const noServerErrors = (statuses: number[]) => expect(statuses.filter((s) => s >= 500)).toEqual([]);
 
 describe('audit BUG · gerbang kamar operasi', () => {
+  it('override insisi sebelum time out hanya operator/anestesi tim aktif: DPJP bangsal berelasi dan asisten → 403; anestesi → 201', async () => {
+    const c = await scheduleCase(rooms[1]);
+    await consent(c);
+    await run(A.id, (tx) =>
+      tx.accessRelationship.create({
+        data: {
+          id: newId(),
+          tenantId: A.id,
+          userId: users.dokterDpjp as string,
+          patientId: c.patientId,
+          kind: 'dpjp',
+          validFrom: new Date(Date.now() - 60_000),
+          sourceType: 'encounter',
+          sourceId: c.encounterId,
+        },
+      }),
+    );
+    await checkAll(c.caseId, 'sign-in');
+    await confirm(c.caseId, 'sign-in').expect(200);
+    const res = await event(
+      c.caseId,
+      'insisi',
+      'Perdarahan aktif, tidak bisa menunggu time out',
+      'dokterDpjp',
+    );
+    expect(res.status).toBe(403);
+    const incisions = await run(A.id, (tx) =>
+      tx.surgeryEvent.count({ where: { surgeryCaseId: c.caseId, kind: 'insisi' } }),
+    );
+    expect(incisions).toBe(0);
+  });
+
   it('time out dikonfirmasi serentak dan insisi dicatat serentak: masing-masing tepat satu, tanpa 500', async () => {
     const c = await scheduleCase(rooms[2]);
     await consent(c);
