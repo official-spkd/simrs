@@ -293,7 +293,9 @@ E2E `e2e/kamar-operasi-api.spec.ts`.
 4. Region **Anestesi**: dokter (hak tulis formulir `dokter`) menekan **Isi asesmen pra-anestesi**, mengisi formulir
    P07 (kelas ASA, operasi darurat, mulai puasa, Mallampati, teknik, rencana, persetujuan anestesi) lalu **Simpan
    asesmen (final)**. Kotak berubah menjadi "Asesmen pra-anestesi final · ASA II · …". **Isi catatan anestesi**
-   memakai formulir P07 kedua (teknik, jalan napas, obat, penyulit, kondisi akhir). Koreksi isian lewat layar Asesmen.
+   memakai formulir P07 kedua (teknik, jalan napas, obat, penyulit, kondisi akhir) dan bisa diisi dokter anestesi atau
+   **penata anestesi** yang tercatat di tim kasus (dipilih di "Penata anestesi (opsional)" saat penjadwalan), walau
+   perawat itu bukan dari unit OK. Asesmen pra-anestesi tetap hanya dokter. Koreksi isian lewat layar Asesmen.
 5. **Sign in**: centang butir manual, lalu **Konfirmasi sign in**. Selama persetujuan tindakan atau asesmen
    pra-anestesi final belum ada, tombol nonaktif dengan alasan tertulis di bawah fase ("Asesmen pra-anestesi final
    belum ada."), dan server menolak (409 `CHECKLIST_INCOMPLETE`). Butir "Persetujuan tindakan bertanda tangan" diisi
