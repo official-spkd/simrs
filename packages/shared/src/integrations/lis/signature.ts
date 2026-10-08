@@ -8,15 +8,20 @@ export const LIS_SIGNATURE_MAX_AGE_MS = 5 * 60_000;
 export const LIS_SIGNATURE_HEADER = 'x-device-signature';
 export const LIS_TIMESTAMP_HEADER = 'x-device-timestamp';
 
-export function lisSignature(timestamp: string, rawBody: string, secret: string): string {
-  return createHmac('sha256', secret).update(`${timestamp}.${rawBody}`).digest('hex');
+/**
+ * HMAC atas `timestamp + "." + byte body mentah`. Body string dianggap UTF-8 (sama persis dengan bytenya bila perangkat
+ * mengirim UTF-8); perangkat ISO-8859-1 menandatangani byte aslinya, jadi server memverifikasi atas `Buffer` mentah
+ * sebelum men-decode sesuai charset.
+ */
+export function lisSignature(timestamp: string, rawBody: string | Uint8Array, secret: string): string {
+  return createHmac('sha256', secret).update(`${timestamp}.`, 'utf8').update(rawBody).digest('hex');
 }
 
 export type LisVerifyResult = { ok: true } | { ok: false; reason: 'SIGNATURE_INVALID' | 'TIMESTAMP_EXPIRED' };
 
 /** Timestamp boleh ISO 8601 atau detik epoch. Perbandingan waktu-konstan. */
 export function verifyLisSignature(
-  input: { timestamp: string; signature: string; rawBody: string; secret: string },
+  input: { timestamp: string; signature: string; rawBody: string | Uint8Array; secret: string },
   now: Date = new Date(),
 ): LisVerifyResult {
   const tsMs = /^\d+$/.test(input.timestamp) ? Number(input.timestamp) * 1000 : Date.parse(input.timestamp);

@@ -50,6 +50,7 @@ import { ConsultModule } from './modules/consult/consult.module';
 import { ConsentModule } from './modules/consent/consent.module';
 import { NursingModule } from './modules/nursing/nursing.module';
 import { DischargeModule } from './modules/discharge/discharge.module';
+import { SurgeryModule } from './modules/surgery/surgery.module';
 import { SummaryModule } from './modules/summary/summary.module';
 import { CarePackagesModule } from './modules/care-packages/care-packages.module';
 import { ResultsModule } from './modules/results/results.module';
@@ -148,6 +149,7 @@ export class AppModule {
         ConsentModule,
         NursingModule,
         DischargeModule,
+        SurgeryModule,
         SummaryModule,
         CarePackagesModule,
         ResultsModule,

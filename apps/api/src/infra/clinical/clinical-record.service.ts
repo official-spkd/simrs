@@ -30,6 +30,8 @@ export const CLINICAL_TABLES = [
   'triage_assessments',
   'nursing_care_plans',
   'death_certificates',
+  // S06 · laporan operasi (4.7; tabel berversi 4.0b).
+  'operative_reports',
 ] as const;
 export type ClinicalTable = (typeof CLINICAL_TABLES)[number];
 

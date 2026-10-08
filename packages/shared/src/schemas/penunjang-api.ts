@@ -266,7 +266,8 @@ export type LabOrderDetail = z.infer<typeof labOrderDetailSchema>;
 
 // ═════════════════════════════ S09 · Nilai kritis ═════════════════════════════
 
-export const CRITICAL_SOURCES = ['lab', 'radiology'] as const;
+/** `transfusion`: reaksi transfusi berat (4.9b, ADR-0108). */
+export const CRITICAL_SOURCES = ['lab', 'radiology', 'transfusion'] as const;
 export type CriticalSource = (typeof CRITICAL_SOURCES)[number];
 /** Status hanya berubah lewat trigger saat laporan ber-read-back masuk (tidak ada endpoint penutupan lain). */
 export const CRITICAL_STATUSES = ['terbuka', 'dilaporkan'] as const;

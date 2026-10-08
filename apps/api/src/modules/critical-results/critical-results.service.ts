@@ -10,7 +10,12 @@ export type RaiseCriticalInput = {
   analyte: string;
   /** Nilai/teks temuan untuk layar berizin (bukan untuk notifikasi). */
   valueText: string;
-} & ({ source: 'lab'; labResultId: string } | { source: 'radiology'; imagingReportId: string });
+} & (
+  | { source: 'lab'; labResultId: string }
+  | { source: 'radiology'; imagingReportId: string }
+  /** 4.9b (ADR-0108): reaksi transfusi berat (satu per laporan reaksi). */
+  | { source: 'transfusion'; transfusionReactionId: string }
+);
 
 export interface RaisedCritical {
   id: string;
@@ -41,7 +46,9 @@ export class CriticalResultsService {
       where:
         input.source === 'lab'
           ? { labResultId: input.labResultId }
-          : { imagingReportId: input.imagingReportId },
+          : input.source === 'radiology'
+            ? { imagingReportId: input.imagingReportId }
+            : { transfusionReactionId: input.transfusionReactionId },
       select: { id: true, limitMinutes: true },
     });
     if (existing) return { id: existing.id, created: false, limitMinutes: existing.limitMinutes };
@@ -54,6 +61,7 @@ export class CriticalResultsService {
         source: input.source,
         labResultId: input.source === 'lab' ? input.labResultId : null,
         imagingReportId: input.source === 'radiology' ? input.imagingReportId : null,
+        transfusionReactionId: input.source === 'transfusion' ? input.transfusionReactionId : null,
         encounterId: source.encounterId,
         patientId: source.patientId,
         unitId: source.unitId,
@@ -66,7 +74,12 @@ export class CriticalResultsService {
     await this.events.publish('critical_result.raised', {
       criticalResultId: id,
       source: input.source,
-      sourceId: input.source === 'lab' ? input.labResultId : input.imagingReportId,
+      sourceId:
+        input.source === 'lab'
+          ? input.labResultId
+          : input.source === 'radiology'
+            ? input.imagingReportId
+            : input.transfusionReactionId,
       encounterId: source.encounterId,
       patientId: source.patientId,
       unitId: source.unitId,
@@ -100,6 +113,22 @@ export class CriticalResultsService {
       });
       if (!r) throw new AppError('NOT_FOUND', 'Hasil lab tidak ditemukan', 404);
       return { encounterId: r.encounterId, patientId: r.patientId, unitId: r.labOrder.unitId };
+    }
+    if (input.source === 'transfusion') {
+      const x = await tx.transfusionReaction.findUnique({
+        where: { id: input.transfusionReactionId },
+        select: {
+          bloodIssue: {
+            select: { encounterId: true, patientId: true, encounter: { select: { unitId: true } } },
+          },
+        },
+      });
+      if (!x) throw new AppError('NOT_FOUND', 'Reaksi transfusi tidak ditemukan', 404);
+      return {
+        encounterId: x.bloodIssue.encounterId,
+        patientId: x.bloodIssue.patientId,
+        unitId: x.bloodIssue.encounter.unitId,
+      };
     }
     const r = await tx.imagingReport.findUnique({
       where: { id: input.imagingReportId },

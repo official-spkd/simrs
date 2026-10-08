@@ -7,8 +7,15 @@
  */
 
 export const HL7_SEGMENT_SEPARATOR = '\r';
-/** Segmen ber-PHI yang diredaksi sebelum disimpan. */
-export const HL7_REDACTED_SEGMENTS = ['PID', 'NK1'] as const;
+/**
+ * Segmen yang disimpan apa adanya (daftar izin): header, perangkat lunak pengirim, order, observasi, catatan, spesimen,
+ * jadwal. Segmen LAIN (PID, PD1, NK1, PV1/PV2, GT1, IN1, MRG, segmen Z, …) diredaksi menjadi `SEG|1` sebelum disimpan,
+ * sehingga identitas pasien, penjamin, dan kunjungan dari analyzer tidak pernah masuk `inbound_events`. Pencocokan
+ * pasien hanya lewat ORC/OBR/SPM (barcode spesimen).
+ */
+export const HL7_STORED_SEGMENTS = ['MSH', 'SFT', 'ORC', 'OBR', 'OBX', 'NTE', 'SPM', 'TQ1'] as const;
+/** Segmen ber-PHI yang selalu diredaksi (contoh; aturan sebenarnya = di luar `HL7_STORED_SEGMENTS`). */
+export const HL7_REDACTED_SEGMENTS = ['PID', 'PD1', 'NK1', 'PV1', 'PV2', 'GT1', 'IN1', 'IN2', 'MRG'] as const;
 /** Batas ukuran pesan ingest (byte, UTF-8). */
 export const HL7_MAX_BYTES = 256 * 1024;
 
@@ -64,11 +71,18 @@ export class Hl7ParseError extends Error {
   }
 }
 
+/** Segmen non-kosong; spasi di awal/akhir dibuang (gateway kadang menyisipkan spasi/indentasi). */
 function splitSegments(raw: string): string[] {
   return raw
     .split(/\r\n|\r|\n/)
-    .map((s) => s.trimEnd())
+    .map((s) => s.trim())
     .filter((s) => s.length > 0);
+}
+
+/** Id segmen ternormalisasi (3 karakter huruf besar); id tidak sah → `ZZZ` (diredaksi). */
+function segmentId(seg: string): string {
+  const id = seg.slice(0, 3).toUpperCase();
+  return /^[A-Z][A-Z0-9]{2}$/.test(id) ? id : 'ZZZ';
 }
 
 function encodingOf(msh: string): Hl7Encoding {
@@ -165,7 +179,7 @@ export function parseOru(raw: string): Hl7OruMessage {
   };
   let lastObs: Hl7Observation | null = null;
   for (const seg of segments.slice(1)) {
-    const type = seg.slice(0, 3);
+    const type = segmentId(seg);
     if (type === 'OBR') {
       const filler = component(field(seg, 3, enc), 1, enc);
       const placer = component(field(seg, 2, enc), 1, enc);
@@ -208,16 +222,21 @@ export function parseOru(raw: string): Hl7OruMessage {
   return message;
 }
 
-/** Ganti segmen PID/NK1 dengan bentuk tanpa isi (`PID|1`), segmen lain apa adanya; pemisah segmen `\r`. */
+/**
+ * Simpan hanya segmen di `HL7_STORED_SEGMENTS` (id dinormalisasi: tanpa spasi, huruf besar); segmen lain menjadi
+ * bentuk tanpa isi `SEG|1` (mis. `PID|1`, `PV1|1`). Pemisah segmen `\r`.
+ */
 export function redactHl7(raw: string): string {
   const segments = splitSegments(raw);
-  const enc = segments[0]?.startsWith('MSH') ? encodingOf(segments[0]) : DEFAULT_ENCODING;
+  const first = segments[0] ?? '';
+  const enc = first.toUpperCase().startsWith('MSH') ? encodingOf(`MSH${first.slice(3)}`) : DEFAULT_ENCODING;
   return segments
-    .map((seg) =>
-      (HL7_REDACTED_SEGMENTS as readonly string[]).includes(seg.slice(0, 3))
-        ? `${seg.slice(0, 3)}${enc.field}1`
-        : seg,
-    )
+    .map((seg) => {
+      const id = segmentId(seg);
+      return (HL7_STORED_SEGMENTS as readonly string[]).includes(id)
+        ? `${id}${seg.slice(3)}`
+        : `${id}${enc.field}1`;
+    })
     .join(HL7_SEGMENT_SEPARATOR);
 }
 

@@ -21,18 +21,18 @@ skenario Simulasi ada di [Simulasi dan operasional](./18-simulasi-dan-operasiona
 
 ## Ringkasan layar
 
-| Layar               | Rute                       | Peran (mode presentasi)                  | Komponen | Status                                       |
-| ------------------- | -------------------------- | ---------------------------------------- | -------- | -------------------------------------------- |
-| Laboratorium        | `/penunjang/lab`           | analis lab                               | S01, S09 | 🟨 demo; api: belum tersambung (4.2)         |
-| Radiologi           | `/penunjang/radiologi`     | radiografer                              | S03      | 🟨 demo tanpa mockup; API belum (fase 4)     |
-| Farmasi             | `/penunjang/farmasi`       | apoteker                                 | S04, S05 | 🟨 demo; API telaah + dispensing (4.5, 4.6b) |
-| Kamar operasi       | `/penunjang/kamar-operasi` | dokter, perawat                          | S06      | 🟨 demo; API belum (fase 4)                  |
-| Pusat hasil kritis  | `/penunjang/hasil-kritis`  | analis lab, radiografer, dokter, perawat | S09      | 🟨 demo tanpa mockup; API belum (fase 4)     |
-| Depo & stok farmasi | `/penunjang/depo`          | apoteker                                 | S05      | 🟨 demo tanpa mockup; API belum (fase 4)     |
-| Bank darah          | `/penunjang/bank-darah`    | analis lab, perawat, bidan, dokter       | S08      | ✅ demo + api (4.9)                          |
-| Gizi                | `/penunjang/gizi`          | ahli gizi, perawat, dokter               | S07      | ✅ demo + api (4.9)                          |
-| Mikrobiologi & PA   | `/penunjang/mikrobiologi`  | analis lab, dokter                       | S02      | 🟨 demo tanpa mockup; API belum (fase 4)     |
-| Diagnostik lain     | `/penunjang/diagnostik`    | dokter, perawat                          | S10      | 🟨 demo tanpa mockup; API belum (fase 4)     |
+| Layar               | Rute                       | Peran (mode presentasi)                  | Komponen | Status                                             |
+| ------------------- | -------------------------- | ---------------------------------------- | -------- | -------------------------------------------------- |
+| Laboratorium        | `/penunjang/lab`           | analis lab                               | S01, S09 | 🟨 demo; api: belum tersambung (4.2)               |
+| Radiologi           | `/penunjang/radiologi`     | radiografer                              | S03      | 🟨 demo tanpa mockup; API belum (fase 4)           |
+| Farmasi             | `/penunjang/farmasi`       | apoteker                                 | S04, S05 | ✅ api telaah + dispensing (4.5, 4.6b); demo tetap |
+| Kamar operasi       | `/penunjang/kamar-operasi` | dokter, perawat                          | S06      | ✅ api (4.7); demo tetap                           |
+| Pusat hasil kritis  | `/penunjang/hasil-kritis`  | analis lab, radiografer, dokter, perawat | S09      | 🟨 demo tanpa mockup; API belum (fase 4)           |
+| Depo & stok farmasi | `/penunjang/depo`          | apoteker                                 | S05      | ✅ api stok (4.6a); demo tetap                     |
+| Bank darah          | `/penunjang/bank-darah`    | analis lab, perawat, bidan, dokter       | S08      | ✅ demo + api (4.9)                                |
+| Gizi                | `/penunjang/gizi`          | ahli gizi, perawat, dokter               | S07      | ✅ demo + api (4.9)                                |
+| Mikrobiologi & PA   | `/penunjang/mikrobiologi`  | analis lab, dokter                       | S02      | 🟨 demo tanpa mockup; API belum (fase 4)           |
+| Diagnostik lain     | `/penunjang/diagnostik`    | dokter, perawat                          | S10      | 🟨 demo tanpa mockup; API belum (fase 4)           |
 
 Legenda: 🟨 berjalan di mode presentasi, belum tersambung ke API · ✅ tersambung · ⬜ belum dibangun.
 
@@ -278,10 +278,10 @@ oleh eMAR (label lokal UUID order tetap untuk stok ruangan dan ditagih eMAR).
 | Rute     | `/penunjang/kamar-operasi` (`?pilih=<caseId>`, mis. `ok3-1`)                                                                                                                                                                                                                          |
 | Pemakai  | dokter, perawat                                                                                                                                                                                                                                                                       |
 | Komponen | S06 kamar operasi dan anestesi                                                                                                                                                                                                                                                        |
-| Status   | demo (mode presentasi); API belum (fase 4 potongan 4.7)                                                                                                                                                                                                                               |
+| Status   | demo (mode presentasi) dan api (fase 4 potongan 4.7, ADR-0106)                                                                                                                                                                                                                        |
 | Mockup   | `design/mockups/OK.dc.html`                                                                                                                                                                                                                                                           |
 | Kode web | `apps/web/src/app/(staf)/penunjang/kamar-operasi/` · `apps/web/src/components/penunjang/ok-*.tsx` · `apps/web/src/lib/penunjang-ok.ts` · data `apps/web/src/lib/server/data/penunjang/kamar-operasi.ts` (`getOrSchedule`) · fixture `apps/web/src/lib/demo/fixtures/kamar-operasi.ts` |
-| Kode API | belum ada                                                                                                                                                                                                                                                                             |
+| Kode API | `apps/api/src/modules/surgery/` (`/api/v1/surgery`) · mode api web: `api-kamar-operasi.tsx`, `ok-api-client.tsx`, `ok-api-panels.tsx`, `actions-api.ts`, pemetaan `apps/web/src/lib/penunjang-ok-api.ts`, data `getSurgeryBoardLive`                                                  |
 
 **Tujuan.** Jadwal kamar operasi hari ini dan daftar tilik keselamatan bedah WHO (Sign in, Time out, Sign out) yang
 terkunci berurutan, dengan hitung kasa dan instrumen sebelum operasi ditutup.
@@ -327,7 +327,54 @@ terkunci berurutan, dengan hitung kasa dan instrumen sebelum operasi ditutup.
   "ASA IIE" setelah ditandatangani. Monitoring intraoperasi memberi peringatan bila SpO₂ di bawah 92%, sistolik di
   bawah 90 atau di atas 180 mmHg, nadi di bawah 50 atau di atas 120, atau EtCO₂ di luar 30–45.
 
-**Mode api.** Layar hibrida (4.0c): peran berizin melihat "Belum tersambung" sampai potongan fase 4 layar ini tergabung.
+**Mode api (4.7 + 4.7b, ADR-0106).** Layar memakai `/api/v1/surgery`. Data fiktif yang dipakai contoh di bawah dibuat oleh
+E2E `e2e/kamar-operasi-api.spec.ts`.
+
+1. Buka **Kamar operasi**. Papan memuat Gantt kamar berjenis `ruang` di unit OK untuk tanggal `?tanggal=YYYY-MM-DD`
+   (bawaan hari ini WIB), KPI dari server (utilisasi, on-time start, pembatalan), dan daftar tunggu 14 hari.
+2. Perawat unit OK (izin `surgery.schedule`) menekan **+ Jadwalkan operasi**. Isi "No. RM atau nomor kunjungan
+   aktif", tekan **Cari kunjungan**, pilih kunjungan, lalu isi Kamar, "Tanggal operasi", "Jam mulai (WIB, HH.MM)",
+   "Durasi (menit)", "Kode ICD-9-CM (opsional)", "Nama tindakan", "Operator", tim lain (opsional), dan **Simpan
+   jadwal**. Kamar yang bentrok ditolak (409 `ROOM_OVERLAP`, constraint EXCLUDE). Dokter tim (operator, asisten,
+   anestesi) otomatis masuk tim rawat kunjungan sebagai rawat bersama, sehingga operator bisa menulis laporan.
+3. Pilih kasus di Gantt. Banner pasien menampilkan alergi dan penjamin. Kotak persetujuan menulis persetujuan tindakan
+   (3.7) final ber-TTE yang berlaku, atau peringatan merah bila belum ada atau sudah dicabut.
+4. Region **Anestesi**: dokter (hak tulis formulir `dokter`) menekan **Isi asesmen pra-anestesi**, mengisi formulir
+   P07 (kelas ASA, operasi darurat, mulai puasa, Mallampati, teknik, rencana, persetujuan anestesi) lalu **Simpan
+   asesmen (final)**. Kotak berubah menjadi "Asesmen pra-anestesi final · ASA II · …". **Isi catatan anestesi**
+   memakai formulir P07 kedua (teknik, jalan napas, obat, penyulit, kondisi akhir). Koreksi isian lewat layar Asesmen.
+5. **Sign in**: centang butir manual, lalu **Konfirmasi sign in**. Selama persetujuan tindakan atau asesmen
+   pra-anestesi final belum ada, tombol nonaktif dengan alasan tertulis di bawah fase ("Asesmen pra-anestesi final
+   belum ada."), dan server menolak (409 `CHECKLIST_INCOMPLETE`). Butir "Persetujuan tindakan bertanda tangan" diisi
+   sistem saat konfirmasi.
+6. **Catat induksi** (butuh sign in). **Time out**: centang semua butir lalu konfirmasi. Persetujuan diperiksa ulang;
+   bila sudah dicabut setelah sign in, time out tertahan. Sebelum time out, tombol insisi nonaktif dengan alasan
+   "Time out belum lengkap (N butir tersisa). Insisi terkunci sampai time out dikonfirmasi."
+7. **Catat insisi**, lalu isi "Hitung kasa": hitung awal (Kasa, Jarum, Instrumen), tambahan bila ada, hitung akhir.
+   Selisih memunculkan "Hitung akhir kasa/instrumen belum cocok…" dan formulir tindak lanjut per butir.
+8. **Catat luka ditutup**, lengkapi **Sign out** (butir hitung diisi sistem setelah semua cocok atau ditindaklanjuti),
+   lalu **Catat pasien keluar kamar**. Status menjadi Selesai.
+9. BHP/implan dari stok DEPO-OK dicatat di panel BHP (stok berkurang lewat ledger, FEFO dan kedaluwarsa ditegakkan DB).
+10. Operator menulis "Laporan operasi" (diagnosa pra/pasca ICD-10, ICD-9-CM, temuan, komplikasi, perdarahan, implan,
+    "Spesimen dikirim ke patologi anatomi") dan menekan **Simpan dan tanda tangani (TTE operator)**. Versi ber-TTE
+    terkunci: **Tambah adendum** ("Isi adendum", TTE operator) selalu tersedia; **Koreksi laporan** (versi baru dengan
+    alasan minimal 10 karakter) hanya muncul bila TTE versi itu gagal.
+11. Bila laporan menyatakan ada spesimen, region **Spesimen patologi anatomi** meminta asal jaringan, pemeriksaan
+    (histopatologi, potong beku, sitologi, imunohistokimia), fiksatif (potong beku harus segar), jumlah wadah, diagnosis
+    klinis, dan cito. **Kirim spesimen ke PA** memberi label `OK-YYMM-NNNN-S1`, `-S2`, … dan menerbitkan event
+    `surgery.specimen_sent`; order PA dibuat modul S02 (potongan 4.8).
+
+Gerbang yang ditegakkan server dan DB (trigger 4.0b): urutan sign in, time out, sign out; semua butir lengkap;
+induksi butuh sign in; insisi butuh time out kecuali **Override insisi** oleh **operator atau dokter anestesi kasus itu** (anggota tim
+aktif) yang memegang `surgery.override`, dengan alasan minimal setelan RS (bawaan 15 karakter). Dokter lain yang
+berelasi dengan pasien (DPJP bangsal, asisten) ditolak 403 dan tombolnya tidak tampil (ADR-0130). Override tercatat di peristiwa, diaudit, dan
+memberi notifikasi `surgery_override` ke auditor mutu dan manajemen. Sign out butuh insisi dan hitung cocok; pasien
+keluar butuh sign out. Kasir dan apoteker tidak punya izin `surgery.*` (403).
+
+Papan diperbarui langsung lewat SSE aktivitas `GET /api/v1/surgery/board/events?date=` (BFF
+`/penunjang/kamar-operasi/events`), dengan penanda "Langsung · tersambung". Setiap baris baru kasus (status, centang
+butir, konfirmasi fase, peristiwa, hitung, tindak lanjut, BHP, laporan, spesimen, formulir anestesi) memicu muat ulang
+papan di jendela lain; muatan hanya ID. Setiap aksi sendiri juga memuat ulang papan.
 
 ## Pusat hasil kritis
 
@@ -573,6 +620,18 @@ Gerbang ditegakkan database (trigger `blood_issues`, `transfusions`), tidak hany
 
 Gelang tidak terbaca → cetak ulang gelang beralasan (ADR-0096); verifikasi manual mode presentasi tidak ada di mode api.
 
+**4.9b (ADR-0108).**
+
+- **Reaksi transfusi.** Dugaan reaksi (dari TTV) dan laporan reaksi mengirim notifikasi in-app + WhatsApp ke dua
+  kelompok: DPJP + tim perawatan, dan petugas bank darah. Isinya tanpa nama pasien; rincian ada di layar ini. Reaksi
+  **berat** juga muncul sebagai nilai kritis (sumber `transfusion`) yang wajib dilaporkan dengan read-back di Pusat
+  hasil kritis.
+- **Batalkan permintaan …** (DPJP peminta atau bank darah): alasan minimal 10 karakter. Kantong yang dicadangkan dan
+  belum keluar kembali tersedia. Cek ganda lama tidak bisa dipakai lagi.
+- **Musnahkan…** di "Stok kantong": petugas pertama memilih kategori kedaluwarsa (hanya bila ED sudah lewat) atau
+  rusak, lalu menulis alasan. Petugas LAIN menekan **Konfirmasi musnah (petugas kedua)** dari sesinya sendiri. Kantong
+  yang sedang diajukan tidak bisa keluar.
+
 ## Gizi
 
 ![Layar Gizi: tab Distribusi makan dengan pilihan jam makan, chip jumlah baki, puasa, konflik alergi, dan order belum diverifikasi, lalu kartu distribusi per bangsal berisi baki pasien](./gambar/gizi.png)
@@ -638,7 +697,16 @@ pasiennya.
 4. **Cetak daftar + label makanan** membuka `/cetak/gizi`: daftar per bangsal dan label 70 × 35 mm berisi dua pengenal,
    diet, tekstur, jam makan, catatan, dan ALERGI.
 
-Puasa (NPO), skrining MST, verifikasi order, dan ganti menu alergen di mode presentasi belum punya skema di mode api.
+**4.9b (ADR-0108).**
+
+- **Puasa (NPO)**: "Mulai puasa" (alasan minimal 10 karakter, rencana selesai opsional) dan **Cabut puasa**. Selama
+  puasa, baki ditandai "Puasa" dan makanan tidak bisa diantar.
+- **Skrining gizi (MST)**: penurunan berat badan 6 bulan + nafsu makan turun; skor ≥ 2 = berisiko.
+- **Verifikasi order diet**: hanya ahli gizi (`nutrition.verify`), dan butuh skrining MST kunjungan itu. Order yang
+  belum diverifikasi tidak bisa diantar.
+
+Gerbang antar ditegakkan trigger database (`DIET_NOT_VERIFIED`, `NPO_ACTIVE`). Ganti menu karena alergen (demo) belum
+ada di mode api karena skema belum punya menu/bahan.
 Asuhan gizi lewat formulir P07 (layar Asesmen).
 
 ## Mikrobiologi & PA
@@ -760,11 +828,19 @@ E2E mode presentasi (Playwright):
   dan depo tanpa scroll horizontal di tablet 768 px.
 - `apps/web/e2e/demo/semua-layar.spec.ts`: jaring pengaman semua layar dan QA visual.
 
+E2E mode api:
+
+- `apps/web/e2e/kamar-operasi-api.spec.ts` (4.7): jadwal → sign in → time out (insisi terkunci) → selisih hitung
+  ditindaklanjuti → sign out → laporan ber-TTE operator → selesai; override insisi oleh dokter di jendela kedua yang
+  menerima perubahan status lewat SSE.
+- `apps/web/e2e/penunjang-gerbang.spec.ts`: layar penunjang hibrida; Depo dan Kamar operasi sudah tersambung.
+
 Unit:
 
 - `apps/web/src/lib/penunjang.test.ts`, `penunjang-farmasi.test.ts`, `penunjang-radiologi.test.ts`,
   `penunjang-skenario.test.ts` (gerbang server per aksi dan skenario).
 - `apps/web/src/lib/penunjang-ok.test.ts` (gerbang time out, hitung kasa).
+- `apps/web/src/lib/penunjang-ok-api.test.ts` (pemetaan papan OK api: fase aktif, gerbang peristiwa, jam WIB).
 - `apps/web/src/lib/penunjang-kritis.test.ts`, `penunjang-depo.test.ts`, `penunjang-bank-darah.test.ts`,
   `penunjang-gizi.test.ts`, `penunjang-mikro.test.ts`, `penunjang-diagnostik.test.ts`, `penunjang-anestesi.test.ts`
   (gerbang murni layar penunjang lanjutan).

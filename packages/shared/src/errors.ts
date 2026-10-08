@@ -288,6 +288,21 @@ export const SUPPORT_ERRORS = {
     message: 'Nomor kantong tidak cocok dengan kantong yang dikeluarkan untuk pasien ini',
   },
   TRANSFUSION_STATE: { status: 409, message: 'Status transfusi tidak mengizinkan tindakan ini' },
+  // S07/S08 · 4.9b (ADR-0108)
+  BLOOD_REQUEST_CLOSED: { status: 409, message: 'Permintaan darah sudah selesai atau batal' },
+  DIET_VERIFIED: { status: 409, message: 'Order diet sudah diverifikasi atau tidak aktif' },
+  DIET_NOT_VERIFIED: {
+    status: 409,
+    message: 'Order diet belum diverifikasi ahli gizi; makanan belum boleh diantar',
+  },
+  NPO_ACTIVE: {
+    status: 409,
+    message: 'Pasien sedang puasa. Makanan tidak diantar sampai puasa dicabut',
+  },
+  NUTRITION_SCREENING_REQUIRED: {
+    status: 409,
+    message: 'Skrining gizi (MST) kunjungan ini belum ada; skrining dulu sebelum verifikasi order diet',
+  },
 } as const satisfies Record<string, { status: number; message: string }>;
 
 export type SupportErrorCode = keyof typeof SUPPORT_ERRORS;

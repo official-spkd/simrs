@@ -2,6 +2,10 @@ import { Body, Controller, Get, Param, ParseUUIDPipe, Post, Put, Query } from '@
 import { ApiTags } from '@nestjs/swagger';
 import {
   type BloodBoardQuery,
+  type BloodDisposalInput,
+  bloodDisposalInputSchema,
+  type BloodRequestCancelInput,
+  bloodRequestCancelInputSchema,
   bloodBoardQuerySchema,
   type BloodGroupInput,
   bloodGroupInputSchema,
@@ -65,6 +69,38 @@ export class BloodBankController {
   @Post('requests')
   create(@Body(new ZodValidationPipe(bloodRequestInputSchema)) body: BloodRequestInput) {
     return this.bank.createRequest(body);
+  }
+
+  /** Pembatalan beralasan oleh DPJP peminta (`blood_bank.request`). */
+  @RequirePermission('blood_bank', 'request')
+  @Post('requests/:id/cancel')
+  cancel(
+    @Param('id', uuid) id: string,
+    @Body(new ZodValidationPipe(bloodRequestCancelInputSchema)) body: BloodRequestCancelInput,
+  ) {
+    return this.bank.cancel(id, body);
+  }
+
+  /** Pembatalan beralasan oleh bank darah (`blood_bank.crossmatch`), mis. sampel tidak layak. */
+  @RequirePermission('blood_bank', 'crossmatch')
+  @Post('requests/:id/reject')
+  reject(
+    @Param('id', uuid) id: string,
+    @Body(new ZodValidationPipe(bloodRequestCancelInputSchema)) body: BloodRequestCancelInput,
+  ) {
+    return this.bank.cancel(id, body);
+  }
+
+  @RequirePermission('blood_bank', 'issue')
+  @Post('disposals')
+  requestDisposal(@Body(new ZodValidationPipe(bloodDisposalInputSchema)) body: BloodDisposalInput) {
+    return this.bank.requestDisposal(body);
+  }
+
+  @RequirePermission('blood_bank', 'issue')
+  @Post('disposals/:id/confirm')
+  confirmDisposal(@Param('id', uuid) id: string) {
+    return this.bank.confirmDisposal(id);
   }
 
   @RequirePermission('blood_bank', 'crossmatch')

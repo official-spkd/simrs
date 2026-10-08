@@ -77,7 +77,10 @@ export const PERMISSION_CATALOG = {
     label: 'Kamar operasi (jadwal, daftar tilik WHO, hitung kasa, laporan, override insisi)',
     actions: ['read', 'schedule', 'checklist', 'count', 'report', 'override'],
   },
-  nutrition: { label: 'Gizi (order diet, layanan makan)', actions: ['read', 'write'] },
+  nutrition: {
+    label: 'Gizi (order diet, puasa, skrining, layanan makan, verifikasi ahli gizi)',
+    actions: ['read', 'write', 'verify'],
+  },
   blood_bank: {
     label: 'Bank darah (permintaan, crossmatch, pengeluaran, transfusi di samping pasien)',
     actions: ['read', 'request', 'crossmatch', 'issue', 'transfuse'],
@@ -408,6 +411,8 @@ const NURSE_SUPPORT: Grant[] = [
   ['surgery', 'read', 'unit'],
   ['surgery', 'checklist', 'unit'],
   ['surgery', 'count', 'unit'],
+  // 4.7 · Jadwal kamar operasi oleh perawat unit OK (kepala ruang/penjadwal IBS); lingkup unit = kamar unit OK.
+  ['surgery', 'schedule', 'unit'],
 ];
 
 /**
@@ -508,6 +513,8 @@ export const DEFAULT_ROLE_GRANTS: Record<SystemRoleCode, readonly Grant[]> = {
     ['result', 'read', 'unit'],
     ['nutrition', 'read', 'unit'],
     ['nutrition', 'write', 'unit'],
+    // 4.9b (ADR-0108): verifikasi order diet hanya ahli gizi.
+    ['nutrition', 'verify', 'unit'],
   ],
   kasir: [
     ['patient', 'read', 'all'],

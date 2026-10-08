@@ -24,6 +24,8 @@ import {
   supportWrite,
 } from '../../infra/clinical/support-access';
 import { TenantDb } from '../../infra/tenant-db';
+import { CriticalResultsService } from '../critical-results/critical-results.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import { PatientAccessService } from '../authz/patient-access.service';
 import { loadTransfusion } from './blood-records';
 
@@ -45,7 +47,57 @@ export class TransfusionService {
     private readonly db: TenantDb,
     private readonly access: PatientAccessService,
     private readonly records: ClinicalRecordService,
+    private readonly notifications: NotificationsService,
+    private readonly critical: CriticalResultsService,
   ) {}
+
+  /**
+   * 4.9b (ADR-0108) · Notifikasi reaksi/dugaan reaksi transfusi ke DPJP + tim perawatan aktif kunjungan dan petugas
+   * bank darah (pemegang `blood_bank.issue`), selain pelapor. In-app + WhatsApp lewat outbox di transaksi yang sama;
+   * isi TANPA PHI (nama pasien/rincian hanya di layar berizin lewat tautan).
+   */
+  private async notifyReaction(encounterId: string, kind: 'dugaan' | 'laporan', severity: string | null) {
+    const tx = this.db.tx();
+    const enc = await tx.encounter.findUniqueOrThrow({
+      where: { id: encounterId },
+      select: { id: true, unitId: true, practitioner: { select: { userId: true } } },
+    });
+    const [team, unit, bank] = await Promise.all([
+      tx.encounterParticipant.findMany({ where: { encounterId, endedAt: null }, select: { userId: true } }),
+      tx.unit.findUnique({ where: { id: enc.unitId }, select: { name: true } }),
+      tx.$queryRaw<Array<{ user_id: string }>>`
+        SELECT DISTINCT a.user_id::text AS user_id
+        FROM staff_assignments a
+        JOIN role_permissions rp ON rp.tenant_id = a.tenant_id AND rp.role_id = a.role_id
+        JOIN users u ON u.tenant_id = a.tenant_id AND u.id = a.user_id
+        WHERE rp.resource = 'blood_bank' AND rp.action = 'issue' AND u.status = 'active'
+          AND a.valid_from <= now() AND (a.valid_until IS NULL OR a.valid_until > now())
+        LIMIT 50`,
+    ]);
+    const me = this.db.actorUserId();
+    const recipients = [
+      ...new Set(
+        [
+          ...team.map((x) => x.userId),
+          enc.practitioner?.userId ?? null,
+          ...bank.map((x) => x.user_id),
+        ].filter((u): u is string => !!u && u !== me),
+      ),
+    ];
+    await this.notifications.notify(
+      recipients,
+      {
+        kind: 'transfusion_reaction',
+        title:
+          kind === 'dugaan'
+            ? 'Dugaan reaksi transfusi: transfusi dihentikan'
+            : `Laporan reaksi transfusi (${severity ?? '-'})`,
+        body: `Seorang pasien di ${unit?.name ?? 'unit perawatan'} mengalami reaksi transfusi. Buka tautan untuk rinciannya.`,
+        link: `/penunjang/bank-darah?kunjungan=${enc.id}`,
+      },
+      ['in_app', 'whatsapp'],
+    );
+  }
 
   /** Pengeluaran kantong + akses (layanan: jendela; ruangan: ABAC pasien) + kunjungan berjalan. */
   private async issueFor(bloodIssueId: string) {
@@ -236,6 +288,7 @@ export class TransfusionService {
       input.signs,
     );
     if (check.reaction) {
+      await this.notifyReaction(t.encounterId, 'dugaan', null);
       await supportWrite(() =>
         tx.transfusion.update({
           where: { id },
@@ -333,6 +386,16 @@ export class TransfusionService {
           },
         }),
       );
+    }
+    await this.notifyReaction(issue.encounterId, 'laporan', input.severity);
+    // Reaksi berat = nilai kritis (pelaporan ber-read-back + eskalasi S09).
+    if (input.severity === 'berat') {
+      await this.critical.raise({
+        source: 'transfusion',
+        transfusionReactionId: id,
+        analyte: 'Reaksi transfusi berat',
+        valueText: input.description,
+      });
     }
     this.db.audit({
       action: 'create',
