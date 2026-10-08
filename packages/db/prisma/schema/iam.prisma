@@ -40,6 +40,7 @@ model User {
   surgeryDiscrepancyRecorders  SurgeryCountDiscrepancy[]        @relation("SurgeryDiscrepancyRecorder")
   operativeReportAuthors       OperativeReport[]                @relation("OperativeReportAuthor")
   surgerySupplyRecorders       SurgerySupplyUsage[]             @relation("SurgerySupplyRecorder")
+  surgerySpecimenSenders       SurgerySpecimen[]                @relation("SurgerySpecimenSender")
   dietOrderers                 DietOrder[]                      @relation("DietOrderer")
   mealServiceRecorders         MealService[]                    @relation("MealServiceRecorder")
   bloodRequesters              BloodRequest[]                   @relation("BloodRequester")

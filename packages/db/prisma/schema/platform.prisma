@@ -55,6 +55,7 @@ model Tenant {
   surgeryCountDiscrepancies           SurgeryCountDiscrepancy[]
   operativeReports                    OperativeReport[]
   surgerySupplyUsages                 SurgerySupplyUsage[]
+  surgerySpecimens                    SurgerySpecimen[]
   dietOrders                          DietOrder[]
   mealServices                        MealService[]
   bloodUnits                          BloodUnit[]
