@@ -101,7 +101,8 @@ test.describe('Gizi + Bank darah mode api', () => {
     await card(lab2)
       .getByRole('button', { name: `Keluarkan kantong ${bagNo} (petugas kedua)` })
       .click();
-    await expect(status(lab2, `Kantong ${bagNo} dikeluarkan`)).toBeVisible();
+    // Permintaan selesai → panel pengeluaran hilang; kantong tampil sebagai sudah keluar.
+    await expect(card(lab2).getByRole('region', { name: `Kantong ${bagNo}` })).toContainText('Belum dipasang');
 
     // 4 · Perawat pemasang: gelang salah ditolak; gelang + kantong benar → menunggu petugas kedua.
     const ns = await as(browser, nurse, '/penunjang/bank-darah');
@@ -198,8 +199,8 @@ test.describe('Gizi + Bank darah mode api', () => {
     await expect(row).toContainText('Tanpa santan');
     await expect(row).toContainText('Puasa: Persiapan USG abdomen pukul 10.00');
     await expect(row.getByRole('button', { name: 'Catat diantar' })).toHaveCount(0);
-    await gz.goto(`/penunjang/gizi?kunjungan=${p.encounterId}`);
-    await gz.getByRole('button', { name: 'Verifikasi order diet' }).click();
+    await expect(row).toContainText('MST 3 · berisiko');
+    await row.getByRole('button', { name: 'Verifikasi order diet' }).click();
     await expect(status(gz, 'Order diet terverifikasi')).toBeVisible();
     await ns.reload();
     await ns.getByRole('region', { name: 'Puasa' }).getByRole('button', { name: 'Cabut puasa' }).click();

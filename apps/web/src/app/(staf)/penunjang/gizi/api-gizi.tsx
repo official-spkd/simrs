@@ -151,13 +151,13 @@ export async function ApiGizi({ session, query }: { session: SessionView; query:
             Tampilkan
           </button>
         </form>
-        <MealTable list={list} canWrite={canWrite} />
+        <MealTable list={list} canWrite={canWrite} canVerify={canVerify} />
       </section>
     </div>
   );
 }
 
-function MealTable({ list, canWrite }: { list: MealList; canWrite: boolean }) {
+function MealTable({ list, canWrite, canVerify }: { list: MealList; canWrite: boolean; canVerify: boolean }) {
   if (list.rows.length === 0) {
     return <p className="m-0 text-small text-ink-500">Belum ada order diet aktif untuk jam makan ini.</p>;
   }
@@ -199,7 +199,10 @@ function MealTable({ list, canWrite }: { list: MealList; canWrite: boolean }) {
                 : 'Belum diantar'}
             </span>
           </span>
-          <MealRowActions row={r} meal={list.meal} canWrite={canWrite} />
+          <span className="flex flex-col items-end gap-2">
+            {canVerify && !r.verified && r.screening && <VerifyDietButton dietOrderId={r.dietOrderId} />}
+            <MealRowActions row={r} meal={list.meal} canWrite={canWrite} />
+          </span>
         </li>
       ))}
     </ul>
