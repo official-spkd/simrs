@@ -25,7 +25,7 @@ skenario Simulasi ada di [Simulasi dan operasional](./18-simulasi-dan-operasiona
 | ------------------- | -------------------------- | ---------------------------------------- | -------- | ---------------------------------------- |
 | Laboratorium        | `/penunjang/lab`           | analis lab                               | S01, S09 | 🟨 demo; api: belum tersambung (4.2)     |
 | Radiologi           | `/penunjang/radiologi`     | radiografer                              | S03      | 🟨 demo tanpa mockup; API belum (fase 4) |
-| Farmasi             | `/penunjang/farmasi`       | apoteker                                 | S04, S05 | 🟨 demo; API belum (fase 4)              |
+| Farmasi             | `/penunjang/farmasi`       | apoteker                                 | S04, S05 | 🟨 demo; API telaah (4.5)                |
 | Kamar operasi       | `/penunjang/kamar-operasi` | dokter, perawat                          | S06      | 🟨 demo; API belum (fase 4)              |
 | Pusat hasil kritis  | `/penunjang/hasil-kritis`  | analis lab, radiografer, dokter, perawat | S09      | 🟨 demo tanpa mockup; API belum (fase 4) |
 | Depo & stok farmasi | `/penunjang/depo`          | apoteker                                 | S05      | 🟨 demo tanpa mockup; API belum (fase 4) |
@@ -175,10 +175,10 @@ dengan templat yang ditandatangani radiolog.
 | Rute     | `/penunjang/farmasi`                                                                                                                                                                             |
 | Pemakai  | apoteker                                                                                                                                                                                         |
 | Komponen | S04 farmasi klinis, S05 dispensing dan depo                                                                                                                                                      |
-| Status   | demo (mode presentasi); API belum (fase 4 potongan 4.5, 4.6a, 4.6b)                                                                                                                              |
+| Status   | demo (mode presentasi); mode api telaah klinis (potongan 4.5); penyiapan dan serah terima menyusul 4.6b                                                                                          |
 | Mockup   | `design/mockups/Farmasi.dc.html`                                                                                                                                                                 |
 | Kode web | `apps/web/src/app/(staf)/penunjang/farmasi/` · `apps/web/src/components/penunjang/farmasi-*.tsx` · `apps/web/src/lib/penunjang-farmasi.ts` · `apps/web/src/lib/server/data/penunjang/farmasi.ts` |
-| Kode API | belum ada modul farmasi · sumber resep: `apps/api/src/modules/orders/` (3.4)                                                                                                                     |
+| Kode API | `apps/api/src/modules/pharmacy-clinical/` (`/api/v1/pharmacy`, 4.5) · sumber resep: `apps/api/src/modules/orders/` (3.4) · stok: `apps/api/src/modules/stock/`                                   |
 
 **Tujuan.** Apoteker menelaah resep (administratif, farmasetik, klinis), menindaklanjuti peringatan CDS, menyiapkan
 obat dengan cek ganda untuk obat high alert, lalu menyerahkan obat dan mengurangi stok depo.
@@ -218,7 +218,34 @@ obat dengan cek ganda untuk obat high alert, lalu menyerahkan obat dan mengurang
   tangan penerima.
 - Stok di bawah minimum ditandai "di bawah minimum".
 
-**Mode api.** Layar hibrida (4.0c): peran berizin melihat "Belum tersambung" sampai potongan fase 4 layar ini tergabung.
+**Mode api (potongan 4.5, telaah klinis).** Peran berizin `pharmacy.review.read` (apoteker) melihat data dari
+`/api/v1/pharmacy/*` (ADR-0107). Penyiapan, cek ganda, dan serah terima menyusul potongan 4.6b.
+
+1. Kolom kiri **Kiriman masuk** berisi kiriman CPOE 7 hari terakhir yang masih punya obat aktif dan ditujukan ke depo
+   unit Anda. Depo tujuan mengikuti kelas kunjungan: rawat jalan ke Depo farmasi rawat jalan, rawat inap ke Depo
+   farmasi rawat inap, IGD ke Depo farmasi IGD. Tekan **Terima resep <pasien>**: resep mendapat nomor R
+   (`R-2610-0001`), berstatus **Telaah**, dan CDS langsung dievaluasi dengan data pasien terkini. Kiriman yang sudah
+   diterima tidak bisa diterima lagi.
+2. **Antrean resep** memuat resep di depo unit Anda (terbuka, atau selesai/batal 7 hari terakhir) dengan jumlah temuan
+   CDS yang masih terbuka. Pilih resep untuk membuka panel telaah (`?resep=<id>`).
+3. Panel telaah menampilkan identitas, alergi, eGFR, penulis resep, dan tabel **Item resep** dengan kolom **Stok
+   <depo>**. Kolom ini diambil dari API stok (batch yang belum kedaluwarsa saja), dengan tanda **Habis** atau **Di
+   bawah minimum**.
+4. **Temuan CDS saat telaah**: Mayor/Sedang/Info, judul, rincian, dan status. Override dokter di CPOE atas temuan blok
+   tampil "Dokter melanjutkan di CPOE · wajib ditinjau" beserta alasan dokter. Tindak lanjut: **Konfirmasi aman**,
+   **Usulkan ke dokter**, atau **Override** dengan alasan klinis minimal 10 karakter. **Evaluasi ulang CDS** menjalankan
+   CDS lagi, mis. setelah dokter mengubah order. Konfirmasi dan override dibawa ke evaluasi ulang bila temuannya sama;
+   usulan tidak.
+5. **Intervensi apoteker**: pilih jenis usulan dan item, tulis usulan minimal 10 karakter, lalu **Kirim usulan**.
+   Resep tidak berubah. Dokter penulis mendapat notifikasi berisi nomor resep saja dan mengubah order di CPOE. Jawaban
+   dokter (diterima, ditolak beralasan, atau diubah) tampil di daftar intervensi.
+6. **Telaah tiga aspek**: centang aspek administratif, farmasetik, dan klinis, pilih **Setujui**, **Setujui
+   sebagian** (pilih item), atau **Tahan** (wajib alasan), lalu **Simpan telaah**. Setujui/sebagian membawa resep ke
+   **Penyiapan**; tahan ke **Ditahan** (boleh ditelaah ulang).
+
+Gerbang server: **Setujui** ditolak "Masih ada peringatan CDS mayor/sedang yang belum ditindaklanjuti"
+(`CDS_UNRESOLVED`, 409) selama ada temuan mayor/sedang terbuka atau override dokter yang belum ditinjau. Override
+apoteker tanpa alasan ditolak. Apoteker depo lain (mis. depo IGD) mendapat 403 untuk resep depo farmasi.
 
 ## Kamar operasi
 
