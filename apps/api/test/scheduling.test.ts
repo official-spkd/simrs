@@ -203,7 +203,10 @@ describe('cuti, pengganti, pengalihan', () => {
     const andini = await practitioner('dr. Andini');
     const rahmat = await practitioner('dr. Rahmat');
     const bagus = await practitioner('dr. Bagus');
-    const s = await nextSession(andini.id, addIsoDays(today, 1));
+    // Sesi SESUDAH sesi yang dipakai tes kuota (yang sudah berisi satu booking): tanpa ini kedua tes bisa memakai sesi
+    // yang sama bergantung hari (mis. dr. Andini tidak praktik besok → keduanya memilih sesi praktik berikutnya).
+    const quotaSession = await nextSession(andini.id);
+    const s = await nextSession(andini.id, quotaSession.serviceDate);
     const appointmentId = await book(s);
     const leave = (body: object) => as(T.id).post(`${api}/sessions/${s.id}/leave`, body);
 
