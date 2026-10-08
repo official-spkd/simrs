@@ -128,19 +128,6 @@ beforeAll(async () => {
   app = await createTestApp();
   A = await clinicalTenant();
   B = await clinicalTenant();
-  // Manajemen medis (komite medik) di RS A: `care_team.assign` + menulis klinis seluruh RS, diberikan lewat matriks
-  // (layar Akses), karena tidak ada pemegang bawaan (ADR-0109).
-  await owner(A.id, async (tx) => {
-    const role = await tx.role.findFirstOrThrow({ where: { code: 'manajemen' } });
-    for (const [resource, action] of [
-      ['care_team', 'assign'],
-      ['clinical', 'write'],
-    ] as const) {
-      await tx.rolePermission.create({
-        data: { tenantId: A.id, roleId: role.id, resource, action, scope: 'all' },
-      });
-    }
-  });
   for (const code of ['MELATI', 'POLI-JANTUNG', 'POLI-DALAM']) {
     units[code] = (await run(A.id, (tx) => tx.unit.findFirstOrThrow({ where: { code } }))).id;
   }
@@ -429,8 +416,16 @@ describe('konsultasi (K10)', () => {
       .post(`/encounters/${e.encounterId}/care-team/primary`, body)
       .expect(403);
     expect(denied.body.message).toContain('manajemen medis');
-    // Manajemen medis (peran ber-`care_team.assign`) menetapkan, beralasan + diaudit.
-    const r = await as('komite').post(`/encounters/${e.encounterId}/care-team/primary`, body).expect(201);
+    // Manajemen medis (peran `manajemen`, `care_team.assign` bawaan) menetapkan lewat rute penetapan, beralasan +
+    // diaudit; rute serah DPJP (`clinical.write`) tetap tertutup baginya, dokter tanpa izin itu 403 di rute penetapan.
+    await as('komite').post(`/encounters/${e.encounterId}/care-team/primary`, body).expect(403);
+    await as('jantung2').post(`/encounters/${e.encounterId}/care-team/primary/assignment`, body).expect(403);
+    await as('komite')
+      .post(`/encounters/${e.encounterId}/care-team/primary/assignment`, { ...body, reason: 'pendek' })
+      .expect(400);
+    const r = await as('komite')
+      .post(`/encounters/${e.encounterId}/care-team/primary/assignment`, body)
+      .expect(201);
     expect(
       r.body
         .filter((m: { endedAt: string | null; role: string }) => !m.endedAt && m.role === 'dpjp_utama')

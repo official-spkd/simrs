@@ -49,9 +49,10 @@ Review keamanan fase 3 (3.9) mencatat tiga temuan besar dan beberapa temuan keci
      kode tersimpan di server.
 3. **Konsultasi.**
    - `POST /encounters/:id/care-team/primary` hanya untuk DPJP utama aktif (dokter) atau **manajemen medis**, yaitu
-     peran yang memegang `care_team.assign` (izin katalog baru, tanpa pemegang bawaan; RS memberikannya ke peran
-     komite medik/kepala SMF lewat layar Akses). Endpoint tetap `clinical.write`, ABAC pasien tetap berlaku, alasan
-     wajib, dan audit mencatat `by: dpjp_utama | manajemen_medis`. Selain itu 403, termasuk bila belum ada DPJP utama.
+     peran yang memegang `care_team.assign` (izin katalog baru; bawaan peran `manajemen` lingkup `all`, lihat
+     pembaruan di bawah). DPJP utama memakai rute serah (`clinical.write`); manajemen memakai
+     `POST /encounters/:id/care-team/primary/assignment` (`care_team.assign`). Alasan wajib dan audit mencatat
+     `by: dpjp_utama | manajemen_medis`. Selain itu 403, termasuk bila belum ada DPJP utama.
    - Akses konsultan (relasi bersumber rantai permintaan konsul) berakhir saat itu juga bila:
      - konsul dijawab atau ditolak. Koreksi atau addendum jawaban membuka akses sementara lalu menutupnya lagi;
      - permintaan dikoreksi ke penerima lain. Hanya penerima lama yang dicabut;
@@ -89,5 +90,13 @@ Review keamanan fase 3 (3.9) mencatat tiga temuan besar dan beberapa temuan keci
 - Petugas yang mencetak gelang tetap melihat kodenya, karena kode tercetak di gelang. Setiap pencetakan diaudit
   `print` dan bisa ditinjau. Kode tidak muncul di respons baca mana pun.
 - Konsultan yang ingin menindaklanjuti sesudah menjawab harus diminta ulang, atau diterima sebagai rawat bersama.
-- `care_team.assign` tanpa pemegang bawaan. Kunjungan yang DPJP utamanya berakhir di luar alur (mis. cuti) menunggu
-  manajemen medis RS.
+- Kunjungan yang DPJP utamanya berakhir di luar alur (mis. cuti) tidak macet: manajemen menetapkan DPJP utama baru,
+  beralasan dan diaudit.
+
+## Pembaruan 8 Oktober 2026 · Manajemen medis bawaan
+
+Keputusan orkestrator: peran `manajemen` memegang `care_team.assign` lingkup `all` secara bawaan. Karena peran itu
+tidak memegang `clinical.write`, penetapan memakai rute sendiri
+`POST /encounters/:id/care-team/primary/assignment` (izin `care_team.assign`). Rute serah
+`POST /encounters/:id/care-team/primary` tetap untuk DPJP utama aktif. Keduanya wajib beralasan dan diaudit. RS
+berjalan menyesuaikan lewat `pnpm db:sync-permissions` (izin baru ditambahkan ke peran bawaan).

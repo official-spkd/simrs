@@ -367,7 +367,12 @@ export class ConsultService {
    * kunjungan belum punya DPJP utama. Keanggotaan lama diakhiri (relasi akses berlaku sampai akhir hari berikutnya),
    * dokter baru menjadi DPJP utama, akses konsultan rantai konsul kunjungan ini berakhir.
    */
-  async changePrimary(encounterId: string, input: PrimaryDpjpChangeInput): Promise<CareTeamMember[]> {
+  async changePrimary(
+    encounterId: string,
+    input: PrimaryDpjpChangeInput,
+    /** Rute manajemen medis: `care_team.assign` sudah ditegakkan guard. */
+    assign = false,
+  ): Promise<CareTeamMember[]> {
     const me = this.records.author();
     const enc = await clinicalEncounter(this.db, this.access, encounterId, 'write');
     await lockClinicalKey(this.db, `care-team:${enc.id}`);
@@ -376,11 +381,12 @@ export class ConsultService {
       where: { encounterId: enc.id, role: 'dpjp_utama', endedAt: null },
       select: { id: true, userId: true },
     });
-    const primary = !!current && current.userId === me.userId && me.role === CONSULTANT_ROLE;
+    const primary = !assign && !!current && current.userId === me.userId && me.role === CONSULTANT_ROLE;
     const manager =
-      !primary &&
-      !!me.role &&
-      (await this.matrix.scope(this.db.tenantId(), me.role, 'care_team', 'assign')) !== null;
+      assign ||
+      (!primary &&
+        !!me.role &&
+        (await this.matrix.scope(this.db.tenantId(), me.role, 'care_team', 'assign')) !== null);
     if (!primary && !manager) {
       throw new AppError(
         'FORBIDDEN',

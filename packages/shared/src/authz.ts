@@ -567,6 +567,9 @@ export const DEFAULT_ROLE_GRANTS: Record<SystemRoleCode, readonly Grant[]> = {
     // S09/S05 · Metrik kepatuhan nilai kritis, stok.
     ['critical_result', 'review', 'all'],
     ['stock', 'read', 'all'],
+    // ADR-0109 (keputusan orkestrator 8 Okt 2026): manajemen medis menetapkan DPJP utama bila tidak ada DPJP utama
+    // aktif yang menyerahkan; beralasan + diaudit (`POST /encounters/:id/care-team/primary/assignment`).
+    ['care_team', 'assign', 'all'],
   ],
   auditor_mutu: [
     ['audit', 'read', 'all'],

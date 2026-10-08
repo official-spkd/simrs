@@ -361,12 +361,14 @@ describe('izin klinis (fase 3, rencana §3.0a)', () => {
     expect(grantOf(DEFAULT_ROLE_GRANTS.auditor_mutu, 'order', 'read')).toBe('all');
   });
 
-  it('ADR-0109: cari konsultan hanya dokter/residen; penetapan DPJP utama manajemen medis tanpa bawaan', () => {
+  it('ADR-0109: cari konsultan hanya dokter/residen; penetapan DPJP utama oleh manajemen', () => {
     expect(PERMISSION_CATALOG.consult.actions).toEqual(['request']);
     expect(PERMISSION_CATALOG.care_team.actions).toEqual(['assign']);
     expect(holders('consult', 'request')).toEqual(['dokter', 'dokter_residen']);
-    // Komite medik/kepala SMF ditetapkan RS (peran sendiri): tidak ada pemegang bawaan.
-    expect(holders('care_team', 'assign')).toEqual([]);
+    // Manajemen medis = peran `manajemen` (keputusan orkestrator 8 Okt 2026), lingkup seluruh RS.
+    expect(holders('care_team', 'assign')).toEqual(['manajemen']);
+    expect(grantOf(DEFAULT_ROLE_GRANTS.manajemen, 'care_team', 'assign')).toBe('all');
+    expect(grantOf(DEFAULT_ROLE_GRANTS.manajemen, 'clinical', 'write')).toBeNull();
   });
 
   it('hak minimum: pemberian obat, co-sign, TTE, dan kelola order set/CDS', () => {
