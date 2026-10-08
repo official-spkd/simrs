@@ -1,14 +1,40 @@
-import { isoDateJakarta, surgeryStaffOptionsSchema, surgerySupplyOptionsSchema } from '@simrs/shared';
+import {
+  ANESTHESIA_RECORD_FORM_CODE,
+  formSchemaSchema,
+  isoDateJakarta,
+  PRE_ANESTHESIA_FORM_CODE,
+  surgeryStaffOptionsSchema,
+  surgerySupplyOptionsSchema,
+} from '@simrs/shared';
 import { Alert } from '@simrs/ui';
-import type { z } from 'zod';
+import { z } from 'zod';
 import { api } from '@/lib/server/api';
 import { ApiError } from '@/lib/server/api-core';
 import { getSurgeryBoardLive } from '@/lib/server/data/penunjang/kamar-operasi';
 import { can, type SessionView } from '@/lib/session-view';
 import { OkApiClient, type OkPermissions } from './ok-api-client';
+import type { AnesthesiaFormDef } from './ok-api-report';
 
 type StaffOptions = z.infer<typeof surgeryStaffOptionsSchema>['items'];
 type SupplyOptions = z.infer<typeof surgerySupplyOptionsSchema>['items'];
+
+const formDetail = z.object({
+  code: z.string(),
+  published: z
+    .object({
+      version: z.int(),
+      title: z.string(),
+      schema: formSchemaSchema,
+      writeRoles: z.array(z.string()),
+    })
+    .nullable(),
+});
+
+/** Formulir P07 anestesi versi terbit (null bila belum terbit di RS ini). */
+async function anesthesiaForm(code: string): Promise<AnesthesiaFormDef | null> {
+  const d = await optional(() => api(`/api/v1/forms/${code}`, { schema: formDetail }), null);
+  return d?.published ? { ...d.published, code: d.code } : null;
+}
 
 async function optional<T>(fn: () => Promise<T>, fallback: T): Promise<T> {
   try {
@@ -20,8 +46,8 @@ async function optional<T>(fn: () => Promise<T>, fallback: T): Promise<T> {
 }
 
 /**
- * S06 · Kamar operasi mode api (4.7): papan 4 kamar per tanggal (`?tanggal=`), kasus terpilih (`?pilih=`), daftar
- * tilik WHO, peristiwa, hitung kasa, BHP, laporan operasi ber-TTE. Aksi mengikuti izin sesi `surgery.*`; ditegakkan
+ * S06 · Kamar operasi mode api (4.7/4.7b): papan 4 kamar per tanggal (`?tanggal=`), kasus terpilih (`?pilih=`), daftar
+ * tilik WHO, anestesi (formulir P07), peristiwa, hitung kasa, BHP, laporan operasi berversi ber-TTE, spesimen PA. Aksi mengikuti izin sesi `surgery.*`; ditegakkan
  * ulang API (lingkup unit OK/relasi, urutan, gerbang insisi).
  */
 export async function ApiKamarOperasi({
@@ -64,7 +90,8 @@ export async function ApiKamarOperasi({
     report: can(session, 'surgery', 'report'),
     override: can(session, 'surgery', 'override'),
   };
-  const [staff, supplies] = await Promise.all([
+  const canWriteForms = can(session, 'forms.response', 'write');
+  const [staff, supplies, pre, record] = await Promise.all([
     perms.schedule
       ? optional(
           async () => (await api('/api/v1/surgery/staff', { schema: surgeryStaffOptionsSchema })).items,
@@ -78,6 +105,8 @@ export async function ApiKamarOperasi({
           [] as SupplyOptions,
         )
       : Promise.resolve([] as SupplyOptions),
+    anesthesiaForm(PRE_ANESTHESIA_FORM_CODE),
+    anesthesiaForm(ANESTHESIA_RECORD_FORM_CODE),
   ]);
   return (
     <OkApiClient
@@ -88,6 +117,9 @@ export async function ApiKamarOperasi({
       userId={session.user.id}
       staff={staff}
       supplies={supplies}
+      anesthesiaForms={{ pre, record }}
+      role={session.role?.code ?? null}
+      canWriteForms={canWriteForms}
     />
   );
 }

@@ -283,6 +283,7 @@ describe('event domain', () => {
         'surgery.incision_recorded',
         'surgery.case_completed',
         'surgery.case_cancelled',
+        'surgery.specimen_sent',
         'blood.unit_issued',
         'diagnostic.report_signed',
         'micro.report_released',

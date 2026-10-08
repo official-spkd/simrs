@@ -20,9 +20,9 @@ import {
   eventBlock,
   manualRemaining,
   nextEvent,
+  signInBlockers,
   wibInstant,
 } from '@/lib/penunjang-ok-api';
-import { parseDiagnosis } from '@/lib/registration-api';
 import {
   cancelCaseAction,
   checkItemAction,
@@ -30,7 +30,6 @@ import {
   countAction,
   discrepancyAction,
   recordEventAction,
-  reportAction,
   scheduleCaseAction,
   searchCandidatesAction,
   suppliesAction,
@@ -78,6 +77,8 @@ export function ChecklistPanel({
       {c.checklist.map((p) => {
         const isActive = p.phase === active;
         const left = manualRemaining(c, p.phase);
+        // Sign in tertahan bila persetujuan tindakan atau asesmen pra-anestesi final belum ada (server menegakkan ulang).
+        const blockers = p.phase === 'sign-in' && isActive ? signInBlockers(c) : [];
         return (
           <fieldset
             key={p.phase}
@@ -115,6 +116,13 @@ export function ChecklistPanel({
                 </span>
               </label>
             ))}
+            {!p.confirmedAt && blockers.length > 0 && (
+              <ul className="m-0 pl-4 text-caption text-warning">
+                {blockers.map((b) => (
+                  <li key={b}>{b}</li>
+                ))}
+              </ul>
+            )}
             {p.confirmedAt ? (
               <span className="text-caption font-semibold text-success">
                 Dikonfirmasi {formatJam(p.confirmedAt)} · {p.confirmedBy}
@@ -124,7 +132,7 @@ export function ChecklistPanel({
                 <Button
                   size="sm"
                   variant={isActive && left === 0 ? 'primary' : 'secondary'}
-                  disabled={off || !isActive || left > 0 || pending}
+                  disabled={off || !isActive || left > 0 || blockers.length > 0 || pending}
                   onClick={() =>
                     run(
                       () => confirmPhaseAction(c.id, { phase: p.phase }),
@@ -469,162 +477,6 @@ export function SuppliesPanel({
             </Button>
           </form>
         ))}
-    </section>
-  );
-}
-
-/** Laporan operasi: hanya operator, setelah insisi; TTE operator (status tanda tangan tampil). */
-export function ReportPanel({
-  c,
-  isOperator,
-  onDone,
-}: {
-  c: SurgeryCaseView;
-  isOperator: boolean;
-  onDone: Done;
-}) {
-  const id = useId();
-  const { pending, run } = useAct(onDone);
-  const [pre, setPre] = useState('');
-  const [post, setPost] = useState('');
-  const [codes, setCodes] = useState(c.procedureCode ?? '');
-  const [findings, setFindings] = useState('');
-  const [complications, setComplications] = useState('');
-  const [blood, setBlood] = useState('0');
-  const [implants, setImplants] = useState('');
-  const [pa, setPa] = useState(false);
-  const preDx = parseDiagnosis(pre, null);
-  const postDx = parseDiagnosis(post, null);
-  const codeList = codes
-    .split(/[,\s]+/)
-    .map((x) => x.trim())
-    .filter(Boolean);
-  const codesOk = codeList.length > 0 && codeList.every((x) => /^\d{2}(\.\d{1,2})?$/.test(x));
-  const ready = !!preDx && !!postDx && codesOk && findings.trim().length >= 5 && /^\d{1,5}$/.test(blood);
-  const r = c.report;
-  return (
-    <section aria-label="Laporan operasi" className={CARD}>
-      <h2 className="m-0 text-body font-semibold">Laporan operasi</h2>
-      {r ? (
-        <p className="m-0 text-small">
-          Versi {r.version} · {r.author} · {formatJam(r.recordedAt)} · {r.postOpDiagnosis.icd10}{' '}
-          {r.postOpDiagnosis.label} · ICD-9-CM {r.procedureCodes.join(', ')} · TTE{' '}
-          {r.signatureStatus === 'signed'
-            ? 'sah'
-            : r.signatureStatus === 'failed'
-              ? 'gagal'
-              : 'menunggu penyelenggara'}
-        </p>
-      ) : !c.events.some((e) => e.kind === 'insisi') ? (
-        <p className="m-0 text-caption text-ink-500">
-          Laporan operasi ditulis operator setelah insisi tercatat.
-        </p>
-      ) : !isOperator ? (
-        <p className="m-0 text-caption text-ink-500">Laporan operasi ditulis dan ditandatangani operator.</p>
-      ) : (
-        <form
-          aria-label="Tulis laporan operasi"
-          className="flex flex-col gap-2"
-          onSubmit={(e) => {
-            e.preventDefault();
-            if (!ready || !preDx || !postDx) return;
-            run(
-              () =>
-                reportAction(c.id, {
-                  preOpDiagnosis: { icd10: preDx.code, label: preDx.display },
-                  postOpDiagnosis: { icd10: postDx.code, label: postDx.display },
-                  procedureCodes: codeList,
-                  findings: findings.trim(),
-                  complications: complications.trim(),
-                  bloodLossMl: Number(blood),
-                  implants: implants.trim(),
-                  paSpecimen: pa,
-                  revision: { kind: 'baru' },
-                }),
-              'Laporan operasi tersimpan; TTE operator diminta.',
-            );
-          }}
-        >
-          <label htmlFor={`${id}-pre`} className="flex flex-col gap-1 text-caption font-semibold">
-            Diagnosa pra-bedah (ICD-10)
-            <input id={`${id}-pre`} value={pre} onChange={(e) => setPre(e.target.value)} className={INPUT} />
-          </label>
-          <label htmlFor={`${id}-post`} className="flex flex-col gap-1 text-caption font-semibold">
-            Diagnosa pasca-bedah (ICD-10)
-            <input
-              id={`${id}-post`}
-              value={post}
-              onChange={(e) => setPost(e.target.value)}
-              className={INPUT}
-            />
-          </label>
-          <label htmlFor={`${id}-icd9`} className="flex flex-col gap-1 text-caption font-semibold">
-            Kode tindakan ICD-9-CM (pisahkan koma)
-            <input
-              id={`${id}-icd9`}
-              value={codes}
-              onChange={(e) => setCodes(e.target.value)}
-              className={INPUT}
-            />
-          </label>
-          <label htmlFor={`${id}-find`} className="flex flex-col gap-1 text-caption font-semibold">
-            Temuan operasi
-            <textarea
-              id={`${id}-find`}
-              rows={3}
-              value={findings}
-              maxLength={8000}
-              onChange={(e) => setFindings(e.target.value)}
-              className="rounded-control border border-line-strong bg-white px-3 py-2 font-[inherit]"
-            />
-          </label>
-          <div className="grid grid-cols-2 gap-2">
-            <label htmlFor={`${id}-comp`} className="flex flex-col gap-1 text-caption font-semibold">
-              Komplikasi
-              <input
-                id={`${id}-comp`}
-                value={complications}
-                maxLength={2000}
-                onChange={(e) => setComplications(e.target.value)}
-                className={INPUT}
-              />
-            </label>
-            <label htmlFor={`${id}-blood`} className="flex flex-col gap-1 text-caption font-semibold">
-              Perdarahan (mL)
-              <input
-                id={`${id}-blood`}
-                inputMode="numeric"
-                value={blood}
-                maxLength={5}
-                onChange={(e) => setBlood(e.target.value)}
-                className={INPUT}
-              />
-            </label>
-          </div>
-          <label htmlFor={`${id}-imp`} className="flex flex-col gap-1 text-caption font-semibold">
-            Implan
-            <input
-              id={`${id}-imp`}
-              value={implants}
-              maxLength={1000}
-              onChange={(e) => setImplants(e.target.value)}
-              className={INPUT}
-            />
-          </label>
-          <label className="flex min-h-11 items-center gap-2 text-small">
-            <input
-              type="checkbox"
-              checked={pa}
-              onChange={(e) => setPa(e.target.checked)}
-              className="size-[18px] accent-brand-600"
-            />
-            Spesimen dikirim ke patologi anatomi
-          </label>
-          <Button type="submit" variant="primary" disabled={pending || !ready}>
-            Simpan dan tanda tangani (TTE operator)
-          </Button>
-        </form>
-      )}
     </section>
   );
 }

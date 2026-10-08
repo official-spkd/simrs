@@ -1,5 +1,6 @@
 import { allocateNumber } from './platform';
-import { isoDateJakarta, newId } from '@simrs/shared';
+import { ANESTHESIA_RECORD_FORM, isoDateJakarta, newId, PRE_ANESTHESIA_FORM } from '@simrs/shared';
+import { ensurePublishedForm } from './forms';
 import type { TenantTx } from './client';
 
 /**
@@ -370,6 +371,10 @@ export async function seedSupportMasters(tx: TenantTx, tenantId: string): Promis
       create: { id: newId(), tenantId, code, name, shelfLifeDays, aboRule },
     });
   }
+  // S06 · Asesmen pra-anestesi (syarat sign in) dan catatan anestesi sebagai formulir P07 pustaka (4.7b, ADR-0106).
+  // Versi buatan RS tidak ditimpa.
+  await ensurePublishedForm(tx, tenantId, PRE_ANESTHESIA_FORM);
+  await ensurePublishedForm(tx, tenantId, ANESTHESIA_RECORD_FORM);
   return result;
 }
 

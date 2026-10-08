@@ -541,13 +541,16 @@ const cancelInput = z.strictObject({
 });
 
 export async function cancelBloodRequestAction(raw: unknown): Promise<PenunjangActionResult> {
-  const denied = await authorize('blood_bank', 'read', NO_BANK);
-  if (denied) return denied;
+  const asRequester = await authorize('blood_bank', 'request', NO_BANK);
+  const asBank = asRequester ? await authorize('blood_bank', 'crossmatch', NO_BANK) : null;
+  if (asRequester && asBank) return asBank;
   const input = cancelInput.safeParse(raw);
   if (!input.success) return invalid(input.error);
+  // Peminta → `cancel` (`blood_bank.request`); bank darah → `reject` (`blood_bank.crossmatch`).
+  const route = asRequester ? 'reject' : 'cancel';
   return run(
     () =>
-      api(`/api/v1/blood/requests/${input.data.requestId}/cancel`, {
+      api(`/api/v1/blood/requests/${input.data.requestId}/${route}`, {
         method: 'POST',
         body: { reason: input.data.reason },
         schema: bloodRequestRecordSchema,

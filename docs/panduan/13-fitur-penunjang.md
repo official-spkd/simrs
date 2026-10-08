@@ -278,7 +278,7 @@ terkunci berurutan, dengan hitung kasa dan instrumen sebelum operasi ditutup.
   "ASA IIE" setelah ditandatangani. Monitoring intraoperasi memberi peringatan bila SpO₂ di bawah 92%, sistolik di
   bawah 90 atau di atas 180 mmHg, nadi di bawah 50 atau di atas 120, atau EtCO₂ di luar 30–45.
 
-**Mode api (4.7, ADR-0106).** Layar memakai `/api/v1/surgery`. Data fiktif yang dipakai contoh di bawah dibuat oleh
+**Mode api (4.7 + 4.7b, ADR-0106).** Layar memakai `/api/v1/surgery`. Data fiktif yang dipakai contoh di bawah dibuat oleh
 E2E `e2e/kamar-operasi-api.spec.ts`.
 
 1. Buka **Kamar operasi**. Papan memuat Gantt kamar berjenis `ruang` di unit OK untuk tanggal `?tanggal=YYYY-MM-DD`
@@ -290,33 +290,42 @@ E2E `e2e/kamar-operasi-api.spec.ts`.
    anestesi) otomatis masuk tim rawat kunjungan sebagai rawat bersama, sehingga operator bisa menulis laporan.
 3. Pilih kasus di Gantt. Banner pasien menampilkan alergi dan penjamin. Kotak persetujuan menulis persetujuan tindakan
    (3.7) final ber-TTE yang berlaku, atau peringatan merah bila belum ada atau sudah dicabut.
-4. **Sign in**: centang butir manual, lalu **Konfirmasi sign in**. Butir "Persetujuan tindakan bertanda tangan" diisi
-   sistem saat konfirmasi; tanpa persetujuan berlaku, konfirmasi ditolak "Persetujuan tindakan bertanda tangan belum
-   ada; sign in tertahan".
-5. **Catat induksi** (butuh sign in). **Time out**: centang semua butir lalu konfirmasi. Persetujuan diperiksa ulang;
+4. Region **Anestesi**: dokter (hak tulis formulir `dokter`) menekan **Isi asesmen pra-anestesi**, mengisi formulir
+   P07 (kelas ASA, operasi darurat, mulai puasa, Mallampati, teknik, rencana, persetujuan anestesi) lalu **Simpan
+   asesmen (final)**. Kotak berubah menjadi "Asesmen pra-anestesi final · ASA II · …". **Isi catatan anestesi**
+   memakai formulir P07 kedua (teknik, jalan napas, obat, penyulit, kondisi akhir). Koreksi isian lewat layar Asesmen.
+5. **Sign in**: centang butir manual, lalu **Konfirmasi sign in**. Selama persetujuan tindakan atau asesmen
+   pra-anestesi final belum ada, tombol nonaktif dengan alasan tertulis di bawah fase ("Asesmen pra-anestesi final
+   belum ada."), dan server menolak (409 `CHECKLIST_INCOMPLETE`). Butir "Persetujuan tindakan bertanda tangan" diisi
+   sistem saat konfirmasi.
+6. **Catat induksi** (butuh sign in). **Time out**: centang semua butir lalu konfirmasi. Persetujuan diperiksa ulang;
    bila sudah dicabut setelah sign in, time out tertahan. Sebelum time out, tombol insisi nonaktif dengan alasan
    "Time out belum lengkap (N butir tersisa). Insisi terkunci sampai time out dikonfirmasi."
-6. **Catat insisi**, lalu isi "Hitung kasa": hitung awal (Kasa, Jarum, Instrumen), tambahan bila ada, hitung akhir.
+7. **Catat insisi**, lalu isi "Hitung kasa": hitung awal (Kasa, Jarum, Instrumen), tambahan bila ada, hitung akhir.
    Selisih memunculkan "Hitung akhir kasa/instrumen belum cocok…" dan formulir tindak lanjut per butir.
-7. **Catat luka ditutup**, lengkapi **Sign out** (butir hitung diisi sistem setelah semua cocok atau ditindaklanjuti),
+8. **Catat luka ditutup**, lengkapi **Sign out** (butir hitung diisi sistem setelah semua cocok atau ditindaklanjuti),
    lalu **Catat pasien keluar kamar**. Status menjadi Selesai.
-8. BHP/implan dari stok DEPO-OK dicatat di panel BHP (stok berkurang lewat ledger, FEFO dan kedaluwarsa ditegakkan DB).
-9. Operator menulis "Laporan operasi" (diagnosa pra/pasca ICD-10, ICD-9-CM, temuan, komplikasi, perdarahan, spesimen)
-   dan menekan **Simpan dan tanda tangani (TTE operator)**. Laporan berversi: API menerima koreksi dan adendum (`revision`), layar 4.7 baru menulis versi pertama.
+9. BHP/implan dari stok DEPO-OK dicatat di panel BHP (stok berkurang lewat ledger, FEFO dan kedaluwarsa ditegakkan DB).
+10. Operator menulis "Laporan operasi" (diagnosa pra/pasca ICD-10, ICD-9-CM, temuan, komplikasi, perdarahan, implan,
+    "Spesimen dikirim ke patologi anatomi") dan menekan **Simpan dan tanda tangani (TTE operator)**. Versi ber-TTE
+    terkunci: **Tambah adendum** ("Isi adendum", TTE operator) selalu tersedia; **Koreksi laporan** (versi baru dengan
+    alasan minimal 10 karakter) hanya muncul bila TTE versi itu gagal.
+11. Bila laporan menyatakan ada spesimen, region **Spesimen patologi anatomi** meminta asal jaringan, pemeriksaan
+    (histopatologi, potong beku, sitologi, imunohistokimia), fiksatif (potong beku harus segar), jumlah wadah, diagnosis
+    klinis, dan cito. **Kirim spesimen ke PA** memberi label `OK-YYMM-NNNN-S1`, `-S2`, … dan menerbitkan event
+    `surgery.specimen_sent`; order PA dibuat modul S02 (potongan 4.8).
 
 Gerbang yang ditegakkan server dan DB (trigger 4.0b): urutan sign in, time out, sign out; semua butir lengkap;
-induksi butuh sign in; insisi butuh time out kecuali **Override insisi** oleh pemegang `surgery.override` (dokter
-berelasi) dengan alasan minimal setelan RS (bawaan 15 karakter). Override tercatat di peristiwa, diaudit, dan
+induksi butuh sign in; insisi butuh time out kecuali **Override insisi** oleh **operator atau dokter anestesi kasus itu** (anggota tim
+aktif) yang memegang `surgery.override`, dengan alasan minimal setelan RS (bawaan 15 karakter). Dokter lain yang
+berelasi dengan pasien (DPJP bangsal, asisten) ditolak 403 dan tombolnya tidak tampil (ADR-0130). Override tercatat di peristiwa, diaudit, dan
 memberi notifikasi `surgery_override` ke auditor mutu dan manajemen. Sign out butuh insisi dan hitung cocok; pasien
 keluar butuh sign out. Kasir dan apoteker tidak punya izin `surgery.*` (403).
 
-Papan diperbarui langsung lewat SSE `GET /api/v1/support/streams/surgery-board?date=` (kanal 4.1a, BFF
-`/penunjang/kamar-operasi/events`), dengan penanda "Langsung · tersambung". Kanal hanya mengirim perubahan status
-kasus (terjadwal, persiapan, berjalan, selesai, batal); centang butir dan hitung dari jendela lain tampil saat papan
-dimuat ulang berikutnya. Setiap aksi sendiri juga memuat ulang papan.
-
-Belum di 4.7: asesmen pra-anestesi dan catatan anestesi lewat formulir P07, dan order PA (S02) dari spesimen
-laporan.
+Papan diperbarui langsung lewat SSE aktivitas `GET /api/v1/surgery/board/events?date=` (BFF
+`/penunjang/kamar-operasi/events`), dengan penanda "Langsung · tersambung". Setiap baris baru kasus (status, centang
+butir, konfirmasi fase, peristiwa, hitung, tindak lanjut, BHP, laporan, spesimen, formulir anestesi) memicu muat ulang
+papan di jendela lain; muatan hanya ID. Setiap aksi sendiri juga memuat ulang papan.
 
 ## Pusat hasil kritis
 

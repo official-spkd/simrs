@@ -3,6 +3,7 @@ import { AuthzModule } from '../authz/authz.module';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { SurgeryAccess } from './surgery-access';
 import { SurgeryBoardService } from './surgery-board.service';
+import { SurgeryStreamController } from './surgery-stream.controller';
 import { SurgeryController } from './surgery.controller';
 import { SurgeryService } from './surgery.service';
 
@@ -12,7 +13,7 @@ import { SurgeryService } from './surgery.service';
  */
 @Module({
   imports: [AuthzModule, NotificationsModule],
-  controllers: [SurgeryController],
+  controllers: [SurgeryController, SurgeryStreamController],
   providers: [SurgeryService, SurgeryBoardService, SurgeryAccess],
 })
 export class SurgeryModule {}
