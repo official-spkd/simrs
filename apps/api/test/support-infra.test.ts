@@ -316,7 +316,8 @@ async function labFixture(
         patientId: p.id,
         unitId: units.LAB as string,
         priority: 'cito',
-        status: 'hasil',
+        // Rilis = order selesai (ResultsQueryService hanya membaca rilis yang masih berlaku).
+        status: opts.released ? 'selesai' : 'hasil',
         idempotencyKey: newId(),
         acceptedBy: analyst,
         releasedAt: opts.released ? new Date() : null,

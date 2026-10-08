@@ -1200,6 +1200,7 @@ export class LabService {
         WHERE r.patient_id IN (SELECT app_patient_group(${o.patientId}::uuid))
           AND r.loinc = ANY(${loincs}::text[]) AND r.lab_order_id <> ${o.id}::uuid
           AND r.status = 'final' AND r.value_numeric IS NOT NULL AND lo.released_at IS NOT NULL
+          AND lo.status = 'selesai'
       ) x WHERE n <= 5 ORDER BY loinc, at ASC`;
     const out: LabOrderDetail['previous'] = {};
     for (const r of rows) {
