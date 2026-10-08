@@ -41,6 +41,8 @@ export * from './schemas/nursing';
 export * from './schemas/inpatient';
 export * from './schemas/penunjang';
 export * from './schemas/penunjang-api';
+export * from './schemas/farmasi-api';
+export * from './schemas/dispensing-api';
 export * from './schemas/gizi-darah';
 export * from './schemas/kamar-operasi';
 export * from './schemas/surgery-board';

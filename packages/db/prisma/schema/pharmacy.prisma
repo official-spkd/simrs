@@ -63,6 +63,8 @@ model StockMovement {
   refType         String   @map("ref_type")
   refId           String   @map("ref_id") @db.Uuid
   reason          String?
+  /// Harga pokok per satuan baris penerimaan (`receipt`, rupiah bigint); null untuk jenis lain. Dibaca HPP/jurnal fase 5.
+  unitCost        BigInt?  @map("unit_cost")
   encounterId     String?  @map("encounter_id") @db.Uuid
   patientId       String?  @map("patient_id") @db.Uuid
   createdBy       String   @map("created_by") @db.Uuid
@@ -102,6 +104,8 @@ model StockReceipt {
 
   @@unique([tenantId, id])
   @@unique([tenantId, receiptNo])
+  /// Satu faktur pemasok diterima sekali (4.6a-2).
+  @@unique([tenantId, supplierId, invoiceNo])
   @@map("stock_receipts")
 }
 
@@ -112,7 +116,7 @@ model StockTransfer {
   transferNo          String    @map("transfer_no")
   fromStockLocationId String    @map("from_stock_location_id") @db.Uuid
   toStockLocationId   String    @map("to_stock_location_id") @db.Uuid
-  /// dikirim | diterima
+  /// dikirim | diterima | dibatalkan
   status              String    @default("dikirim")
   /// Item `[{stockBatchId, quantity}]` beku saat dikirim.
   items               Json
@@ -120,12 +124,17 @@ model StockTransfer {
   sentAt              DateTime  @default(now()) @map("sent_at") @db.Timestamptz(3)
   receivedBy          String?   @map("received_by") @db.Uuid
   receivedAt          DateTime? @map("received_at") @db.Timestamptz(3)
+  /// Pembatalan mutasi yang tersangkut `dikirim` (4.6a-2): stok kembali ke depo asal lewat ledger pembalik.
+  cancelledBy         String?   @map("cancelled_by") @db.Uuid
+  cancelledAt         DateTime? @map("cancelled_at") @db.Timestamptz(3)
+  cancelReason        String?   @map("cancel_reason")
 
-  tenant   Tenant        @relation(fields: [tenantId], references: [id])
-  from     StockLocation @relation("StockTransferFrom", fields: [tenantId, fromStockLocationId], references: [tenantId, id])
-  to       StockLocation @relation("StockTransferTo", fields: [tenantId, toStockLocationId], references: [tenantId, id])
-  sender   User          @relation("StockTransferSender", fields: [tenantId, sentBy], references: [tenantId, id])
-  receiver User?         @relation("StockTransferReceiver", fields: [tenantId, receivedBy], references: [tenantId, id])
+  tenant    Tenant        @relation(fields: [tenantId], references: [id])
+  from      StockLocation @relation("StockTransferFrom", fields: [tenantId, fromStockLocationId], references: [tenantId, id])
+  to        StockLocation @relation("StockTransferTo", fields: [tenantId, toStockLocationId], references: [tenantId, id])
+  sender    User          @relation("StockTransferSender", fields: [tenantId, sentBy], references: [tenantId, id])
+  receiver  User?         @relation("StockTransferReceiver", fields: [tenantId, receivedBy], references: [tenantId, id])
+  canceller User?         @relation("StockTransferCanceller", fields: [tenantId, cancelledBy], references: [tenantId, id])
 
   @@unique([tenantId, id])
   @@unique([tenantId, transferNo])
@@ -175,6 +184,7 @@ model PharmacyPrescription {
   statusHistory PharmacyPrescriptionStatusHistory[]
   reviews       PrescriptionReview[]
   interventions PharmacistIntervention[]
+  cdsAlerts     PharmacyCdsAlert[]
   dispenses     Dispense[]
 
   @@unique([tenantId, id])
@@ -352,4 +362,54 @@ model DispenseReturn {
   @@unique([tenantId, id])
   @@index([tenantId, dispenseItemId])
   @@map("dispense_returns")
+}
+
+/// S04 · Temuan CDS saat telaah farmasi (4.5, append-only): satu putaran evaluasi = satu `evaluation_id`; yang berlaku =
+/// putaran terbaru. `prescriber_override` = dokter meng-override temuan blok di CPOE (wajib ditinjau apoteker).
+model PharmacyCdsAlert {
+  id                     String   @id @db.Uuid
+  tenantId               String   @map("tenant_id") @db.Uuid
+  pharmacyPrescriptionId String   @map("pharmacy_prescription_id") @db.Uuid
+  evaluationId           String   @map("evaluation_id") @db.Uuid
+  medicationRequestIds   String[] @map("medication_request_ids") @db.Uuid
+  /// mayor | sedang | info
+  level                  String
+  /// interaksi | dosis-ginjal | alergi | kontraindikasi | high-alert
+  kind                   String
+  ruleCode               String   @map("rule_code")
+  ruleVersion            Int?     @map("rule_version")
+  title                  String
+  detail                 String
+  recommendation         String?
+  prescriberOverride     Boolean  @default(false) @map("prescriber_override")
+  createdBy              String   @map("created_by") @db.Uuid
+  createdAt              DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  tenant       Tenant                    @relation(fields: [tenantId], references: [id])
+  prescription PharmacyPrescription      @relation(fields: [tenantId, pharmacyPrescriptionId], references: [tenantId, id])
+  creator      User                      @relation("PharmacyCdsAlertCreator", fields: [tenantId, createdBy], references: [tenantId, id])
+  decision     PharmacyCdsAlertDecision?
+
+  @@unique([tenantId, id])
+  @@index([tenantId, pharmacyPrescriptionId, createdAt])
+  @@map("pharmacy_cds_alerts")
+}
+
+/// S04 · Tindak lanjut apoteker atas temuan CDS (append-only, satu per temuan): konfirmasi | override (beralasan) | usul.
+model PharmacyCdsAlertDecision {
+  id        String   @id @db.Uuid
+  tenantId  String   @map("tenant_id") @db.Uuid
+  alertId   String   @map("alert_id") @db.Uuid
+  decision  String
+  reason    String?
+  decidedBy String   @map("decided_by") @db.Uuid
+  decidedAt DateTime @default(now()) @map("decided_at") @db.Timestamptz(3)
+
+  tenant  Tenant           @relation(fields: [tenantId], references: [id])
+  alert   PharmacyCdsAlert @relation(fields: [tenantId, alertId], references: [tenantId, id])
+  decider User             @relation("PharmacyCdsAlertDecider", fields: [tenantId, decidedBy], references: [tenantId, id])
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, alertId])
+  @@map("pharmacy_cds_alert_decisions")
 }

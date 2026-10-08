@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { IdempotencyService } from '../../common/idempotency';
 import { NumberingModule } from '../numbering/numbering.module';
 import { StockController } from './stock.controller';
 import { StockService } from './stock.service';
@@ -7,7 +8,7 @@ import { StockService } from './stock.service';
 @Module({
   imports: [NumberingModule],
   controllers: [StockController],
-  providers: [StockService],
+  providers: [StockService, IdempotencyService],
   exports: [StockService],
 })
 export class StockModule {}

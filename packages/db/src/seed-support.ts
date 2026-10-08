@@ -460,6 +460,7 @@ export async function seedSupportStock(
           stockBatchId: batch.id,
           kind: 'receipt',
           quantity: target === 'GUDANG' ? qty : Math.ceil(qty / 4),
+          unitCost,
           refType: 'stock_receipts',
           refId: receiptId,
           createdBy: actorUserId,

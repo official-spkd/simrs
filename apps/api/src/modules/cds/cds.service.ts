@@ -316,13 +316,31 @@ export class CdsService {
   async evaluate(
     encounter: { id: string; patientId: string },
     items: readonly OrderLineInput[],
+    /**
+     * Telaah farmasi (4.5): obat resep yang sedang ditelaah sudah aktif, jadi satu kemunculan per obat ini dikeluarkan
+     * dari "obat aktif" agar tidak terbaca sebagai duplikasi dirinya sendiri.
+     */
+    opts: { excludeActiveDrugIds?: readonly string[] } = {},
   ): Promise<{ lines: EvaluatedLine[]; patient: CdsPatientContext }> {
     const resolved = await this.resolve(items);
-    const [patient, kb, abbreviations] = await Promise.all([
+    const [context, kb, abbreviations] = await Promise.all([
       this.patientContext(encounter.id, encounter.patientId),
       this.knowledgeBase(),
       this.abbreviations(),
     ]);
+    const dropOnce = (ids: string[]) => (id: string | null) => {
+      const i = ids.indexOf(id ?? '');
+      if (i < 0) return true;
+      ids.splice(i, 1);
+      return false;
+    };
+    const activeLeft = dropOnce([...(opts.excludeActiveDrugIds ?? [])]);
+    const recentLeft = dropOnce([...(opts.excludeActiveDrugIds ?? [])]);
+    const patient: CdsPatientContext = {
+      ...context,
+      activeMeds: context.activeMeds.filter((m) => activeLeft(m.itemId)),
+      recentOrders: context.recentOrders?.filter((r) => r.kind !== 'obat' || recentLeft(r.itemId)),
+    };
     const cdsItems = resolved.map((r, i): CdsOrderItem[] => {
       const line = items[i] as OrderLineInput;
       if (r.type === 'layanan') {

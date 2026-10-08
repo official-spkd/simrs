@@ -41,6 +41,8 @@ model Tenant {
   pharmacyPrescriptionStatusHistories PharmacyPrescriptionStatusHistory[]
   prescriptionReviews                 PrescriptionReview[]
   pharmacistInterventions             PharmacistIntervention[]
+  pharmacyCdsAlerts                   PharmacyCdsAlert[]
+  pharmacyCdsAlertDecisions           PharmacyCdsAlertDecision[]
   pharmacistInterventionResponses     PharmacistInterventionResponse[]
   dispenses                           Dispense[]
   dispenseItems                       DispenseItem[]

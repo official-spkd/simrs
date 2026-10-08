@@ -16,5 +16,6 @@ import { OrdersView } from './orders-view';
   imports: [AuthzModule, CdsModule, DocumentsModule],
   controllers: [OrdersController, EncounterOrdersController],
   providers: [OrdersService, OrderCatalogService, OrdersView],
+  exports: [OrdersView],
 })
 export class OrdersModule {}

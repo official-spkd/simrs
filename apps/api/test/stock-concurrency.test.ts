@@ -41,7 +41,9 @@ const as = (who: string) => {
   const http = () => request(app.getHttpServer());
   return {
     get: (url: string) => http().get(`/api/v1${url}`).set(auth()),
-    post: (url: string, body: object = {}) => http().post(`/api/v1${url}`).set(auth()).send(body),
+    // Idempotency-Key baru per permintaan (tiap permintaan = tindakan berbeda) kecuali diberikan.
+    post: (url: string, body: object = {}, key: string = newId()) =>
+      http().post(`/api/v1${url}`).set(auth()).set('Idempotency-Key', key).send(body),
   };
 };
 const day = (offset: number) => isoDateJakarta(new Date(Date.now() + offset * 86_400_000));
@@ -197,16 +199,16 @@ describe('stok depo di bawah beban (audit BUG, 4.6a)', () => {
       quantity: 5,
       unitCost: '100',
     });
-    const receive = (first: boolean) =>
+    const receive = (first: boolean, i: number) =>
       as('apoteker').post('/stock/receipts', {
         stockLocationId: loc['DEPO-RJ'],
         supplierId: supplier,
-        invoiceNo: `FKT-${tag}`,
+        invoiceNo: `FKT-${tag}-${i}`,
         items: first
           ? [line(d1, `X1-${tag}`), line(d2, `X2-${tag}`)]
           : [line(d2, `X2-${tag}`), line(d1, `X1-${tag}`)],
       });
-    const rec = await Promise.all(Array.from({ length: 10 }, (_, i) => receive(i % 2 === 0)));
+    const rec = await Promise.all(Array.from({ length: 10 }, (_, i) => receive(i % 2 === 0, i)));
     expect(rec.map((r) => r.status).filter((s) => s !== 201)).toEqual([]);
     // Batch baru serentak = satu baris batch per obat + nomor batch.
     const created = await run(A.id, (tx) => tx.stockBatch.count({ where: { batchNo: { endsWith: tag } } }));
