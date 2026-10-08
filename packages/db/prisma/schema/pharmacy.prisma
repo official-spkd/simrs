@@ -184,6 +184,7 @@ model PharmacyPrescription {
   statusHistory PharmacyPrescriptionStatusHistory[]
   reviews       PrescriptionReview[]
   interventions PharmacistIntervention[]
+  cdsAlerts     PharmacyCdsAlert[]
   dispenses     Dispense[]
 
   @@unique([tenantId, id])
@@ -361,4 +362,54 @@ model DispenseReturn {
   @@unique([tenantId, id])
   @@index([tenantId, dispenseItemId])
   @@map("dispense_returns")
+}
+
+/// S04 · Temuan CDS saat telaah farmasi (4.5, append-only): satu putaran evaluasi = satu `evaluation_id`; yang berlaku =
+/// putaran terbaru. `prescriber_override` = dokter meng-override temuan blok di CPOE (wajib ditinjau apoteker).
+model PharmacyCdsAlert {
+  id                     String   @id @db.Uuid
+  tenantId               String   @map("tenant_id") @db.Uuid
+  pharmacyPrescriptionId String   @map("pharmacy_prescription_id") @db.Uuid
+  evaluationId           String   @map("evaluation_id") @db.Uuid
+  medicationRequestIds   String[] @map("medication_request_ids") @db.Uuid
+  /// mayor | sedang | info
+  level                  String
+  /// interaksi | dosis-ginjal | alergi | kontraindikasi | high-alert
+  kind                   String
+  ruleCode               String   @map("rule_code")
+  ruleVersion            Int?     @map("rule_version")
+  title                  String
+  detail                 String
+  recommendation         String?
+  prescriberOverride     Boolean  @default(false) @map("prescriber_override")
+  createdBy              String   @map("created_by") @db.Uuid
+  createdAt              DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  tenant       Tenant                    @relation(fields: [tenantId], references: [id])
+  prescription PharmacyPrescription      @relation(fields: [tenantId, pharmacyPrescriptionId], references: [tenantId, id])
+  creator      User                      @relation("PharmacyCdsAlertCreator", fields: [tenantId, createdBy], references: [tenantId, id])
+  decision     PharmacyCdsAlertDecision?
+
+  @@unique([tenantId, id])
+  @@index([tenantId, pharmacyPrescriptionId, createdAt])
+  @@map("pharmacy_cds_alerts")
+}
+
+/// S04 · Tindak lanjut apoteker atas temuan CDS (append-only, satu per temuan): konfirmasi | override (beralasan) | usul.
+model PharmacyCdsAlertDecision {
+  id        String   @id @db.Uuid
+  tenantId  String   @map("tenant_id") @db.Uuid
+  alertId   String   @map("alert_id") @db.Uuid
+  decision  String
+  reason    String?
+  decidedBy String   @map("decided_by") @db.Uuid
+  decidedAt DateTime @default(now()) @map("decided_at") @db.Timestamptz(3)
+
+  tenant  Tenant           @relation(fields: [tenantId], references: [id])
+  alert   PharmacyCdsAlert @relation(fields: [tenantId, alertId], references: [tenantId, id])
+  decider User             @relation("PharmacyCdsAlertDecider", fields: [tenantId, decidedBy], references: [tenantId, id])
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, alertId])
+  @@map("pharmacy_cds_alert_decisions")
 }

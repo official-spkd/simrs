@@ -27,6 +27,8 @@ model User {
   prescriptionReviewers        PrescriptionReview[]             @relation("PrescriptionReviewer")
   interventionPrescribers      PharmacistIntervention[]         @relation("InterventionPrescriber")
   interventionCreators         PharmacistIntervention[]         @relation("InterventionCreator")
+  pharmacyCdsAlertCreators     PharmacyCdsAlert[]               @relation("PharmacyCdsAlertCreator")
+  pharmacyCdsAlertDeciders     PharmacyCdsAlertDecision[]       @relation("PharmacyCdsAlertDecider")
   interventionResponders       PharmacistInterventionResponse[] @relation("InterventionResponder")
   dispensePreparers            Dispense[]                       @relation("DispensePreparer")
   dispenseDoubleCheckers       Dispense[]                       @relation("DispenseDoubleChecker")
