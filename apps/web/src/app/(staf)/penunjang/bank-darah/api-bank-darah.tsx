@@ -1,8 +1,12 @@
-import { ABO_RH_LABEL } from '@simrs/shared';
 import { Chip } from '@simrs/ui';
 import Link from 'next/link';
 import { EncounterBanner, EncounterGate } from '@/components/klinis/encounter-screen';
-import { BloodRequestCard, BloodRequestForm, BloodUnitForm } from '@/components/penunjang/bank-darah-api';
+import {
+  BloodRequestCard,
+  BloodRequestForm,
+  BloodUnitForm,
+  StockUnitRow,
+} from '@/components/penunjang/bank-darah-api';
 import { resolveEncounter } from '@/lib/server/data/klinis/encounter-screen';
 import { bloodBoard } from '@/lib/server/data/penunjang/penunjang-api';
 import { can, type SessionView } from '@/lib/session-view';
@@ -33,6 +37,7 @@ export async function ApiBankDarah({
     crossmatch: can(session, 'blood_bank', 'crossmatch'),
     issue: can(session, 'blood_bank', 'issue'),
     transfuse: can(session, 'blood_bank', 'transfuse'),
+    cancel: can(session, 'blood_bank', 'request') || can(session, 'blood_bank', 'crossmatch'),
   };
   const canRequest = can(session, 'blood_bank', 'request');
   const res = kunjungan !== undefined || pilih ? await resolveEncounter(kunjungan) : null;
@@ -40,7 +45,7 @@ export async function ApiBankDarah({
   const board = await bloodBoard(encounterId);
   const active = board.requests.filter((r) => r.status === 'diminta' || r.status === 'diproses');
   const closed = board.requests.filter((r) => !(r.status === 'diminta' || r.status === 'diproses'));
-  const stock = board.units.filter((u) => !u.expired);
+  const stock = board.units;
 
   return (
     <div className="flex flex-col gap-4">
@@ -86,12 +91,9 @@ export async function ApiBankDarah({
       {board.view === 'layanan' && (
         <section aria-label="Stok kantong" className={CARD}>
           <h2 className="m-0 text-body font-semibold">Stok kantong ({stock.length})</h2>
-          <ul className="m-0 grid list-none grid-cols-1 gap-1 p-0 text-small sm:grid-cols-2">
+          <ul className="m-0 flex list-none flex-col gap-1 p-0 text-small">
             {stock.map((u) => (
-              <li key={u.id}>
-                <span className="font-mono">{u.bagNo}</span> · {u.component.code} ·{' '}
-                {ABO_RH_LABEL(u.abo, u.rh)} · ED {u.expiresAt.slice(0, 10)} · {u.status}
-              </li>
+              <StockUnitRow key={u.id} unit={u} me={perms.me} canDispose={perms.issue} />
             ))}
           </ul>
           {perms.crossmatch && (

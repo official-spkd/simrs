@@ -37,6 +37,21 @@ export const LIS_HL7_CONTENT_TYPES = [
   'text/plain',
 ] as const;
 
+/** Charset body HL7 yang diterima (parameter `charset` Content-Type; tanpa parameter = UTF-8). Lainnya → 415. */
+export const LIS_HL7_CHARSETS = {
+  'utf-8': 'utf8',
+  utf8: 'utf8',
+  'iso-8859-1': 'latin1',
+  latin1: 'latin1',
+} as const;
+
+/** Encoding Node untuk Content-Type HL7, atau null bila charset tidak didukung. */
+export function lisHl7Encoding(contentType: string | undefined): 'utf8' | 'latin1' | null {
+  const param = /;\s*charset\s*=\s*"?([^";\s]+)"?/i.exec(contentType ?? '')?.[1]?.toLowerCase();
+  if (param === undefined) return 'utf8';
+  return (LIS_HL7_CHARSETS as Record<string, 'utf8' | 'latin1'>)[param] ?? null;
+}
+
 export function isInboundSource(source: string): source is InboundSource {
   return Object.hasOwn(INBOUND_SOURCES, source);
 }
