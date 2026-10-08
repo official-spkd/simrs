@@ -71,10 +71,20 @@ export class BloodBankController {
     return this.bank.createRequest(body);
   }
 
-  /** Pembatalan beralasan; service memeriksa peminta (`request`) atau bank darah (`crossmatch`). */
-  @RequirePermission('blood_bank', 'read')
+  /** Pembatalan beralasan oleh DPJP peminta (`blood_bank.request`). */
+  @RequirePermission('blood_bank', 'request')
   @Post('requests/:id/cancel')
   cancel(
+    @Param('id', uuid) id: string,
+    @Body(new ZodValidationPipe(bloodRequestCancelInputSchema)) body: BloodRequestCancelInput,
+  ) {
+    return this.bank.cancel(id, body);
+  }
+
+  /** Pembatalan beralasan oleh bank darah (`blood_bank.crossmatch`), mis. sampel tidak layak. */
+  @RequirePermission('blood_bank', 'crossmatch')
+  @Post('requests/:id/reject')
+  reject(
     @Param('id', uuid) id: string,
     @Body(new ZodValidationPipe(bloodRequestCancelInputSchema)) body: BloodRequestCancelInput,
   ) {

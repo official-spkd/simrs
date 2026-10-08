@@ -5,6 +5,7 @@ import { QUEUE_SERVICE_KINDS } from './schemas/queue';
 import { MEDICATION_ADMINISTRATION_STATUSES } from './clinical/emar';
 import { BED_STATUSES, DISCHARGE_DISPOSITIONS } from './schemas/rawat-inap';
 import { SUPPORT_PRIORITIES } from './schemas/penunjang';
+import { surgerySpecimenSentPayloadSchema } from './schemas/surgery-specimen';
 import {
   CRITICAL_SOURCES,
   DIAGNOSTIC_KINDS,
@@ -194,6 +195,8 @@ const SUPPORT_DOMAIN_EVENT_SCHEMAS = {
   }),
   /** S06 · Kasus dibatalkan (beralasan; alasan di tabel, bukan di event). */
   'surgery.case_cancelled': z.strictObject({ surgeryCaseId: uuid, ...supportEncounter, roomId: uuid }),
+  /** S06 → S02 · Spesimen operasi dikirim ke PA (4.7b); penangan 4.8 membuat order PA (`schemas/surgery-specimen.ts`). */
+  'surgery.specimen_sent': surgerySpecimenSentPayloadSchema,
   /** S08 · Kantong darah dikeluarkan; `emergency` = jalur darurat tanpa crossmatch (keputusan no. 22). */
   'blood.unit_issued': z.strictObject({
     bloodIssueId: uuid,
@@ -458,6 +461,7 @@ export function bpjsTaskForEvent(
     case 'surgery.incision_recorded':
     case 'surgery.case_completed':
     case 'surgery.case_cancelled':
+    case 'surgery.specimen_sent':
     case 'blood.unit_issued':
     case 'diagnostic.report_signed':
     case 'micro.report_released':

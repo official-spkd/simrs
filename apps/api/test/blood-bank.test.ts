@@ -594,8 +594,12 @@ describe('bank darah (S08)', () => {
         .body.code,
     ).toBe('CONFLICT');
     await as('analis')
-      .post(`/blood/requests/${rq.id}/cancel`, { reason: 'Pembatalan kedua tidak boleh' })
+      .post(`/blood/requests/${rq.id}/reject`, { reason: 'Pembatalan kedua tidak boleh' })
       .expect(409);
+    // Bank darah memakai rute `reject`; rute `cancel` milik peminta.
+    await as('analis')
+      .post(`/blood/requests/${rq.id}/cancel`, { reason: 'Bukan peminta tidak boleh' })
+      .expect(403);
   });
 
   it('4.9b: pemusnahan kantong dua petugas; kedaluwarsa hanya bila ED lewat; kantong musnah tidak keluar', async () => {

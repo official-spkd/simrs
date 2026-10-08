@@ -4,7 +4,7 @@ import {
   formatJam,
   formatTanggal,
   formatTanggalLahir,
-  SUPPORT_SSE_EVENTS,
+  SURGERY_ACTIVITY_SSE_EVENT,
   type SurgeryBoard,
 } from '@simrs/shared';
 import { Alert, Button, Chip, PatientBanner } from '@simrs/ui';
@@ -19,10 +19,10 @@ import {
   CountPanel,
   EventPanel,
   type Msg,
-  ReportPanel,
   ScheduleForm,
   SuppliesPanel,
 } from './ok-api-panels';
+import { type AnesthesiaFormDef, AnesthesiaPanel, ReportPanel, SpecimenPanel } from './ok-api-report';
 
 export interface OkPermissions {
   schedule: boolean;
@@ -33,9 +33,9 @@ export interface OkPermissions {
 }
 
 const SEX_SHORT = { male: 'L', female: 'P' } as const;
-/** Kanal 4.1a hanya mengirim perubahan status kasus (tanpa potret awal); nama potret ini tidak pernah datang. */
-const NO_SNAPSHOT = 'surgery.board.snapshot';
-const CHANGE_EVENTS = [SUPPORT_SSE_EVENTS.surgeryBoard] as const;
+/** Aliran aktivitas OK (4.7b) tanpa potret awal; nama potret ini tidak pernah datang (sambung ulang → `reset`). */
+const NO_SNAPSHOT = 'surgery.activity.snapshot';
+const CHANGE_EVENTS = [SURGERY_ACTIVITY_SSE_EVENT] as const;
 
 function shiftDate(date: string, days: number): string {
   const d = new Date(`${date}T12:00:00+07:00`);
@@ -56,6 +56,9 @@ export function OkApiClient({
   userId,
   staff,
   supplies,
+  anesthesiaForms,
+  role,
+  canWriteForms,
 }: {
   tenantName: string;
   board: SurgeryBoard;
@@ -70,6 +73,10 @@ export function OkApiClient({
     expiryDate: string;
     quantity: number;
   }>;
+  anesthesiaForms: { pre: AnesthesiaFormDef | null; record: AnesthesiaFormDef | null };
+  /** Kode peran sesi (hak tulis formulir per profesi). */
+  role: string | null;
+  canWriteForms: boolean;
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -242,6 +249,13 @@ export function OkApiClient({
                 : 'Persetujuan tindakan bertanda tangan belum ada (atau dicabut). Sign in dan time out tertahan sampai persetujuan final di tablet persetujuan.'}
             </Alert>
             <ChecklistPanel key={`${sel.c.id}-cl`} c={sel.c} canWrite={perms.checklist} onDone={done} />
+            <AnesthesiaPanel
+              key={`${sel.c.id}-an`}
+              c={sel.c}
+              forms={anesthesiaForms}
+              role={role}
+              canWrite={canWriteForms}
+            />
           </section>
           <div className="flex min-w-0 flex-col gap-4">
             <EventPanel
@@ -267,6 +281,14 @@ export function OkApiClient({
             />
             <ReportPanel
               key={`${sel.c.id}-rep`}
+              c={sel.c}
+              isOperator={
+                perms.report && sel.c.team.some((t) => t.userId === userId && t.role === 'operator')
+              }
+              onDone={done}
+            />
+            <SpecimenPanel
+              key={`${sel.c.id}-pa`}
               c={sel.c}
               isOperator={
                 perms.report && sel.c.team.some((t) => t.userId === userId && t.role === 'operator')

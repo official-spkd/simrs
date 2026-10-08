@@ -11,6 +11,7 @@ import {
   SURGERY_TEAM_ROLES,
 } from './kamar-operasi';
 import { clinicalRevisionSchema } from './klinis';
+import { surgerySpecimenViewSchema } from './surgery-specimen';
 
 /**
  * S06 · Jawaban API kamar operasi untuk layar mode api (rencana fase 4 §4.7). Kontrak masukan per aksi ada di
@@ -46,6 +47,25 @@ export const surgeryChecklistViewSchema = z.strictObject({
   confirmedBy: z.string().nullable(),
 });
 export type SurgeryChecklistView = z.infer<typeof surgeryChecklistViewSchema>;
+
+/** Satu versi/adendum laporan operasi di layar (isi lengkap untuk prefill koreksi dan adendum). */
+export const operativeReportViewSchema = z.strictObject({
+  id: uuid,
+  version: z.int().min(1),
+  recordedAt: instant,
+  author: z.string(),
+  preOpDiagnosis: z.strictObject({ icd10: z.string(), label: z.string() }),
+  postOpDiagnosis: z.strictObject({ icd10: z.string(), label: z.string() }),
+  procedureCodes: z.array(z.string()),
+  findings: z.string(),
+  complications: z.string(),
+  bloodLossMl: z.int().min(0),
+  implants: z.string(),
+  paSpecimen: z.boolean(),
+  signatureStatus: z.enum(SIGNATURE_STATUSES).nullable(),
+  documentId: uuid.nullable(),
+});
+export type OperativeReportView = z.infer<typeof operativeReportViewSchema>;
 
 export const surgeryCaseViewSchema = z.strictObject({
   id: uuid,
@@ -104,18 +124,31 @@ export const surgeryCaseViewSchema = z.strictObject({
       implant: z.boolean(),
     }),
   ),
-  report: z
-    .strictObject({
-      id: uuid,
-      version: z.int().min(1),
-      recordedAt: instant,
-      author: z.string(),
-      postOpDiagnosis: z.strictObject({ icd10: z.string(), label: z.string() }),
-      procedureCodes: z.array(z.string()),
-      signatureStatus: z.enum(SIGNATURE_STATUSES).nullable(),
-      documentId: uuid.nullable(),
+  /** Laporan operasi terkini (versi terakhir yang tidak digantikan) + adendumnya; null = belum ada. */
+  report: operativeReportViewSchema
+    .extend({
+      /** Alasan koreksi versi ini (null untuk versi 1). */
+      correctionReason: z.string().nullable(),
+      addenda: z.array(operativeReportViewSchema),
     })
     .nullable(),
+  /** Asesmen pra-anestesi dan catatan anestesi (formulir P07) kunjungan kasus. */
+  anesthesia: z.strictObject({
+    /** Asesmen pra-anestesi final terkini; null = belum ada (sign in tertahan). */
+    preAssessment: z
+      .strictObject({
+        id: uuid,
+        version: z.int().min(1),
+        recordedAt: instant,
+        author: z.string(),
+        asa: z.string().nullable(),
+      })
+      .nullable(),
+    records: z.array(
+      z.strictObject({ id: uuid, version: z.int().min(1), recordedAt: instant, author: z.string() }),
+    ),
+  }),
+  specimens: z.array(surgerySpecimenViewSchema),
   cancelReason: z.string().nullable(),
 });
 export type SurgeryCaseView = z.infer<typeof surgeryCaseViewSchema>;
@@ -194,3 +227,36 @@ export const surgeryCandidatesSchema = z.strictObject({
   ),
 });
 export type SurgeryCandidate = z.infer<typeof surgeryCandidatesSchema>['items'][number];
+
+/**
+ * Aliran SSE aktivitas papan OK (4.7b): setiap baris baru di tabel kasus (status, butir tilik, konfirmasi fase,
+ * peristiwa, hitung, tindak lanjut, BHP, laporan, spesimen, formulir anestesi) memicu `pg_notify` kanal
+ * `support_surgery_activity`. Muatan hanya ID (tanpa nama/isi klinis); layar memuat ulang papan yang diaudit.
+ * Kanal 4.1a `surgery.board` (riwayat status) tetap seperti adanya untuk pemakai lain.
+ */
+export const SURGERY_ACTIVITY_NOTIFY_CHANNEL = 'support_surgery_activity';
+export const SURGERY_ACTIVITY_SSE_EVENT = 'surgery.activity';
+export const SURGERY_ACTIVITY_SOURCES = [
+  'status',
+  'check',
+  'confirmation',
+  'event',
+  'count',
+  'discrepancy',
+  'supply',
+  'report',
+  'specimen',
+  'anesthesia_form',
+] as const;
+export type SurgeryActivitySource = (typeof SURGERY_ACTIVITY_SOURCES)[number];
+export interface SurgeryActivitySseEvent {
+  /** Id baris sumber (baris append-only baru → id unik per perubahan). */
+  eventId: string;
+  source: SurgeryActivitySource;
+  surgeryCaseId: string;
+  encounterId: string;
+  /** Unit kamar operasi (unit lokasi kamar). */
+  unitId: string;
+  /** Tanggal WIB jadwal mulai (`YYYY-MM-DD`). */
+  date: string;
+}

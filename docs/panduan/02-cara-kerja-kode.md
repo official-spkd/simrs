@@ -701,7 +701,7 @@ jawaban lain di `schemas/stock.ts`. Semua mutasi stok = baris `stock_movements`;
 Tes: `apps/api/test/stock.test.ts` (saldo = Σ ledger, penyesuaian serentak tidak pernah negatif, mutasi setengah jalan
 tidak menggandakan stok, batch ED ditolak, lingkup + isolasi), E2E `apps/web/e2e/depo-api.spec.ts`.
 
-### Kamar operasi (S06, fase 4 potongan 4.7)
+### Kamar operasi (S06, fase 4 potongan 4.7 + 4.7b)
 
 Modul `surgery` (`/api/v1/surgery`, modul RS `S06`), ADR-0106 di atas skema 4.0b (ADR-0037). Masukan di
 `schemas/penunjang-api.ts`, bentuk jawaban (papan, kasus, kandidat, staf, BHP) di `schemas/surgery-board.ts`. Lingkup
@@ -709,22 +709,30 @@ di `surgery-access.ts`: `unit` = unit berjenis `kamar_operasi`; `relationship` =
 (`PatientAccessService`). Galat trigger 4.0b (`CHECKLIST_ORDER`, `CHECKLIST_INCOMPLETE`, `TIMEOUT_REQUIRED`,
 `COUNT_MISMATCH`, stok) dan EXCLUDE kamar (23P01 → `ROOM_OVERLAP`) dipetakan `mapSurgeryDb` ke `SUPPORT_ERRORS`.
 
-| Endpoint `/api/v1/surgery/…`                     | Izin                | Isi                                                                                                       |
-| ------------------------------------------------ | ------------------- | --------------------------------------------------------------------------------------------------------- |
-| `GET board?date=`                                | `surgery.read`      | Kamar `ruang` unit OK, kasus yang beririsan dengan hari WIB, KPI, daftar tunggu 14 hari; audit per pasien |
-| `GET cases/:id`                                  | `surgery.read`      | Satu kasus (bentuk sama dengan papan)                                                                     |
-| `GET candidates?q=`, `GET staff`                 | `surgery.schedule`  | Kunjungan aktif menurut No. RM/nomor kunjungan (maks. 10, diaudit); staf klinis aktif untuk pilihan tim   |
-| `GET supplies/options`                           | `surgery.read`      | Saldo DEPO-OK (qty > 0, belum ED)                                                                         |
-| `POST cases`, `POST cases/:id/cancel`            | `surgery.schedule`  | Jadwal (nomor `OK-YYMM-NNNN`, templat daftar tilik terbaru, dokter tim → rawat bersama); batal beralasan  |
-| `POST cases/:id/checklist/items`                 | `surgery.checklist` | Centang butir manual; butir sistem (persetujuan, hitung) ditolak                                          |
-| `POST cases/:id/checklist/confirm`               | `surgery.checklist` | Sign in/time out memeriksa persetujuan tindakan 3.7 yang berlaku; sign out mengisi butir hitung           |
+| Endpoint `/api/v1/surgery/…`                     | Izin                | Isi                                                                                                                             |
+| ------------------------------------------------ | ------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| `GET board?date=`                                | `surgery.read`      | Kamar `ruang` unit OK, kasus yang beririsan dengan hari WIB, KPI, daftar tunggu 14 hari; audit per pasien                       |
+| `GET cases/:id`                                  | `surgery.read`      | Satu kasus (bentuk sama dengan papan)                                                                                           |
+| `GET candidates?q=`, `GET staff`                 | `surgery.schedule`  | Kunjungan aktif menurut No. RM/nomor kunjungan (maks. 10, diaudit); staf klinis aktif untuk pilihan tim                         |
+| `GET supplies/options`                           | `surgery.read`      | Saldo DEPO-OK (qty > 0, belum ED)                                                                                               |
+| `POST cases`, `POST cases/:id/cancel`            | `surgery.schedule`  | Jadwal (nomor `OK-YYMM-NNNN`, templat daftar tilik terbaru, dokter tim → rawat bersama); batal beralasan                        |
+| `POST cases/:id/checklist/items`                 | `surgery.checklist` | Centang butir manual; butir sistem (persetujuan, hitung) ditolak                                                                |
+| `POST cases/:id/checklist/confirm`               | `surgery.checklist` | Sign in/time out memeriksa persetujuan 3.7; sign in juga asesmen pra-anestesi final; sign out isi hitung                        |
 | `POST cases/:id/events`                          | `surgery.checklist` | Induksi/insisi/tutup/keluar; override insisi: operator/anestesi tim aktif + `surgery.override` + alasan ≥ setelan RS (ADR-0130) |
-| `POST cases/:id/counts`, `…/count-discrepancies` | `surgery.count`     | Hitung awal/tambahan/akhir; tindak lanjut selisih; terkunci setelah sign out                              |
-| `POST cases/:id/supplies`                        | `surgery.checklist` | BHP/implan: ledger `usage` DEPO-OK + `surgery_supply_usages`                                              |
-| `POST cases/:id/reports`                         | `surgery.report`    | Laporan operasi berversi (`ClinicalRecordService`), TTE operator lewat `issueSigned`; hanya operator      |
+| `POST cases/:id/counts`, `…/count-discrepancies` | `surgery.count`     | Hitung awal/tambahan/akhir; tindak lanjut selisih; terkunci setelah sign out                                                    |
+| `POST cases/:id/supplies`                        | `surgery.checklist` | BHP/implan: ledger `usage` DEPO-OK + `surgery_supply_usages`                                                                    |
+| `POST cases/:id/reports`                         | `surgery.report`    | Laporan berversi + koreksi (TTE gagal) / adendum laporan kasus ini; TTE operator `issueSigned`; operator                        |
+| `POST cases/:id/specimens`                       | `surgery.report`    | 4.7b · spesimen PA dari laporan terkini (`surgery_specimens`) → event `surgery.specimen_sent`; operator                         |
+| `GET board/events?date=`                         | `surgery.read`      | 4.7b · SSE aktivitas kasus (kanal `support_surgery_activity`, sinyal tanpa PHI, lingkup sama dengan papan)                      |
 
-Event: `surgery.case_scheduled`, `surgery.incision_recorded`, `surgery.case_completed`. Layar berlangganan SSE 4.1a
-`GET /support/streams/surgery-board?date=` lewat BFF `/penunjang/kamar-operasi/events` (hanya perubahan status kasus). Override insisi memberi
+Event: `surgery.case_scheduled`, `surgery.incision_recorded`, `surgery.case_completed`, `surgery.specimen_sent`
+(kontrak S06 → S02 di `schemas/surgery-specimen.ts`: penangan 4.8 membaca `surgery_specimens` lewat
+`surgerySpecimenId`). Asesmen pra-anestesi dan catatan anestesi = formulir P07 pustaka `schemas/anestesi.ts`
+(`asesmen_pra_anestesi`, `catatan_anestesi`, diseed `seedSupportMasters`), diisi lewat API formulir biasa; papan
+membaca isian final terkini per kunjungan. Layar berlangganan `GET /surgery/board/events?date=` lewat BFF
+`/penunjang/kamar-operasi/events`: trigger `app_notify_row('support_surgery_activity')` di semua tabel append-only
+kasus + isian formulir anestesi; `surgery-activity.channel.ts` mencari baris sumber (tanpa replay → `reset`). Kanal 4.1a
+`support/streams/surgery-board` tetap untuk pemakai lain. Override insisi memberi
 notifikasi `surgery_override` (tanpa PHI) ke `auditor_mutu` dan `manajemen`. Tes: `apps/api/test/surgery.test.ts`
 (urutan juga lewat SQL langsung, konfirmasi serentak, bentrok kamar, persetujuan dicabut, 403 kasir/apoteker, isolasi),
 E2E `apps/web/e2e/kamar-operasi-api.spec.ts`.
