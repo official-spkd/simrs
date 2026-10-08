@@ -318,8 +318,9 @@ E2E `e2e/kamar-operasi-api.spec.ts`.
     `surgery.specimen_sent`; order PA dibuat modul S02 (potongan 4.8).
 
 Gerbang yang ditegakkan server dan DB (trigger 4.0b): urutan sign in, time out, sign out; semua butir lengkap;
-induksi butuh sign in; insisi butuh time out kecuali **Override insisi** oleh pemegang `surgery.override` (dokter
-berelasi) dengan alasan minimal setelan RS (bawaan 15 karakter). Override tercatat di peristiwa, diaudit, dan
+induksi butuh sign in; insisi butuh time out kecuali **Override insisi** oleh **operator atau dokter anestesi kasus itu** (anggota tim
+aktif) yang memegang `surgery.override`, dengan alasan minimal setelan RS (bawaan 15 karakter). Dokter lain yang
+berelasi dengan pasien (DPJP bangsal, asisten) ditolak 403 dan tombolnya tidak tampil (ADR-0130). Override tercatat di peristiwa, diaudit, dan
 memberi notifikasi `surgery_override` ke auditor mutu dan manajemen. Sign out butuh insisi dan hitung cocok; pasien
 keluar butuh sign out. Kasir dan apoteker tidak punya izin `surgery.*` (403).
 
