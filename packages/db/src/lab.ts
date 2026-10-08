@@ -281,14 +281,19 @@ export async function raiseCriticalResult(
   tx: TenantTx,
   tenantId: string,
   input: { analyte: string; valueText: string; raisedBy: string | null } & (
-    { source: 'lab'; labResultId: string } | { source: 'radiology'; imagingReportId: string }
+    | { source: 'lab'; labResultId: string }
+    | { source: 'radiology'; imagingReportId: string }
+    /** 4.9b (ADR-0108): reaksi transfusi berat. */
+    | { source: 'transfusion'; transfusionReactionId: string }
   ),
 ): Promise<RaisedCriticalRow> {
   const existing = await tx.criticalResult.findFirst({
     where:
       input.source === 'lab'
         ? { labResultId: input.labResultId }
-        : { imagingReportId: input.imagingReportId },
+        : input.source === 'radiology'
+          ? { imagingReportId: input.imagingReportId }
+          : { transfusionReactionId: input.transfusionReactionId },
     select: { id: true, limitMinutes: true, encounterId: true, patientId: true, unitId: true },
   });
   if (existing) return { ...existing, created: false };
@@ -302,7 +307,11 @@ export async function raiseCriticalResult(
   } else if (input.source === 'transfusion') {
     const x = await tx.transfusionReaction.findUnique({
       where: { id: input.transfusionReactionId },
-      select: { bloodIssue: { select: { encounterId: true, patientId: true, encounter: { select: { unitId: true } } } } },
+      select: {
+        bloodIssue: {
+          select: { encounterId: true, patientId: true, encounter: { select: { unitId: true } } },
+        },
+      },
     });
     if (x) {
       src = {
