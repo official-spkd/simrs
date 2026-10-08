@@ -4,6 +4,7 @@ import {
   checklistConfirmInputSchema,
   checklistItemInputSchema,
   countDiscrepancyInputSchema,
+  formAnswersSchema,
   operativeReportCreateSchema,
   type SurgeryCandidate,
   surgeryCancelInputSchema,
@@ -176,5 +177,16 @@ export async function specimensAction(caseId: unknown, input: unknown) {
     '/specimens',
     input,
     surgerySpecimenInputSchema,
+  );
+}
+
+export async function anesthesiaRecordAction(caseId: unknown, input: unknown) {
+  return caseCall(
+    'surgery.checklist',
+    'Peran Anda tidak berizin menulis catatan anestesi.',
+    caseId,
+    '/anesthesia-records',
+    input,
+    z.strictObject({ answers: formAnswersSchema }),
   );
 }

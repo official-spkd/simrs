@@ -115,9 +115,38 @@ async function scheduleCase(room = rooms[0] as string, times = nextSlot()) {
   return { ...e, caseId: r.body.id as string, times };
 }
 
-/** Persetujuan tindakan final `setuju` (3.7) untuk kunjungan ini; isinya cukup untuk trigger klinis. */
+/**
+ * Syarat sign in: persetujuan tindakan final `setuju` (3.7) dan asesmen pra-anestesi final (formulir P07, 4.7b) untuk
+ * kunjungan ini; isinya cukup untuk trigger klinis dan gerbang service.
+ */
 async function consent(e: { patientId: string; encounterId: string }) {
   const id = newId();
+  await run(A.id, async (tx) => {
+    const def = await tx.formDefinition.findFirstOrThrow({
+      where: { code: 'asesmen_pra_anestesi', status: 'published' },
+    });
+    const pre = newId();
+    await tx.formResponse.create({
+      data: {
+        id: pre,
+        rootId: pre,
+        tenantId: A.id,
+        patientId: e.patientId,
+        encounterId: e.encounterId,
+        definitionId: def.id,
+        formCode: 'asesmen_pra_anestesi',
+        answers: {
+          asa: 'asa_2',
+          darurat: 'ya',
+          mallampati: 'm1',
+          teknik: 'umum',
+          rencana: 'Anestesi umum',
+          persetujuan_anestesi: 'ya',
+        },
+        createdBy: users.dokterOp as string,
+      },
+    });
+  });
   await run(A.id, (tx) =>
     tx.consent.create({
       data: {

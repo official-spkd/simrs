@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { AuthzModule } from '../authz/authz.module';
+import { DispensingModule } from '../dispensing/dispensing.module';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { VitalsController } from './vitals.controller';
 import { VitalsService } from './vitals.service';
@@ -15,7 +16,7 @@ import { MedicationSchedulesService } from './medication-schedules.service';
  * berversi, staging, dan ABAC dari `infra/clinical` (global).
  */
 @Module({
-  imports: [AuthzModule, NotificationsModule],
+  imports: [AuthzModule, DispensingModule, NotificationsModule],
   controllers: [VitalsController, NursingController, EncounterNursingController],
   providers: [VitalsService, EmarService, NursingCareService, MedicationSchedulesService],
   exports: [VitalsService],

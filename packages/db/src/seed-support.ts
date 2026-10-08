@@ -1,5 +1,12 @@
 import { allocateNumber } from './platform';
-import { ANESTHESIA_RECORD_FORM, isoDateJakarta, newId, PRE_ANESTHESIA_FORM } from '@simrs/shared';
+import {
+  ANESTHESIA_RECORD_FORM,
+  DIAGNOSTIC_FORMS,
+  isoDateJakarta,
+  MICRO_PANEL_CODE,
+  newId,
+  PRE_ANESTHESIA_FORM,
+} from '@simrs/shared';
 import { ensurePublishedForm } from './forms';
 import type { TenantTx } from './client';
 
@@ -380,6 +387,47 @@ export async function seedSupportMasters(tx: TenantTx, tenantId: string): Promis
   // Versi buatan RS tidak ditimpa.
   await ensurePublishedForm(tx, tenantId, PRE_ANESTHESIA_FORM);
   await ensurePublishedForm(tx, tenantId, ANESTHESIA_RECORD_FORM);
+  // S02 · Uji kultur + kepekaan (panel MIKRO; LOINC belum dipetakan, keputusan fase 4 no. 20) dan orderable-nya.
+  const labUnit = await unitId('LAB');
+  for (const [code, name, specimenType] of [
+    ['KULTUR-DARAH', 'Kultur darah + uji kepekaan', 'darah_kultur'],
+    ['KULTUR-URIN', 'Kultur urin + uji kepekaan', 'urin'],
+    ['KULTUR-SPUTUM', 'Kultur sputum + uji kepekaan', 'sputum'],
+    ['KULTUR-PUS', 'Kultur pus + uji kepekaan', 'pus'],
+  ] as const) {
+    if (await tx.labTestDefinition.findUnique({ where: { tenantId_code: { tenantId, code } } })) continue;
+    const orderableId =
+      (await orderable('lab', name)) ??
+      (
+        await tx.orderable.create({
+          data: {
+            id: newId(),
+            tenantId,
+            kind: 'lab',
+            name,
+            unitId: labUnit,
+            keywords: 'kultur mikrobiologi',
+          },
+        })
+      ).id;
+    order += 1;
+    await tx.labTestDefinition.create({
+      data: {
+        id: newId(),
+        tenantId,
+        code,
+        name,
+        orderableId,
+        specimenType,
+        resultType: 'text',
+        panelCode: MICRO_PANEL_CODE,
+        sortOrder: order,
+      },
+    });
+    result.labTests += 1;
+  }
+  // S10 · Lima formulir P07 diagnostik lain (`diag_<jenis>`).
+  for (const def of Object.values(DIAGNOSTIC_FORMS)) await ensurePublishedForm(tx, tenantId, def);
   return result;
 }
 
@@ -460,6 +508,7 @@ export async function seedSupportStock(
           stockBatchId: batch.id,
           kind: 'receipt',
           quantity: target === 'GUDANG' ? qty : Math.ceil(qty / 4),
+          unitCost,
           refType: 'stock_receipts',
           refId: receiptId,
           createdBy: actorUserId,

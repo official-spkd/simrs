@@ -112,8 +112,8 @@ Backend: 🟨 berjalan (4.0a kontrak bersama di `packages/shared`: izin, event, 
 | Depo & stok farmasi | `/penunjang/depo`          | S05      | demo        | [Penunjang](./13-fitur-penunjang.md) |
 | Bank darah          | `/penunjang/bank-darah`    | S08      | demo + api  | [Penunjang](./13-fitur-penunjang.md) |
 | Gizi                | `/penunjang/gizi`          | S07      | demo + api  | [Penunjang](./13-fitur-penunjang.md) |
-| Mikrobiologi & PA   | `/penunjang/mikrobiologi`  | S02      | demo        | [Penunjang](./13-fitur-penunjang.md) |
-| Diagnostik lain     | `/penunjang/diagnostik`    | S10      | demo        | [Penunjang](./13-fitur-penunjang.md) |
+| Mikrobiologi & PA   | `/penunjang/mikrobiologi`  | S02      | demo + api  | [Penunjang](./13-fitur-penunjang.md) |
+| Diagnostik lain     | `/penunjang/diagnostik`    | S10      | demo + api  | [Penunjang](./13-fitur-penunjang.md) |
 
 ## Fase 5 · Keuangan
 

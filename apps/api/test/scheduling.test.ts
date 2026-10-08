@@ -71,7 +71,17 @@ const practitioner = (prefix: string) =>
     tx.practitioner.findFirstOrThrow({ where: { name: { startsWith: prefix } }, select: { id: true } }),
   );
 
-/** Sesi praktik pertama dokter ini mulai besok (hari ini bisa sudah lewat jamnya / Minggu). */
+/**
+ * Sesi yang sudah dipakai tes lain di file ini. Tanpa ini hasil bergantung hari: dr. Andini praktik Sen–Kam + Sab, jadi
+ * pada hari Kamis "sesi pertama setelah besok" (tes kuota) dan "sesi pertama setelah lusa" (tes cuti) sama-sama Sabtu,
+ * dan booking tes kuota ikut terhitung di `affectedBookings` tes cuti.
+ */
+const takenSessions = new Set<string>();
+
+/**
+ * Sesi praktik pertama dokter ini mulai besok (hari ini bisa sudah lewat jamnya / Minggu) yang belum dipakai tes lain,
+ * sehingga booking dan perubahan satu tes tidak terbaca tes lain.
+ */
 async function nextSession(practitionerId: string, after = today) {
   const res = await as(T.id)
     .get(
@@ -79,8 +89,11 @@ async function nextSession(practitionerId: string, after = today) {
     )
     .expect(200);
   const list = z.array(scheduleSessionSchema).parse(res.body);
-  const s = list.find((x) => x.kind === 'praktik' && x.practitionerId === practitionerId);
+  const s = list.find(
+    (x) => x.kind === 'praktik' && x.practitionerId === practitionerId && !takenSessions.has(x.id),
+  );
   if (!s) throw new Error('Sesi praktik tidak ditemukan');
+  takenSessions.add(s.id);
   return s;
 }
 

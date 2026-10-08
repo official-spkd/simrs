@@ -32,6 +32,8 @@ export const CLINICAL_TABLES = [
   'death_certificates',
   // S06 · laporan operasi (4.7; tabel berversi 4.0b).
   'operative_reports',
+  // S02 · laporan patologi anatomi (4.8, ADR-0120; tabel berversi 4.0b).
+  'pa_reports',
 ] as const;
 export type ClinicalTable = (typeof CLINICAL_TABLES)[number];
 

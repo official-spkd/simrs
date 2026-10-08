@@ -558,6 +558,7 @@ export function ScheduleForm({
   const [operator, setOperator] = useState('');
   const [anesthetist, setAnesthetist] = useState('');
   const [nurse, setNurse] = useState('');
+  const [penata, setPenata] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [pending, start_] = useTransition();
   const doctors = staff.filter((s) => s.role === 'dokter' || s.role === 'dokter_residen');
@@ -583,6 +584,7 @@ export function ScheduleForm({
         { userId: operator, role: 'operator' as const },
         ...(anesthetist ? [{ userId: anesthetist, role: 'anestesi' as const }] : []),
         ...(nurse ? [{ userId: nurse, role: 'perawat_sirkuler' as const }] : []),
+        ...(penata ? [{ userId: penata, role: 'penata_anestesi' as const }] : []),
       ];
       const r = await scheduleCaseAction({
         encounterId,
@@ -717,6 +719,17 @@ export function ScheduleForm({
           <select value={anesthetist} onChange={(e) => setAnesthetist(e.target.value)} className={INPUT}>
             <option value="">—</option>
             {doctors.map((d) => (
+              <option key={d.userId} value={d.userId}>
+                {d.name}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="flex flex-col gap-1 text-caption font-semibold">
+          Penata anestesi (opsional)
+          <select value={penata} onChange={(e) => setPenata(e.target.value)} className={INPUT}>
+            <option value="">—</option>
+            {nurses.map((d) => (
               <option key={d.userId} value={d.userId}>
                 {d.name}
               </option>

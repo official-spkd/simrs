@@ -117,36 +117,41 @@ model ImagingReport {
 
 /// S02 · Laporan patologi anatomi (entri klinis berversi, append-only, TTE). Gambar mikroskopis lewat P08.
 model PaReport {
-  id               String   @id @db.Uuid
-  tenantId         String   @map("tenant_id") @db.Uuid
-  patientId        String   @map("patient_id") @db.Uuid
-  encounterId      String   @map("encounter_id") @db.Uuid
-  rootId           String   @map("root_id") @db.Uuid
-  version          Int      @default(1)
-  supersedesId     String?  @map("supersedes_id") @db.Uuid
-  addendumOf       String?  @map("addendum_of") @db.Uuid
-  status           String   @default("final")
-  correctionReason String?  @map("correction_reason")
-  occurredAt       DateTime @map("occurred_at") @db.Timestamptz(3)
-  recordedAt       DateTime @default(now()) @map("recorded_at") @db.Timestamptz(3)
-  authorUserId     String   @map("author_user_id") @db.Uuid
-  authorRole       String   @map("author_role")
-  surgeryCaseId    String?  @map("surgery_case_id") @db.Uuid
-  specimenSite     String   @map("specimen_site")
-  macroscopic      String
-  microscopic      String
-  diagnosis        String
-  icd10            String?
+  id                String   @id @db.Uuid
+  tenantId          String   @map("tenant_id") @db.Uuid
+  patientId         String   @map("patient_id") @db.Uuid
+  encounterId       String   @map("encounter_id") @db.Uuid
+  rootId            String   @map("root_id") @db.Uuid
+  version           Int      @default(1)
+  supersedesId      String?  @map("supersedes_id") @db.Uuid
+  addendumOf        String?  @map("addendum_of") @db.Uuid
+  status            String   @default("final")
+  correctionReason  String?  @map("correction_reason")
+  occurredAt        DateTime @map("occurred_at") @db.Timestamptz(3)
+  recordedAt        DateTime @default(now()) @map("recorded_at") @db.Timestamptz(3)
+  authorUserId      String   @map("author_user_id") @db.Uuid
+  authorRole        String   @map("author_role")
+  surgeryCaseId     String?  @map("surgery_case_id") @db.Uuid
+  specimenSite      String   @map("specimen_site")
+  macroscopic       String
+  microscopic       String
+  diagnosis         String
+  icd10             String?
+  /// Gambar mikroskopis/makroskopis = dokumen pasien P08 (migrasi 20261008810000).
+  imageDocumentIds  String[] @default([]) @map("image_document_ids") @db.Uuid
+  /// Spesimen kamar operasi asal (4.7b → 4.8, ADR-0120); `surgery_case_id` diisi dari kasusnya.
+  surgerySpecimenId String?  @map("surgery_specimen_id") @db.Uuid
 
-  tenant         Tenant       @relation(fields: [tenantId], references: [id])
-  patient        Patient      @relation(fields: [tenantId, patientId], references: [tenantId, id])
-  encounter      Encounter    @relation(fields: [tenantId, encounterId], references: [tenantId, id])
-  author         User         @relation("PaReportAuthor", fields: [tenantId, authorUserId], references: [tenantId, id])
-  surgeryCase    SurgeryCase? @relation(fields: [tenantId, surgeryCaseId], references: [tenantId, id])
-  supersedes     PaReport?    @relation("PaReportVersion", fields: [tenantId, supersedesId], references: [tenantId, id])
-  supersededBy   PaReport[]   @relation("PaReportVersion")
-  addendumTarget PaReport?    @relation("PaReportAddendum", fields: [tenantId, addendumOf], references: [tenantId, id])
-  addenda        PaReport[]   @relation("PaReportAddendum")
+  tenant          Tenant           @relation(fields: [tenantId], references: [id])
+  patient         Patient          @relation(fields: [tenantId, patientId], references: [tenantId, id])
+  encounter       Encounter        @relation(fields: [tenantId, encounterId], references: [tenantId, id])
+  author          User             @relation("PaReportAuthor", fields: [tenantId, authorUserId], references: [tenantId, id])
+  surgeryCase     SurgeryCase?     @relation(fields: [tenantId, surgeryCaseId], references: [tenantId, id])
+  surgerySpecimen SurgerySpecimen? @relation(fields: [tenantId, surgerySpecimenId], references: [tenantId, id])
+  supersedes      PaReport?        @relation("PaReportVersion", fields: [tenantId, supersedesId], references: [tenantId, id])
+  supersededBy    PaReport[]       @relation("PaReportVersion")
+  addendumTarget  PaReport?        @relation("PaReportAddendum", fields: [tenantId, addendumOf], references: [tenantId, id])
+  addenda         PaReport[]       @relation("PaReportAddendum")
 
   @@unique([tenantId, id])
   @@unique([tenantId, rootId, version])

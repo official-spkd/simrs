@@ -8,7 +8,7 @@ import {
   withTenant,
 } from '@simrs/db';
 import { testDbUrls } from '@simrs/db/testing';
-import { isoDateJakarta } from '@simrs/shared';
+import { isoDateJakarta, newId } from '@simrs/shared';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -40,7 +40,11 @@ const as = (who: string) => {
   const http = () => request(app.getHttpServer());
   return {
     get: (url: string) => http().get(`/api/v1${url}`).set(auth()),
-    post: (url: string, body: object = {}) => http().post(`/api/v1${url}`).set(auth()).send(body),
+    // Idempotency-Key baru per permintaan kecuali diberikan (uji klik ganda memakai kunci yang sama).
+    post: (url: string, body: object = {}, key: string | null = newId()) => {
+      const req = http().post(`/api/v1${url}`).set(auth());
+      return (key ? req.set('Idempotency-Key', key) : req).send(body);
+    },
   };
 };
 
@@ -126,6 +130,7 @@ beforeAll(async () => {
   await addUser('manajemen', A, 'manajemen');
   await addUser('perawat', A, 'perawat', 'MELATI');
   await addUser('apotekerB', B, 'apoteker', 'FARMASI');
+  await addUser('admin', A, 'admin_tenant');
   for (const code of ['GUDANG', 'DEPO-RI', 'DEPO-RJ', 'DEPO-IGD']) {
     loc[code] = (await run(A.id, (tx) => tx.stockLocation.findFirstOrThrow({ where: { code } }))).id;
   }
@@ -180,7 +185,7 @@ describe('stok depo (S05, 4.6a)', () => {
     const body = (items: object[]) => ({
       stockLocationId: loc['DEPO-RJ'],
       supplierId: '',
-      invoiceNo: 'FKT-UJI-001',
+      invoiceNo: `FKT-UJI-${newId().slice(-8)}`,
       items,
     });
     const supplier = await supplierId();
@@ -372,5 +377,156 @@ describe('stok depo (S05, 4.6a)', () => {
     const drugs = await as('apoteker').get('/stock/drugs?q=seftriakson').expect(200);
     expect((drugs.body as Array<{ name: string }>).map((d) => d.name)).toContain('Seftriakson 2 g injeksi');
     expect((await as('apoteker').get('/stock/suppliers').expect(200)).body.length).toBeGreaterThanOrEqual(2);
+  });
+});
+
+describe('stok depo 4.6a-2: idempotensi, harga rata-rata, pembatalan mutasi', () => {
+  const receipt = async (over: {
+    invoiceNo?: string;
+    batchNo: string;
+    quantity: number;
+    unitCost: string;
+  }) => ({
+    stockLocationId: loc.GUDANG,
+    supplierId: await supplierId(),
+    invoiceNo: over.invoiceNo ?? `FKT-IDM-${newId().slice(-8)}`,
+    items: [
+      {
+        drugId: await drugId('Metformin 500 mg tablet'),
+        batchNo: over.batchNo,
+        expiryDate: day(500),
+        quantity: over.quantity,
+        unitCost: over.unitCost,
+      },
+    ],
+  });
+
+  it('Idempotency-Key: tanpa kunci 400; klik ganda kunci sama = satu efek (201 + 200 dokumen sama); isi lain 409', async () => {
+    const body = await receipt({ batchNo: `MET-IDM-${newId().slice(-6)}`, quantity: 40, unitCost: '300' });
+    const none = await as('apoteker').post('/stock/receipts', body, null).expect(400);
+    expect(none.body.code).toBe('IDEMPOTENCY_KEY_REQUIRED');
+    const key = newId();
+    const [a, b] = await Promise.all([
+      as('apoteker').post('/stock/receipts', body, key),
+      as('apoteker').post('/stock/receipts', body, key),
+    ]);
+    expect([a.status, b.status].sort()).toEqual([200, 201]);
+    expect(a.body.id).toBe(b.body.id);
+    expect(a.body.receiptNo).toBe(b.body.receiptNo);
+    const pb = a.body.items[0].stockBatchId as string;
+    expect(await balance(loc.GUDANG as string, pb)).toBe(40);
+    const reused = await as('apoteker')
+      .post('/stock/receipts', { ...body, invoiceNo: 'FKT-LAIN-01' }, key)
+      .expect(409);
+    expect(reused.body.code).toBe('IDEMPOTENCY_KEY_REUSED');
+    // Faktur yang sama dengan kunci lain = penerimaan ganda → 409.
+    const dup = await as('apoteker').post('/stock/receipts', body).expect(409);
+    expect(dup.body.message).toMatch(/sudah diterima \(TRM-/);
+
+    // Penyesuaian + mutasi + terima: klik ganda kunci sama = satu baris ledger.
+    const adjKey = newId();
+    const adjBody = {
+      stockLocationId: loc.GUDANG,
+      items: [{ stockBatchId: pb, quantityDelta: -3 }],
+      reason: 'Uji klik ganda penyesuaian stok',
+    };
+    const adj = await Promise.all([
+      as('apoteker').post('/stock/adjustments', adjBody, adjKey),
+      as('apoteker').post('/stock/adjustments', adjBody, adjKey),
+    ]);
+    expect(adj.map((r) => r.status).sort()).toEqual([200, 201]);
+    expect(await balance(loc.GUDANG as string, pb)).toBe(37);
+    const sendKey = newId();
+    const sendBody = {
+      fromStockLocationId: loc.GUDANG,
+      toStockLocationId: loc['DEPO-IGD'],
+      items: [{ stockBatchId: pb, quantity: 7 }],
+    };
+    const sent = await Promise.all([
+      as('apoteker').post('/stock/transfers', sendBody, sendKey),
+      as('apoteker').post('/stock/transfers', sendBody, sendKey),
+    ]);
+    expect(sent.map((r) => r.status).sort()).toEqual([200, 201]);
+    expect(sent[0]?.body.id).toBe(sent[1]?.body.id);
+    expect(await balance(loc.GUDANG as string, pb)).toBe(30);
+    const recvKey = newId();
+    const recv = await Promise.all([
+      as('apotekerIgd').post(`/stock/transfers/${sent[0]?.body.id}/receive`, {}, recvKey),
+      as('apotekerIgd').post(`/stock/transfers/${sent[0]?.body.id}/receive`, {}, recvKey),
+    ]);
+    expect(recv.map((r) => r.status)).toEqual([200, 200]);
+    expect(await balance(loc['DEPO-IGD'] as string, pb)).toBe(7);
+    const legs = await run(A.id, (tx) =>
+      tx.stockMovement.count({ where: { refType: 'stock_transfers', refId: sent[0]?.body.id } }),
+    );
+    expect(legs).toBe(2);
+    await assertLedgerConsistent(A.id);
+  });
+
+  it('penerimaan ulang batch dengan harga lain: harga baris di ledger, harga pokok batch rata-rata tertimbang', async () => {
+    const batchNo = `MET-AVG-${newId().slice(-6)}`;
+    const first = await as('apoteker')
+      .post('/stock/receipts', await receipt({ batchNo, quantity: 100, unitCost: '1000' }))
+      .expect(201);
+    expect(first.body.items[0]).toMatchObject({ unitCost: '1000', batchUnitCost: '1000' });
+    const second = await as('apoteker')
+      .post('/stock/receipts', await receipt({ batchNo, quantity: 50, unitCost: '1600' }))
+      .expect(201);
+    // (100 × 1.000 + 50 × 1.600) / 150 = 1.200
+    expect(second.body.items[0]).toMatchObject({ unitCost: '1600', batchUnitCost: '1200' });
+    const card = await as('apoteker')
+      .get(`/stock/movements?stockLocationId=${loc.GUDANG}&stockBatchId=${first.body.items[0].stockBatchId}`)
+      .expect(200);
+    expect((card.body as Array<{ kind: string; unitCost: string | null }>).map((m) => m.unitCost)).toEqual([
+      '1600',
+      '1000',
+    ]);
+  });
+
+  it('mutasi tersangkut: dibatalkan pengirim beralasan, stok kembali lewat ledger pembalik; lokasi bermutasi tidak bisa dinonaktifkan', async () => {
+    const baru = await batchId('SFX-BARU');
+    const before = await balance(loc.GUDANG as string, baru);
+    const sent = await as('apoteker')
+      .post('/stock/transfers', {
+        fromStockLocationId: loc.GUDANG,
+        toStockLocationId: loc['DEPO-IGD'],
+        items: [{ stockBatchId: baru, quantity: 4 }],
+      })
+      .expect(201);
+    expect(sent.body).toMatchObject({ canCancel: true, canReceive: false });
+    const inTransit = await as('admin')
+      .post(`/stock/locations/${loc['DEPO-IGD']}/active`, { active: false })
+      .expect(409);
+    expect(inTransit.body.code).toBe('STOCK_LOCATION_IN_TRANSIT');
+    await as('admin').post(`/stock/locations/${loc.GUDANG}/active`, { active: false }).expect(409);
+    await as('apotekerIgd')
+      .post(`/stock/transfers/${sent.body.id}/cancel`, { reason: 'Depo tujuan tutup sementara' })
+      .expect(403);
+    await as('apoteker').post(`/stock/transfers/${sent.body.id}/cancel`, { reason: 'pendek' }).expect(400);
+    const reason = 'Kurir salah depo, barang kembali ke gudang';
+    const cancelled = await as('apoteker')
+      .post(`/stock/transfers/${sent.body.id}/cancel`, { reason })
+      .expect(200);
+    expect(cancelled.body).toMatchObject({
+      status: 'dibatalkan',
+      cancelReason: reason,
+      cancelledBy: { userId: users.apoteker },
+      canCancel: false,
+    });
+    expect(await balance(loc.GUDANG as string, baru)).toBe(before);
+    await as('apoteker').post(`/stock/transfers/${sent.body.id}/cancel`, { reason }).expect(409);
+    const late = await as('apotekerIgd').post(`/stock/transfers/${sent.body.id}/receive`).expect(409);
+    expect(late.body.message).toMatch(/dibatalkan/);
+    const events = await run(A.id, (tx) =>
+      tx.domainEvent.count({
+        where: { name: 'stock.transferred', payload: { path: ['stage'], equals: 'dibatalkan' } },
+      }),
+    );
+    expect(events).toBeGreaterThanOrEqual(1);
+    // Tanpa mutasi dalam perjalanan: nonaktif lalu aktif lagi boleh (pemilik izin `facility.write` saja).
+    await as('apoteker').post(`/stock/locations/${loc['DEPO-IGD']}/active`, { active: false }).expect(403);
+    await as('admin').post(`/stock/locations/${loc['DEPO-IGD']}/active`, { active: false }).expect(200);
+    await as('admin').post(`/stock/locations/${loc['DEPO-IGD']}/active`, { active: true }).expect(200);
+    await assertLedgerConsistent(A.id);
   });
 });

@@ -40,11 +40,30 @@ mengeluarkan batch kedaluwarsa, dan bisa diaudit (setiap perubahan saldo punya s
 - **Kedaluwarsa (ED ≤ hari ini WIB).** Ditolak saat penerimaan dan mutasi (`BATCH_EXPIRED`), tidak boleh ditambah lewat
   penyesuaian; pengurangannya tercatat `write_off` (hapus buku). Trigger tetap menjadi penjaga terakhir untuk
   `dispense`/`usage`.
-- **Batch.** Nomor batch per obat unik; penerimaan ulang nomor batch yang sama wajib ED yang sama (409 bila beda), harga
-  pokok batch beku dari penerimaan pertama.
+- **Batch.** Nomor batch per obat unik; penerimaan ulang nomor batch yang sama wajib ED yang sama (409 bila beda). Harga
+  pokok batch: lihat pembaruan 4.6a-2 (tidak lagi beku).
 - **Mutasi dua langkah.** Kirim = `transfer_out` di asal (stok dalam perjalanan tidak ada di kedua depo); terima =
   `transfer_in` di tujuan, sekali (baris mutasi dikunci `FOR UPDATE`, terima ganda 409). FEFO mutasi diusulkan layar
   dengan `pickFefo`; API memeriksa ulang ED dan saldo. Pengirim dan penerima boleh orang yang sama bila berlingkup atas
   kedua depo (B01 minimal); pemisahan tugas menunggu fase 8.
 - **Kontrak baca** (lokasi, pemasok, obat, kartu stok, dokumen stok) di `packages/shared/src/schemas/stock.ts`; masukan
   dan saldo tetap di `penunjang-api.ts` (4.0a).
+
+## Pembaruan 8 Okt 2026 · 4.6a-2 (keputusan orkestrator)
+
+- **Idempotensi.** `POST /stock/receipts`, `/stock/transfers`, `/stock/transfers/:id/receive`, dan `/stock/adjustments`
+  wajib header `Idempotency-Key` (UUID) lewat `IdempotencyService` (pola registrasi): tanpa kunci 400
+  `IDEMPOTENCY_KEY_REQUIRED`; kunci + isi sama = dokumen yang sama (200, tanpa efek kedua); kunci sama isi lain 409
+  `IDEMPOTENCY_KEY_REUSED`. Layar Depo membuat kunci per submit.
+- **Faktur.** Indeks unik `stock_receipts (tenant_id, supplier_id, invoice_no)`; faktur yang sama dengan kunci lain → 409.
+  Migrasi `20261008600000` memberi akhiran nomor TRM pada faktur ganda lama (hanya data uji fiktif).
+- **Harga pokok (merevisi "harga batch beku").** Setiap baris ledger `receipt` menyimpan `unit_cost` (harga faktur
+  baris itu; CHECK wajib untuk `receipt`, kosong untuk jenis lain). Trigger `app_stock_apply_movement` memperbarui
+  `stock_batches.unit_cost` menjadi rata-rata tertimbang `(harga lama × saldo semua lokasi + harga baris × qty) / (saldo
+  + qty)` (dibulatkan ke rupiah) di bawah kunci baris batch; bila saldo nol, harga baris dipakai. Selain `unit_cost`,
+  batch tetap beku dan tidak bisa dihapus (`stock_batches_guard`). Fase 5 (HPP/jurnal) membaca harga dari ledger.
+- **Mutasi tersangkut.** `POST /stock/transfers/:id/cancel` (beralasan 10–500, diaudit, event `stock.transferred` tahap
+  `dibatalkan`) oleh petugas `stock.transfer` berlingkup atas depo **asal** (pengirim atau rekan sedepo), hanya saat
+  `dikirim`: baris `transfer_in` pembalik di depo asal. Status hanya maju dari `dikirim` (`stock_transfers_guard`).
+- **Lokasi.** `POST /stock/locations/:id/active` (izin `facility.write`); lokasi yang masih punya mutasi `dikirim`
+  masuk/keluar tidak bisa dinonaktifkan (`stock_locations_transit_guard` → 409 `STOCK_LOCATION_IN_TRANSIT`).

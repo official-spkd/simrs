@@ -31,6 +31,11 @@ export interface IssueClinicalPdfInput {
    * tangan (`clinical.sign`, `consent.sign`) diperiksa endpoint pemanggil.
    */
   tte?: { role: string; caption?: string | null } | null;
+  /**
+   * Pemanggil sudah memeriksa akses pasien dengan aturannya sendiri (tampilan layanan penunjang: order yang ditujukan ke
+   * unitnya, ADR-0120). Selain itu ABAC pasien diperiksa di sini.
+   */
+  accessChecked?: boolean;
   /** Penanda tangan tanpa TTE (pasien, wali, saksi), dicetak dengan garis tanda tangan. */
   otherSigners?: Array<{ role: string; name: string; caption?: string | null }>;
 }
@@ -59,7 +64,8 @@ export class ClinicalPdfService {
   ) {}
 
   async issue(input: IssueClinicalPdfInput): Promise<IssuedClinicalPdf> {
-    if (this.db.permissionScope() !== 'all') await this.access.assert(input.patientId);
+    if (this.db.permissionScope() !== 'all' && !input.accessChecked)
+      await this.access.assert(input.patientId);
     const patient = await this.repo.patientIdentity(input.patientId);
     if (!patient) throw new AppError('NOT_FOUND', 'Pasien tidak ditemukan', 404);
     if (patient.status === 'merged') {

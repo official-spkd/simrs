@@ -698,6 +698,11 @@ jawaban lain di `schemas/stock.ts`. Semua mutasi stok = baris `stock_movements`;
 | `POST transfers` → `POST transfers/:id/receive` | `stock.transfer` | Kirim (`transfer_out`) lalu terima sekali di tujuan (`transfer_in`); event `stock.transferred` per langkah    |
 | `POST adjustments`                              | `stock.adjust`   | Selisih bertanda + alasan ≥ 10; batch ED hanya dikurangi (`write_off`); event `stock.adjusted`                |
 
+Sejak 4.6a-2: keempat `POST` tulis wajib `Idempotency-Key`; `POST transfers/:id/cancel` (`stock.transfer`, lingkup depo
+asal, alasan ≥ 10) mengembalikan stok ke depo asal; `POST locations/:id/active` (`facility.write`) menolak menonaktifkan
+lokasi bermutasi `dikirim` (409 `STOCK_LOCATION_IN_TRANSIT`); faktur unik per pemasok; `unit_cost` per baris `receipt`
+dan harga pokok batch rata-rata tertimbang (ADR-0036 pembaruan 4.6a-2).
+
 Tes: `apps/api/test/stock.test.ts` (saldo = Σ ledger, penyesuaian serentak tidak pernah negatif, mutasi setengah jalan
 tidak menggandakan stok, batch ED ditolak, lingkup + isolasi), E2E `apps/web/e2e/depo-api.spec.ts`.
 
@@ -722,6 +727,7 @@ di `surgery-access.ts`: `unit` = unit berjenis `kamar_operasi`; `relationship` =
 | `POST cases/:id/counts`, `…/count-discrepancies` | `surgery.count`     | Hitung awal/tambahan/akhir; tindak lanjut selisih; terkunci setelah sign out                                                    |
 | `POST cases/:id/supplies`                        | `surgery.checklist` | BHP/implan: ledger `usage` DEPO-OK + `surgery_supply_usages`                                                                    |
 | `POST cases/:id/reports`                         | `surgery.report`    | Laporan berversi + koreksi (TTE gagal) / adendum laporan kasus ini; TTE operator `issueSigned`; operator                        |
+| `POST cases/:id/anesthesia-records`              | `surgery.checklist` | 4.7c · catatan anestesi P07 oleh dokter anestesi/penata anestesi tim kasus (`createAuthorized`)                                 |
 | `POST cases/:id/specimens`                       | `surgery.report`    | 4.7b · spesimen PA dari laporan terkini (`surgery_specimens`) → event `surgery.specimen_sent`; operator                         |
 | `GET board/events?date=`                         | `surgery.read`      | 4.7b · SSE aktivitas kasus (kanal `support_surgery_activity`, sinyal tanpa PHI, lingkup sama dengan papan)                      |
 

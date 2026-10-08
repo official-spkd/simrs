@@ -34,6 +34,7 @@ model LabOrder {
   results       LabResult[]
   validations   LabValidation[]
   microIsolates MicroIsolate[]
+  microReports  MicroReport[]
 
   @@unique([tenantId, id])
   @@unique([tenantId, labNo])
@@ -369,4 +370,31 @@ model MicroSusceptibility {
   @@unique([tenantId, id])
   @@unique([tenantId, isolateId, antibioticCode])
   @@map("micro_susceptibilities")
+}
+
+/// S02 · Laporan mikrobiologi per tahap (awal/akhir), validasi dua tingkat seperti lab (migrasi 20261008810000,
+/// ADR-0120): validasi teknis analis (baris dibuat), rilis klinis dokter berbeda (kolom klinis + PDF ber-TTE). Satu per
+/// order × tahap; laporan akhir hanya setelah laporan awal dirilis; setelah tahap ada laporan, isolat tahap itu terkunci.
+model MicroReport {
+  id          String    @id @db.Uuid
+  tenantId    String    @map("tenant_id") @db.Uuid
+  labOrderId  String    @map("lab_order_id") @db.Uuid
+  /// awal | akhir
+  stage       String
+  conclusion  String
+  technicalBy String    @map("technical_by") @db.Uuid
+  technicalAt DateTime  @default(now()) @map("technical_at") @db.Timestamptz(3)
+  clinicalBy  String?   @map("clinical_by") @db.Uuid
+  clinicalAt  DateTime? @map("clinical_at") @db.Timestamptz(3)
+  documentId  String?   @map("document_id") @db.Uuid
+
+  tenant    Tenant    @relation(fields: [tenantId], references: [id])
+  labOrder  LabOrder  @relation(fields: [tenantId, labOrderId], references: [tenantId, id])
+  technical User      @relation("MicroReportTechnical", fields: [tenantId, technicalBy], references: [tenantId, id])
+  clinical  User?     @relation("MicroReportClinical", fields: [tenantId, clinicalBy], references: [tenantId, id])
+  document  Document? @relation(fields: [tenantId, documentId], references: [tenantId, id])
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, labOrderId, stage])
+  @@map("micro_reports")
 }

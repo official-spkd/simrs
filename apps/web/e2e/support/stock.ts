@@ -14,7 +14,8 @@ export const STOCK_FIXTURES_FILE = 'stock-fixtures.json';
 
 export interface StockFixtures {
   format: 1;
-  accounts: { farmasi: Account; igd: Account };
+  /** `telaah` = apoteker FARMASI kedua untuk layar Farmasi (4.5), agar setiap akun masuk sekali per run. */
+  accounts: { farmasi: Account; igd: Account; telaah: Account };
 }
 
 export async function ensureStockFixtures(prisma: PrismaClient, tenantId: string, tmpDir: string) {
@@ -23,6 +24,7 @@ export async function ensureStockFixtures(prisma: PrismaClient, tenantId: string
     return {
       farmasi: await account(tx, tenantId, 'apoteker', 'FARMASI', 'apt. Farmasi E2E Fiktif'),
       igd: await account(tx, tenantId, 'apoteker', 'IGD', 'apt. IGD E2E Fiktif'),
+      telaah: await account(tx, tenantId, 'apoteker', 'FARMASI', 'apt. Telaah E2E Fiktif'),
     };
   });
   await withTenant(prisma, tenantId, (tx) => seedSupportStock(tx, tenantId, accounts.farmasi.id));

@@ -190,6 +190,7 @@ const move = (
         refType: 'uji',
         refId: newId(),
         reason: data.reason ?? null,
+        unitCost: data.kind === 'receipt' ? 100n : null,
         encounterId: ['dispense', 'usage'].includes(data.kind) ? c.encounterId : null,
         patientId: ['dispense', 'usage'].includes(data.kind) ? c.patientId : null,
         createdBy: c.pharmacist,
@@ -200,7 +201,8 @@ const move = (
 describe('seed master penunjang', () => {
   it('tes lab + rentang, modalitas, depo, kamar OK, templat WHO, stok awal lewat ledger', async () => {
     await inT(A, async (tx) => {
-      expect(await tx.labTestDefinition.count()).toBe(13);
+      // 13 uji kimia/hematologi + 4 uji kultur panel MIKRO (4.8).
+      expect(await tx.labTestDefinition.count()).toBe(17);
       const k = await tx.labTestDefinition.findFirstOrThrow({
         where: { code: 'K' },
         include: { referenceRanges: true },
@@ -229,7 +231,8 @@ describe('seed master penunjang', () => {
         batches: 0,
         bloodUnits: 0,
       });
-      expect(await tx.labTestDefinition.count()).toBe(13);
+      // 13 uji kimia/hematologi + 4 uji kultur panel MIKRO (4.8).
+      expect(await tx.labTestDefinition.count()).toBe(17);
     });
   });
 });

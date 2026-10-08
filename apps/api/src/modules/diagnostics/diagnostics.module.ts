@@ -1,8 +1,16 @@
 import { Module } from '@nestjs/common';
+import { AuthzModule } from '../authz/authz.module';
+import { FormsModule } from '../forms/forms.module';
+import { DiagnosticsController } from './diagnostics.controller';
+import { DiagnosticsService } from './diagnostics.service';
 
 /**
- * S10 · Diagnostik lain (rencana fase 4 §4.8): EKG/USG/echo/endoskopi di `diagnostic_reports`.
- * Kerangka potongan 4.1a (didaftarkan sekali di `AppModule`); controller/service ditambah potongan pemiliknya.
+ * S10 · Diagnostik lain (rencana fase 4 §4.8, ADR-0120): laporan EKG/USG/echo/endoskopi/treadmill di
+ * `diagnostic_reports` (isian P07 + lampiran + TTE). Didaftarkan sekali di `AppModule`.
  */
-@Module({})
+@Module({
+  imports: [AuthzModule, FormsModule],
+  controllers: [DiagnosticsController],
+  providers: [DiagnosticsService],
+})
 export class DiagnosticsModule {}

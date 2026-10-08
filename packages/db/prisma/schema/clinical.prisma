@@ -220,6 +220,12 @@ model DiagnosticReport {
   display          String
   conclusion       String?
   serviceRequestId String?  @map("service_request_id") @db.Uuid
+  /// S10 (migrasi 20261008810000): ekg | usg | echo | endoskopi | treadmill; null = laporan hasil fase 3.
+  kind             String?
+  /// Isian formulir P07 `diag_<jenis>` yang menjadi isi laporan S10.
+  formResponseId   String?  @map("form_response_id") @db.Uuid
+  /// Lampiran (rekaman EKG, gambar USG/endoskopi) = dokumen pasien P08.
+  documentIds      String[] @default([]) @map("document_ids") @db.Uuid
 
   tenant         Tenant             @relation(fields: [tenantId], references: [id])
   patient        Patient            @relation(fields: [tenantId, patientId], references: [tenantId, id])
@@ -231,6 +237,7 @@ model DiagnosticReport {
   addenda        DiagnosticReport[] @relation("DiagnosticReportAddendum")
   observations   Observation[]
   serviceRequest ServiceRequest?    @relation(fields: [tenantId, serviceRequestId], references: [tenantId, id])
+  formResponse   FormResponse?      @relation(fields: [tenantId, formResponseId], references: [tenantId, id])
 
   @@unique([tenantId, id])
   @@unique([tenantId, rootId, version])

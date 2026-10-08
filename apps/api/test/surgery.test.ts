@@ -108,7 +108,11 @@ function nextSlot(hours = 1) {
   };
 }
 
-async function scheduleCase(room = rooms[0] as string, times = nextSlot()) {
+async function scheduleCase(
+  room = rooms[0] as string,
+  times = nextSlot(),
+  extraTeam: Array<{ userId: string; role: string }> = [],
+) {
   const e = await encounter();
   const r = await as('perawatOk')
     .post('/surgery/cases', {
@@ -121,6 +125,7 @@ async function scheduleCase(room = rooms[0] as string, times = nextSlot()) {
       team: [
         { userId: users.dokterOp, role: 'operator' },
         { userId: users.perawatOk, role: 'perawat_sirkuler' },
+        ...extraTeam,
       ],
     })
     .expect(201);
@@ -617,6 +622,68 @@ describe('anestesi P07 dan aliran aktivitas (4.7b)', () => {
     expect(view.body.anesthesia.records).toHaveLength(1);
   });
 
+  it('penata anestesi di tim (perawat unit lain) menulis catatan anestesi; asesmen pra-anestesi tetap dokter', async () => {
+    // Profesi harus cocok dengan peran tim.
+    const e = await encounter();
+    const wrong = await as('perawatOk').post('/surgery/cases', {
+      encounterId: e.encounterId,
+      roomId: rooms[0],
+      ...nextSlot(),
+      priority: 'elektif',
+      procedureName: 'Apendektomi',
+      procedureCode: null,
+      team: [
+        { userId: users.dokterOp, role: 'operator' },
+        { userId: users.dokterLain, role: 'penata_anestesi' },
+      ],
+    });
+    expect(wrong.status).toBe(422);
+    expect(wrong.body.message).toContain('Penata anestesi');
+    const c = await scheduleCase(rooms[3], nextSlot(), [
+      { userId: users.perawatMelati as string, role: 'penata_anestesi' },
+    ]);
+    const record = {
+      answers: {
+        teknik: 'regional',
+        jalan_napas: 'spontan',
+        obat: 'Bupivakain hiperbarik 0,5% 12,5 mg intratekal',
+        kondisi_akhir: 'stabil_rr',
+      },
+    };
+    // Perawat OK yang bukan penata anestesi kasus ini → 403; penata dari bangsal (lingkup unit lain) → 201.
+    await as('perawatOk').post(`/surgery/cases/${c.caseId}/anesthesia-records`, record).expect(403);
+    const ok = await as('perawatMelati')
+      .post(`/surgery/cases/${c.caseId}/anesthesia-records`, record)
+      .expect(201);
+    expect(ok.body.anesthesia.records).toEqual([expect.objectContaining({ version: 1 })]);
+    await as('perawatMelati')
+      .post(`/surgery/cases/${c.caseId}/anesthesia-records`, { answers: { teknik: 'umum' } })
+      .expect(400);
+    // Papan tetap milik unit OK; kasusnya sendiri boleh dibuka anggota tim.
+    await as('perawatMelati').get('/surgery/board').expect(403);
+    await as('perawatMelati').get(`/surgery/cases/${c.caseId}`).expect(200);
+    // Asesmen pra-anestesi: hak tulis profesi dokter (perawat ditolak, diaudit).
+    await as('perawatMelati')
+      .post(`/patients/${c.patientId}/forms/asesmen_pra_anestesi/responses`, {
+        encounterId: c.encounterId,
+        answers: {
+          asa: 'asa_1',
+          darurat: 'ya',
+          mallampati: 'm1',
+          teknik: 'umum',
+          rencana: 'x',
+          persetujuan_anestesi: 'ya',
+        },
+      })
+      .expect(403);
+    const audit = await run(A.id, (tx) =>
+      tx.auditEvent.findFirstOrThrow({
+        where: { resourceType: 'form_response', patientId: c.patientId, action: 'create' },
+      }),
+    );
+    expect(audit.details).toMatchObject({ form: 'catatan_anestesi', teamRole: 'penata_anestesi' });
+  });
+
   it('kanal aktivitas: baris butir tilik dan formulir anestesi menjadi sinyal kasus tanpa PHI', async () => {
     const c = await scheduleCase(rooms[2]);
     await as('perawatOk')
@@ -687,6 +754,8 @@ describe('BHP depo OK, lingkup, isolasi', () => {
           stockBatchId: batchId,
           kind: 'receipt',
           quantity: 5,
+          // 4.6a-2: baris penerimaan wajib harga pokok baris (CHECK `stock_movements`).
+          unitCost: 18_500n,
           refType: 'stock_receipts',
           refId: receiptId,
           createdBy: users.perawatOk as string,

@@ -21,18 +21,18 @@ skenario Simulasi ada di [Simulasi dan operasional](./18-simulasi-dan-operasiona
 
 ## Ringkasan layar
 
-| Layar               | Rute                       | Peran (mode presentasi)                  | Komponen | Status                                   |
-| ------------------- | -------------------------- | ---------------------------------------- | -------- | ---------------------------------------- |
-| Laboratorium        | `/penunjang/lab`           | analis lab                               | S01, S09 | 🟨 demo; api: belum tersambung (4.2)     |
-| Radiologi           | `/penunjang/radiologi`     | radiografer                              | S03      | 🟨 demo tanpa mockup; API belum (fase 4) |
-| Farmasi             | `/penunjang/farmasi`       | apoteker                                 | S04, S05 | 🟨 demo; API belum (fase 4)              |
-| Kamar operasi       | `/penunjang/kamar-operasi` | dokter, perawat                          | S06      | ✅ api (4.7); demo tetap                 |
-| Pusat hasil kritis  | `/penunjang/hasil-kritis`  | analis lab, radiografer, dokter, perawat | S09      | 🟨 demo tanpa mockup; API belum (fase 4) |
-| Depo & stok farmasi | `/penunjang/depo`          | apoteker                                 | S05      | 🟨 demo tanpa mockup; API belum (fase 4) |
-| Bank darah          | `/penunjang/bank-darah`    | analis lab, perawat, bidan, dokter       | S08      | ✅ demo + api (4.9)                      |
-| Gizi                | `/penunjang/gizi`          | ahli gizi, perawat, dokter               | S07      | ✅ demo + api (4.9)                      |
-| Mikrobiologi & PA   | `/penunjang/mikrobiologi`  | analis lab, dokter                       | S02      | 🟨 demo tanpa mockup; API belum (fase 4) |
-| Diagnostik lain     | `/penunjang/diagnostik`    | dokter, perawat                          | S10      | 🟨 demo tanpa mockup; API belum (fase 4) |
+| Layar               | Rute                       | Peran (mode presentasi)                  | Komponen | Status                                             |
+| ------------------- | -------------------------- | ---------------------------------------- | -------- | -------------------------------------------------- |
+| Laboratorium        | `/penunjang/lab`           | analis lab                               | S01, S09 | ✅ api (4.2); demo tetap                           |
+| Radiologi           | `/penunjang/radiologi`     | radiografer                              | S03      | 🟨 demo tanpa mockup; API belum (fase 4)           |
+| Farmasi             | `/penunjang/farmasi`       | apoteker                                 | S04, S05 | ✅ api telaah + dispensing (4.5, 4.6b); demo tetap |
+| Kamar operasi       | `/penunjang/kamar-operasi` | dokter, perawat                          | S06      | ✅ api (4.7); demo tetap                           |
+| Pusat hasil kritis  | `/penunjang/hasil-kritis`  | analis lab, radiografer, dokter, perawat | S09      | 🟨 demo tanpa mockup; API belum (fase 4)           |
+| Depo & stok farmasi | `/penunjang/depo`          | apoteker                                 | S05      | ✅ api stok (4.6a); demo tetap                     |
+| Bank darah          | `/penunjang/bank-darah`    | analis lab, perawat, bidan, dokter       | S08      | ✅ demo + api (4.9)                                |
+| Gizi                | `/penunjang/gizi`          | ahli gizi, perawat, dokter               | S07      | ✅ demo + api (4.9)                                |
+| Mikrobiologi & PA   | `/penunjang/mikrobiologi`  | analis lab, dokter                       | S02      | ✅ demo + api (4.8)                                |
+| Diagnostik lain     | `/penunjang/diagnostik`    | dokter, perawat                          | S10      | ✅ demo + api (4.8)                                |
 
 Legenda: 🟨 berjalan di mode presentasi, belum tersambung ke API · ✅ tersambung · ⬜ belum dibangun.
 
@@ -175,10 +175,10 @@ dengan templat yang ditandatangani radiolog.
 | Rute     | `/penunjang/farmasi`                                                                                                                                                                             |
 | Pemakai  | apoteker                                                                                                                                                                                         |
 | Komponen | S04 farmasi klinis, S05 dispensing dan depo                                                                                                                                                      |
-| Status   | demo (mode presentasi); API belum (fase 4 potongan 4.5, 4.6a, 4.6b)                                                                                                                              |
+| Status   | demo (mode presentasi); mode api telaah klinis (potongan 4.5) dan dispensing (4.6b)                                                                                                              |
 | Mockup   | `design/mockups/Farmasi.dc.html`                                                                                                                                                                 |
 | Kode web | `apps/web/src/app/(staf)/penunjang/farmasi/` · `apps/web/src/components/penunjang/farmasi-*.tsx` · `apps/web/src/lib/penunjang-farmasi.ts` · `apps/web/src/lib/server/data/penunjang/farmasi.ts` |
-| Kode API | belum ada modul farmasi · sumber resep: `apps/api/src/modules/orders/` (3.4)                                                                                                                     |
+| Kode API | `apps/api/src/modules/pharmacy-clinical/` (`/api/v1/pharmacy`, 4.5) · sumber resep: `apps/api/src/modules/orders/` (3.4) · stok: `apps/api/src/modules/stock/`                                   |
 
 **Tujuan.** Apoteker menelaah resep (administratif, farmasetik, klinis), menindaklanjuti peringatan CDS, menyiapkan
 obat dengan cek ganda untuk obat high alert, lalu menyerahkan obat dan mengurangi stok depo.
@@ -218,7 +218,56 @@ obat dengan cek ganda untuk obat high alert, lalu menyerahkan obat dan mengurang
   tangan penerima.
 - Stok di bawah minimum ditandai "di bawah minimum".
 
-**Mode api.** Layar hibrida (4.0c): peran berizin melihat "Belum tersambung" sampai potongan fase 4 layar ini tergabung.
+**Mode api (potongan 4.5, telaah klinis).** Peran berizin `pharmacy.review.read` (apoteker) melihat data dari
+`/api/v1/pharmacy/*` (ADR-0107); penyiapan, cek ganda, serah terima, dan retur dari `/api/v1/dispensing/*` (ADR-0125).
+
+1. Kolom kiri **Kiriman masuk** berisi kiriman CPOE 7 hari terakhir yang masih punya obat aktif dan ditujukan ke depo
+   unit Anda. Depo tujuan mengikuti kelas kunjungan: rawat jalan ke Depo farmasi rawat jalan, rawat inap ke Depo
+   farmasi rawat inap, IGD ke Depo farmasi IGD. Tekan **Terima resep <pasien>**: resep mendapat nomor R
+   (`R-2610-0001`), berstatus **Telaah**, dan CDS langsung dievaluasi dengan data pasien terkini. Kiriman yang sudah
+   diterima tidak bisa diterima lagi.
+2. **Antrean resep** memuat resep di depo unit Anda (terbuka, atau selesai/batal 7 hari terakhir) dengan jumlah temuan
+   CDS yang masih terbuka. Pilih resep untuk membuka panel telaah (`?resep=<id>`).
+3. Panel telaah menampilkan identitas, alergi, eGFR, penulis resep, dan tabel **Item resep** dengan kolom **Stok
+   <depo>**. Kolom ini diambil dari API stok (batch yang belum kedaluwarsa saja), dengan tanda **Habis** atau **Di
+   bawah minimum**.
+4. **Temuan CDS saat telaah**: Mayor/Sedang/Info, judul, rincian, dan status. Override dokter di CPOE atas temuan blok
+   tampil "Dokter melanjutkan di CPOE · wajib ditinjau" beserta alasan dokter. Tindak lanjut: **Konfirmasi aman**,
+   **Usulkan ke dokter**, atau **Override** dengan alasan klinis minimal 10 karakter. **Evaluasi ulang CDS** menjalankan
+   CDS lagi, mis. setelah dokter mengubah order. Konfirmasi dan override dibawa ke evaluasi ulang bila temuannya sama;
+   usulan tidak.
+5. **Intervensi apoteker**: pilih jenis usulan dan item, tulis usulan minimal 10 karakter, lalu **Kirim usulan**.
+   Resep tidak berubah. Dokter penulis mendapat notifikasi berisi nomor resep saja dan mengubah order di CPOE. Jawaban
+   dokter (diterima, ditolak beralasan, atau diubah) tampil di daftar intervensi.
+6. **Telaah tiga aspek**: centang aspek administratif, farmasetik, dan klinis, pilih **Setujui**, **Setujui
+   sebagian** (pilih item), atau **Tahan** (wajib alasan), lalu **Simpan telaah**. Setujui/sebagian membawa resep ke
+   **Penyiapan**; tahan ke **Ditahan** (boleh ditelaah ulang).
+
+Gerbang server: **Setujui** ditolak "Masih ada peringatan CDS mayor/sedang yang belum ditindaklanjuti"
+(`CDS_UNRESOLVED`, 409) selama ada temuan mayor/sedang terbuka atau override dokter yang belum ditinjau. Override
+apoteker tanpa alasan ditolak. Apoteker depo lain (mis. depo IGD) mendapat 403 untuk resep depo farmasi.
+
+**Penyiapan dan serah terima (potongan 4.6b).** Bagian **Penyiapan dan serah terima** muncul di panel resep berstatus
+**Penyiapan**.
+
+1. Form **Penyiapan obat**: isi **Jumlah** tiap obat. **Batch** bawaan "FEFO otomatis (ED terdekat dulu)": server
+   mengambil batch layak dengan ED terdekat dan memecahnya lintas batch bila perlu. Memilih batch lain wajib alasan
+   minimal 10 karakter. Tekan **Siapkan obat**: stok depo berkurang lewat ledger (`dispense`) dan setiap batch mendapat
+   label dosis `OBT-…`. Resep berubah ke **Serah terima**. Racikan belum bisa disiapkan dari layar ini.
+2. **Cetak etiket** membuka `/cetak/etiket-obat/<id>`: etiket 70 × 35 mm berisi nama + No. RM, obat, aturan pakai,
+   batch + ED, dan label dosis yang dipindai eMAR.
+3. Obat kewaspadaan tinggi: apoteker LAIN (bukan penyiap) membuka resep dari sesinya sendiri dan menekan **Konfirmasi
+   cek ganda**. Penyiap yang menekannya mendapat "Cek ganda harus oleh apoteker lain, bukan penyiap".
+4. Form **Serah terima obat**: pilih **Penerima** (Pasien sendiri, Keluarga, Perawat ruangan), tulis nama penerima,
+   centang "PIO (informasi obat) sudah diberikan", lalu **Serahkan obat**. Tanpa cek ganda, obat kewaspadaan tinggi
+   ditolak: "Obat kewaspadaan tinggi wajib cek ganda apoteker kedua sebelum diserahkan". Serah terima adalah titik tagih
+   obat (satu peristiwa biaya per item) dan resep berubah ke **Selesai**.
+5. Form **Retur obat** (setelah serah): pilih item, jumlah, kondisi **Layak, kembali ke stok** atau **Tidak layak (hapus
+   buku)**, dan alasan minimal 10 karakter. Retur layak menambah saldo depo; tidak layak hanya dicatat. Total retur tidak
+   boleh melebihi jumlah yang diserahkan. Perawat boleh mencatat retur untuk pasien yang dirawatnya.
+
+eMAR menerima label `OBT-…` untuk order yang sama setelah obat diserahkan; dosis berlabel farmasi tidak ditagih lagi
+oleh eMAR (label lokal UUID order tetap untuk stok ruangan dan ditagih eMAR).
 
 ## Kamar operasi
 
@@ -293,7 +342,9 @@ E2E `e2e/kamar-operasi-api.spec.ts`.
 4. Region **Anestesi**: dokter (hak tulis formulir `dokter`) menekan **Isi asesmen pra-anestesi**, mengisi formulir
    P07 (kelas ASA, operasi darurat, mulai puasa, Mallampati, teknik, rencana, persetujuan anestesi) lalu **Simpan
    asesmen (final)**. Kotak berubah menjadi "Asesmen pra-anestesi final · ASA II · …". **Isi catatan anestesi**
-   memakai formulir P07 kedua (teknik, jalan napas, obat, penyulit, kondisi akhir). Koreksi isian lewat layar Asesmen.
+   memakai formulir P07 kedua (teknik, jalan napas, obat, penyulit, kondisi akhir) dan bisa diisi dokter anestesi atau
+   **penata anestesi** yang tercatat di tim kasus (dipilih di "Penata anestesi (opsional)" saat penjadwalan), walau
+   perawat itu bukan dari unit OK. Asesmen pra-anestesi tetap hanya dokter. Koreksi isian lewat layar Asesmen.
 5. **Sign in**: centang butir manual, lalu **Konfirmasi sign in**. Selama persetujuan tindakan atau asesmen
    pra-anestesi final belum ada, tombol nonaktif dengan alasan tertulis di bawah fase ("Asesmen pra-anestesi final
    belum ada."), dan server menolak (409 `CHECKLIST_INCOMPLETE`). Butir "Persetujuan tindakan bertanda tangan" diisi
@@ -466,10 +517,13 @@ logika murni `lib/depo-api.ts`.
    Aman).
 3. **Penerimaan barang**: pemasok, nomor faktur, lalu per baris obat (cari minimal 2 huruf), nomor batch, tanggal
    kedaluwarsa, jumlah, dan harga pokok per satuan. Batch yang sudah kedaluwarsa ditahan ("… sudah kedaluwarsa dan
-   tidak boleh diterima") dan ditolak API (`BATCH_EXPIRED`). Hasilnya nomor `TRM-YYMM-NNNN`.
+   tidak boleh diterima") dan ditolak API (`BATCH_EXPIRED`). Hasilnya nomor `TRM-YYMM-NNNN` beserta harga per baris
+   dan harga pokok batch rata-rata tertimbang. Satu faktur pemasok hanya bisa diterima sekali.
 4. **Mutasi antar depo**: pilih Depo tujuan, Obat, dan Jumlah; layar menulis "Batch FEFO: …" (batch layak ED terdekat
    dulu, batch kedaluwarsa tidak pernah ditawarkan), lalu **Kirim mutasi** (`MUT-YYMM-NNNN`). Petugas berlingkup atas
    depo tujuan menekan **Terima MUT-…**; selama dalam perjalanan stok tidak tercatat di kedua depo.
+   Mutasi yang tersangkut dibatalkan petugas depo asal lewat **Batalkan MUT-…** (alasan minimal 10 karakter); stok
+   kembali ke depo asal. Depo yang masih punya mutasi dalam perjalanan tidak bisa dinonaktifkan.
 5. **Penyesuaian**: pilih batch, isi selisih (negatif = berkurang) dan alasan minimal 10 karakter. Batch kedaluwarsa
    hanya bisa dikurangi (hapus buku).
 6. **Kartu stok**: ledger terbaru dulu dengan jenis, nomor dokumen, alasan, dan petugas.
@@ -707,9 +761,22 @@ patologi anatomi yang terkunci setelah ditandatangani. Kultur darah positif dite
 - Di mode presentasi analis lab menjalankan TTE atas nama dokter Sp.PK dan Sp.PA fiktif. Pemisahan peran dibangun di
   fase 4.
 
-**Rencana backend.** Izin rencana `lab.write`. Fase 4 potongan 4.8 membangun modul `micro-pa`: kultur bertahap, isolat,
-S/I/R + MIC, PA dengan gambar (P08) + TTE, dan `GET micro/antibiogram` untuk PPRA. Rencana menaruh mikrobiologi sebagai
-tab di layar Laboratorium (keputusan fase 4 #1); di demo ia layar sendiri. Di mode api layar hibrida (4.0c): peran berizin melihat "Belum tersambung" sampai potongan fase 4 layar ini tergabung.
+**Mode api (fase 4 · 4.8, ADR-0120).** Modul `micro-pa`: `/api/v1/micro/*` dan `/api/v1/pa/*`. Layar
+`api-mikrobiologi.tsx`; tab di layar Lab menyusul pemilik layar Lab.
+
+1. "Kultur" memuat order lab berisi uji panel `MIKRO` (kultur darah, urin, sputum, pus). Analis lab melihat semua
+   order (tampilan layanan); dokter ruangan hanya melihat pasiennya.
+2. Analis mengisi **Tambah isolat**: tahap, organisme (saran dari daftar lokal), dan pertumbuhan. Untuk tahap akhir,
+   isi juga uji kepekaan per antibiotik (S/I/R + MIC).
+3. **Validasi teknis** (analis, `lab.result.verify`) mencatat kesimpulan tahap. Setelah itu isolat tahap itu
+   terkunci.
+4. **Rilis klinis … (TTE)** (dokter Lab, `lab.result.release`) harus oleh orang lain dari validator teknis. Rilis
+   menerbitkan PDF ber-TTE dan event `micro.report_released`. Laporan akhir hanya setelah laporan awal dirilis.
+5. "Antibiogram kumulatif" menampilkan %S per organisme × antibiotik, dihitung dari isolat pertama per pasien pada
+   laporan akhir yang dirilis di periode itu (sumber PPRA).
+6. "Patologi anatomi" (dokter pemegang `lab.result.release`) memuat spesimen kamar operasi yang dikirim (4.7b).
+   Langkahnya: isi makroskopik, mikroskopik, diagnosis, dan ICD-10, lalu **Simpan laporan PA**, lalu
+   **Tandatangani laporan PA (TTE)**. Versi ber-TTE terkunci; perubahan lewat addendum.
 
 ## Diagnostik lain
 
@@ -756,9 +823,14 @@ ekspertise terstruktur per templat yang ditandatangani dokter pembaca. Temuan kr
 - Di mode presentasi dokter dan perawat sama-sama bisa menekan TTE atas nama dokter pembaca fiktif. Temuan kritis yang
   dicentang belum muncul di Pusat hasil kritis karena keadaan antarlayar tidak disimpan.
 
-**Rencana backend.** Izin rencana `diagnostic.write`. Fase 4 potongan 4.8 membangun modul `diagnostics`: order F3-1 +
-isian formulir P07 (lima formulir diseed) + lampiran P08 + TTE, event `diagnostic.report_signed`. Rencana menampilkan
-hasil S10 di panel hasil fase 3 (keputusan fase 4 #1), bukan layar sendiri. Di mode api layar hibrida (4.0c): peran berizin melihat "Belum tersambung" sampai potongan fase 4 layar ini tergabung.
+**Mode api (fase 4 · 4.8, ADR-0120).** Modul `diagnostics` (`/api/v1/diagnostics/*`). Layar `api-diagnostik.tsx`.
+
+1. "Order" memuat order ber-kode ICD-9-CM EKG (89.52), ekokardiografi (88.72), USG (88.7x), endoskopi (45.1x/45.2x),
+   dan treadmill (89.41–89.44).
+2. Dokter pelaksana (`diagnostics.write`) mengisi formulir P07 `diag_<jenis>` dan kesimpulan, lalu
+   **Simpan laporan**.
+3. **Tandatangani laporan (TTE)** (`diagnostics.sign`) menerbitkan event `diagnostic.report_signed`. Laporan muncul
+   di panel hasil fase 3.
 
 ## Tes yang menjaga layar ini
 

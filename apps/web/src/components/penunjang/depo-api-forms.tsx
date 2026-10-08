@@ -1,6 +1,7 @@
 'use client';
 
 import {
+  formatRupiah,
   SAFETY_REASON_MIN,
   type StockBalance,
   type StockDrugView,
@@ -153,22 +154,31 @@ export function ReceiptForm({
         e.preventDefault();
         if (!ready) return;
         start(async () => {
-          const r = await receiveStockAction({
-            stockLocationId: location.id,
-            supplierId,
-            invoiceNo: invoiceNo.trim(),
-            items: lines.map((l) => ({
-              drugId: l.drug?.id,
-              batchNo: l.batchNo.trim(),
-              expiryDate: l.expiryDate,
-              quantity: Number(l.quantity),
-              unitCost: l.unitCost,
-            })),
-          });
+          const r = await receiveStockAction(
+            {
+              stockLocationId: location.id,
+              supplierId,
+              invoiceNo: invoiceNo.trim(),
+              items: lines.map((l) => ({
+                drugId: l.drug?.id,
+                batchNo: l.batchNo.trim(),
+                expiryDate: l.expiryDate,
+                quantity: Number(l.quantity),
+                unitCost: l.unitCost,
+              })),
+            },
+            crypto.randomUUID(),
+          );
           if (!r.ok) return onNotice({ ok: false, text: r.message });
+          const priced = r.receipt.items
+            .map(
+              (i) =>
+                `${i.batchNo} @ ${formatRupiah(BigInt(i.unitCost))} (HPP batch ${formatRupiah(BigInt(i.batchUnitCost))})`,
+            )
+            .join('; ');
           onNotice({
             ok: true,
-            text: `${r.receipt.receiptNo} diterima di ${location.name}: ${r.receipt.items.length} baris.`,
+            text: `${r.receipt.receiptNo} diterima di ${location.name}: ${priced}.`,
           });
           setInvoiceNo('');
           setLines([emptyLine()]);
@@ -318,11 +328,14 @@ export function TransferForm({
         e.preventDefault();
         if (!plan?.ok || !toId) return;
         start(async () => {
-          const r = await sendTransferAction({
-            fromStockLocationId: location.id,
-            toStockLocationId: toId,
-            items: plan.picks.map((p) => ({ stockBatchId: p.batchId, quantity: p.quantity })),
-          });
+          const r = await sendTransferAction(
+            {
+              fromStockLocationId: location.id,
+              toStockLocationId: toId,
+              items: plan.picks.map((p) => ({ stockBatchId: p.batchId, quantity: p.quantity })),
+            },
+            crypto.randomUUID(),
+          );
           if (!r.ok) return onNotice({ ok: false, text: r.message });
           onNotice({
             ok: true,
@@ -431,11 +444,14 @@ export function AdjustForm({
         e.preventDefault();
         if (!ready) return;
         start(async () => {
-          const r = await adjustStockAction({
-            stockLocationId: location.id,
-            items: [{ stockBatchId: batchId, quantityDelta: n }],
-            reason: reason.trim(),
-          });
+          const r = await adjustStockAction(
+            {
+              stockLocationId: location.id,
+              items: [{ stockBatchId: batchId, quantityDelta: n }],
+              reason: reason.trim(),
+            },
+            crypto.randomUUID(),
+          );
           if (!r.ok) return onNotice({ ok: false, text: r.message });
           onNotice({ ok: true, text: `Penyesuaian ${batch.batchNo} (${n > 0 ? '+' : ''}${n}) tersimpan.` });
           setDelta('');
