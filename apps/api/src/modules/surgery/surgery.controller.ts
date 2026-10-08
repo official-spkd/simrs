@@ -4,6 +4,7 @@ import {
   checklistConfirmInputSchema,
   checklistItemInputSchema,
   countDiscrepancyInputSchema,
+  formAnswersSchema,
   isoDateJakarta,
   operativeReportCreateSchema,
   type OperativeReportCreateInput,
@@ -28,6 +29,7 @@ import { SurgeryService } from './surgery.service';
 
 const uuid = new ParseUUIDPipe();
 const boardQuery = z.strictObject({ date: z.iso.date().optional() });
+const anesthesiaRecordBody = z.strictObject({ answers: formAnswersSchema });
 const candidateQuery = z.strictObject({ q: z.string().trim().min(3).max(40) });
 
 /**
@@ -157,6 +159,16 @@ export class SurgeryController {
     @Body(new ZodValidationPipe(operativeReportCreateSchema)) body: OperativeReportCreateInput,
   ) {
     return this.surgery.report(id, body);
+  }
+
+  /** 4.7c · Catatan anestesi (P07) oleh dokter anestesi/penata anestesi di tim kasus. */
+  @RequirePermission('surgery', 'checklist')
+  @Post('cases/:id/anesthesia-records')
+  anesthesiaRecord(
+    @Param('id', uuid) id: string,
+    @Body(new ZodValidationPipe(anesthesiaRecordBody)) body: z.infer<typeof anesthesiaRecordBody>,
+  ) {
+    return this.surgery.anesthesiaRecord(id, body.answers);
   }
 
   /** 4.7b · Spesimen PA dari laporan operasi terkini (operator) → event `surgery.specimen_sent`. */

@@ -77,6 +77,26 @@ export class FormResponsesService {
 
   async create(patientId: string, code: string, answers: FormAnswers, encounterId: string | null = null) {
     await this.assertAccess(patientId);
+    return this.insert(patientId, code, answers, encounterId, true);
+  }
+
+  /**
+   * Isian yang otorisasinya sudah ditegakkan modul pemanggil, mis. catatan anestesi oleh penata anestesi yang tercatat
+   * di tim kasus operasi (ADR-0106 pembaruan 4.7c): akses pasien dan hak tulis per profesi TIDAK diperiksa ulang di
+   * sini. Pasien, kunjungan, versi formulir berlaku, dan validasi isian tetap sama dengan `create`. Koreksi/salah entri
+   * tetap lewat jalur biasa (hak tulis per profesi).
+   */
+  async createAuthorized(patientId: string, code: string, answers: FormAnswers, encounterId: string) {
+    return this.insert(patientId, code, answers, encounterId, false);
+  }
+
+  private async insert(
+    patientId: string,
+    code: string,
+    answers: FormAnswers,
+    encounterId: string | null,
+    checkWriteRole: boolean,
+  ) {
     const patient = await this.repo.findPatient(patientId);
     if (!patient) throw new AppError('NOT_FOUND', 'Pasien tidak ditemukan', 404);
     if (patient.status === 'merged') {
@@ -89,7 +109,7 @@ export class FormResponsesService {
     if (encounterId) await this.assertEncounter(encounterId, patientId);
     const def = await this.repo.published(code);
     if (!def) throw new AppError('NOT_FOUND', 'Formulir belum punya versi berlaku', 404);
-    this.assertWriteRole(def.writeRoles, patientId, code);
+    if (checkWriteRole) this.assertWriteRole(def.writeRoles, patientId, code);
     const score = this.validated(this.schemaOf(def), answers);
     const id = newId();
     const row = await this.repo.createResponse({

@@ -65,6 +65,8 @@ export interface CaseRow {
 /**
  * Lingkup izin `surgery.*` (rencana fase 4 §4.0a): `unit` = perawat unit kamar operasi (kamar di unitnya);
  * `relationship` = dokter yang ada di tim operasi kasus itu atau berelasi dengan pasiennya (ABAC P03); `all` = bebas.
+ * Anggota tim aktif selalu boleh membuka kasusnya (lingkup unit juga), sehingga penata anestesi di luar unit OK tetap
+ * bisa menulis catatan anestesi kasus yang ditugaskan kepadanya (4.7c).
  */
 @Injectable()
 export class SurgeryAccess {
@@ -99,8 +101,9 @@ export class SurgeryAccess {
   async assertCase(c: Pick<CaseRow, 'id' | 'patientId'>): Promise<void> {
     const scope = this.db.permissionScope();
     if (scope === 'all') return;
-    if (scope === 'unit') return this.assertUnit();
+    // Anggota tim kasus (mis. penata anestesi dari unit lain, 4.7c) boleh membuka kasusnya sendiri.
     if (await this.inTeam(c.id)) return;
+    if (scope === 'unit') return this.assertUnit();
     await this.access.assert(c.patientId);
   }
 

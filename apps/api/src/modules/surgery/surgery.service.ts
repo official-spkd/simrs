@@ -1,8 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import { allocateNumber, getConcept, readTenantSetting } from '@simrs/db';
 import {
+  ANESTHESIA_RECORD_FORM_CODE,
   AppError,
   CHECKLIST_PHASES,
+  type FormAnswers,
   type ChecklistPhaseId,
   CONSENT_CHECKLIST_ITEM,
   COUNT_ITEM,
@@ -16,6 +18,7 @@ import {
   type SurgeryEventInput,
   type SurgerySpecimenInput,
   type SurgicalCountInput,
+  SURGERY_TEAM_ROLE_LABEL,
   supportError,
   surgerySpecimenInputSchema,
   unreconciledCountItems,
@@ -27,6 +30,7 @@ import { ClinicalSigningService } from '../../infra/clinical/clinical-signing.se
 import { DomainEvents } from '../../infra/events/domain-events';
 import { PermissionMatrix } from '../../infra/permission-matrix';
 import { TenantDb } from '../../infra/tenant-db';
+import { FormResponsesService } from '../forms/form-responses.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { type CaseRow, mapSurgeryDb, SurgeryAccess } from './surgery-access';
 import { SurgeryBoardService } from './surgery-board.service';
@@ -34,6 +38,10 @@ import { SurgeryBoardService } from './surgery-board.service';
 const ACTIVE_ENCOUNTER = ['planned', 'arrived', 'in_progress'];
 /** Peran tim operasi yang dokter (masuk tim perawatan kunjungan sebagai rawat bersama). */
 const DOCTOR_TEAM_ROLES: ReadonlySet<string> = new Set(['operator', 'asisten', 'anestesi']);
+const DOCTOR_PROFESSIONS: ReadonlySet<string> = new Set(['dokter', 'dokter_residen']);
+const NURSE_PROFESSIONS: ReadonlySet<string> = new Set(['perawat', 'bidan']);
+/** Anggota tim yang boleh menulis catatan anestesi kasus (4.7c): dokter anestesi dan penata anestesi. */
+const ANESTHESIA_TEAM_ROLES = ['anestesi', 'penata_anestesi'];
 const REPORT_TITLE = {
   baru: 'Laporan operasi',
   koreksi: 'Koreksi laporan operasi',
@@ -59,6 +67,7 @@ export class SurgeryService {
     private readonly records: ClinicalRecordService,
     private readonly signing: ClinicalSigningService,
     private readonly careTeam: CareTeamService,
+    private readonly forms: FormResponsesService,
   ) {}
 
   // ───────────────────────────── Jadwal ─────────────────────────────
@@ -89,6 +98,26 @@ export class SurgeryService {
     });
     if (users.length !== userIds.length) {
       throw new AppError('VALIDATION_FAILED', 'Anggota tim tidak dikenal atau tidak aktif', 422);
+    }
+    // Profesi sesuai peran tim: dokter untuk operator/asisten/anestesi, perawat/bidan untuk penata anestesi dan perawat.
+    const professions = await tx.staffAssignment.findMany({
+      where: {
+        userId: { in: userIds },
+        validFrom: { lte: new Date() },
+        OR: [{ validUntil: null }, { validUntil: { gt: new Date() } }],
+      },
+      select: { userId: true, role: { select: { code: true } } },
+    });
+    for (const t of input.team) {
+      const codes = professions.filter((p) => p.userId === t.userId).map((p) => p.role.code);
+      const want = DOCTOR_TEAM_ROLES.has(t.role) ? DOCTOR_PROFESSIONS : NURSE_PROFESSIONS;
+      if (!codes.some((c) => want.has(c))) {
+        throw new AppError(
+          'VALIDATION_FAILED',
+          `Peran tim ${SURGERY_TEAM_ROLE_LABEL[t.role]} harus diisi ${DOCTOR_TEAM_ROLES.has(t.role) ? 'dokter' : 'perawat'}`,
+          422,
+        );
+      }
     }
     if (!input.team.some((t) => t.role === 'operator')) {
       throw new AppError('VALIDATION_FAILED', 'Tim operasi wajib punya operator', 422);
@@ -695,6 +724,54 @@ export class SurgeryService {
       patientId: c.patientId,
       reason: input.revision.kind === 'koreksi' ? input.revision.correctionReason : null,
       details: { surgeryCaseId: c.id, version: fields.version, revision: input.revision.kind },
+    });
+    return this.board.one(c.id);
+  }
+
+  // ───────────────────────────── Catatan anestesi (4.7c) ─────────────────────────────
+
+  /**
+   * Catatan anestesi (formulir P07 `catatan_anestesi`) dari layar OK. Hak tulis mengikuti tim kasus: dokter anestesi
+   * atau penata anestesi yang aktif di `surgery_case_team` kasus ini, bukan lingkup unit bangsal formulir. Pemegang
+   * hak tulis profesi formulir (pustaka: dokter) yang boleh membuka kasus juga diterima. Asesmen pra-anestesi tidak
+   * lewat jalur ini (tetap API formulir, hanya dokter).
+   */
+  async anesthesiaRecord(caseId: string, answers: FormAnswers): Promise<SurgeryCaseView> {
+    const c = await this.lockCase(caseId);
+    if (c.status === 'batal') throw new AppError('CONFLICT', 'Kasus operasi sudah batal', 409);
+    const tx = this.db.tx();
+    const me = this.me();
+    const member = await tx.surgeryCaseTeam.findFirst({
+      where: { surgeryCaseId: c.id, userId: me, role: { in: ANESTHESIA_TEAM_ROLES }, endedAt: null },
+      select: { role: true },
+    });
+    if (!member) {
+      const def = await tx.formDefinition.findFirst({
+        where: { code: ANESTHESIA_RECORD_FORM_CODE, status: 'published' },
+        select: { writeRoles: true },
+      });
+      const role = this.db.actor().role;
+      const byProfession = role === DEV_ROLE || (!!role && !!def?.writeRoles.includes(role));
+      if (!byProfession || !(await this.scope.inTeam(c.id))) {
+        throw new AppError(
+          'FORBIDDEN',
+          'Catatan anestesi ditulis dokter anestesi atau penata anestesi di tim kasus ini',
+          403,
+        );
+      }
+    }
+    const saved = await this.forms.createAuthorized(
+      c.patientId,
+      ANESTHESIA_RECORD_FORM_CODE,
+      answers,
+      c.encounterId,
+    );
+    this.db.audit({
+      action: 'create',
+      resourceType: 'form_response',
+      resourceId: saved.id,
+      patientId: c.patientId,
+      details: { form: ANESTHESIA_RECORD_FORM_CODE, surgeryCaseId: c.id, teamRole: member?.role ?? null },
     });
     return this.board.one(c.id);
   }
