@@ -12,6 +12,7 @@ import {
   type SurgeryCaseView,
   surgeryCaseViewSchema,
   surgeryEventInputSchema,
+  surgerySpecimenInputSchema,
   surgerySupplyInputSchema,
   surgicalCountInputSchema,
 } from '@simrs/shared';
@@ -164,5 +165,16 @@ export async function reportAction(caseId: unknown, input: unknown) {
     '/reports',
     input,
     operativeReportCreateSchema,
+  );
+}
+
+export async function specimensAction(caseId: unknown, input: unknown) {
+  return caseCall(
+    'surgery.report',
+    'Peran Anda tidak berizin mengirim spesimen PA.',
+    caseId,
+    '/specimens',
+    input,
+    surgerySpecimenInputSchema,
   );
 }
