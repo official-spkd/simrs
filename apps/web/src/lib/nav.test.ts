@@ -89,16 +89,21 @@ describe('navGroups', () => {
     for (const id of ['poli', 'igd', 'ranap', 'bed']) expect(item(none, id), id).toBeUndefined();
     const perawat = navGroups({ ...base, permissions: ['clinical.read', 'clinical.write', 'bed.read'] });
     for (const id of ['poli', 'igd', 'ranap', 'bed']) expect(item(perawat, id)?.available, id).toBe(true);
-    // Petugas pendaftaran (admisi IGD): papan IGD dan tempat tidur, tanpa layar pemeriksaan/rawat inap.
+    // Petugas pendaftaran (admisi IGD, tanpa izin klinis, ADR-0109): papan IGD administratif lewat `encounter.write`
+    // dan tempat tidur, tanpa layar pemeriksaan/rawat inap.
     const admisi = navGroups({
       ...base,
       role: 'petugas_pendaftaran',
-      permissions: ['clinical.read', 'triage.write', 'bed.read', 'bed.write'],
+      permissions: ['encounter.read', 'encounter.write', 'bed.read', 'bed.write'],
     });
     expect(item(admisi, 'igd')?.available).toBe(true);
     expect(item(admisi, 'bed')?.available).toBe(true);
     expect(item(admisi, 'poli')).toBeUndefined();
     expect(item(admisi, 'ranap')).toBeUndefined();
+    // Kasir (baca kunjungan saja) tidak mendapat menu IGD.
+    expect(
+      item(navGroups({ ...base, role: 'kasir', permissions: ['encounter.read'] }), 'igd'),
+    ).toBeUndefined();
     const manajemen = navGroups({ ...base, role: 'manajemen', permissions: ['bed.read'] });
     expect(item(manajemen, 'bed')?.available).toBe(true);
     expect(item(manajemen, 'ranap')).toBeUndefined();

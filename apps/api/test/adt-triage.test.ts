@@ -36,6 +36,7 @@ let port: number;
 let A: { id: string; code: string };
 let B: { id: string; code: string };
 const tok: Record<string, Tokens> = {};
+const ids: Record<string, string> = {};
 const unit: Record<string, string> = {};
 const unitB: Record<string, string> = {};
 const beds: Record<string, string[]> = {};
@@ -182,6 +183,7 @@ beforeAll(async () => {
       tenantCode: t.code,
     });
     tok[who] = await login(app, user);
+    ids[who] = user.id;
   }
   const dokter = await createTestUser(A.id, {
     roles: [{ code: 'dokter', unitId: unit.MELATI }],
@@ -488,7 +490,12 @@ describe('alur IGD → rawat inap → transfer → pulang (K04)', () => {
       .post('/adt/admissions', { encounterId: imp, locationId: bed, initialDiagnosis: DIAGNOSIS })
       .expect(201);
     expect(admitted.body).toMatchObject({ encounterId: imp, bedId: bed });
-    expect(admitted.body.wristbandCode).toMatch(/^GL[A-Z2-9]{10}$/);
+    // ADR-0109: respons admisi tanpa kode gelang; kode tersimpan di server.
+    expect(admitted.body).not.toHaveProperty('wristbandCode');
+    const issued = await run(A.id, (tx) =>
+      tx.patientWristband.findFirstOrThrow({ where: { encounterId: imp, voidedAt: null } }),
+    );
+    expect(issued.code).toMatch(/^GL[A-Z2-9]{10}$/);
     expect(await bedStatus(bed)).toMatchObject({ status: 'terisi', encounterId: imp });
     const [impRow, igdRow, sepRi, team, request2, events] = await run(A.id, (tx) =>
       Promise.all([
@@ -522,20 +529,36 @@ describe('alur IGD → rawat inap → transfer → pulang (K04)', () => {
     expect(occupied.status).toBe(409);
     expect(occupied.body.code).toBe('BED_NOT_AVAILABLE');
 
-    // Gelang: perawat bangsal cetak; cetak ulang wajib alasan → kode baru, lama batal.
+    // Gelang (ADR-0109): GET tanpa kode, juga bagi perawat ber-`bed.write`; kode hanya lewat aksi cetak (POST,
+    // diaudit `print`). Cetak ulang wajib alasan → kode baru, lama batal.
     const band = await as('perawatMelati').get(`/encounters/${imp}/wristband`).expect(200);
-    expect(band.body.code).toBe(admitted.body.wristbandCode);
+    expect(band.body).toMatchObject({ encounterId: imp, rm: expect.any(String) });
+    expect(band.body).not.toHaveProperty('code');
+    expect(JSON.stringify(band.body)).not.toContain(issued.code);
+    const printed = await as('perawatMelati').post(`/encounters/${imp}/wristband/print`).expect(200);
+    expect(printed.body.code).toBe(issued.code);
+    expect(
+      await run(A.id, (tx) =>
+        tx.auditEvent.findMany({
+          where: { resourceType: 'wristband', resourceId: issued.id },
+          select: { action: true },
+        }),
+      ),
+    ).toEqual(expect.arrayContaining([{ action: 'read' }, { action: 'print' }]));
     await as('perawatMelati').post(`/encounters/${imp}/wristband/reprint`, { reason: 'x' }).expect(400);
     const reprint = await as('perawatMelati')
       .post(`/encounters/${imp}/wristband/reprint`, { reason: 'Gelang robek saat mandi' })
       .expect(201);
-    expect(reprint.body.code).not.toBe(admitted.body.wristbandCode);
+    expect(reprint.body.code).not.toBe(issued.code);
+    // Peran tanpa izin cetak gelang (tanpa `bed.write`) tidak bisa mencetak.
+    await as('privasi').post(`/encounters/${imp}/wristband/print`).expect(403);
     expect(
       await run(A.id, (tx) => tx.patientWristband.count({ where: { encounterId: imp, voidedAt: null } })),
     ).toBe(1);
 
     // Transfer ke Anggrek: lingkup unit pindah (ADR-0031 tingkat bed); bed lama kotor.
     await as('perawatAnggrek').get(`/encounters/${imp}/wristband`).expect(403);
+    await as('perawatAnggrek').post(`/encounters/${imp}/wristband/print`).expect(403);
     const target = await freeBed('ANGGREK');
     await as('daftar')
       .post('/adt/transfers', { encounterId: imp, locationId: target, reason: 'Butuh ruang kelas 1' })
@@ -820,6 +843,49 @@ async function openStream(who: string, path: string) {
   return { status: res.status, events, waitFor, close: () => controller.abort() };
 }
 
+describe('ADR-0109 · papan bed: catatan permintaan dan lingkup relasi', () => {
+  it('catatan bebas permintaan bed hanya untuk peminta dan pelaku berelasi; papan umum tanpa catatan', async () => {
+    const e = await igd();
+    const note = `Curiga TB paru ${newId().slice(-6)}`;
+    const id = (
+      await as('perawatIgd')
+        .post('/adt/bed-requests', {
+          encounterId: e.encounterId,
+          origin: 'igd',
+          careClass: 'kelas_2',
+          unitId: unit.MELATI,
+          isolation: true,
+          note,
+        })
+        .expect(201)
+    ).body.id as string;
+    const seen = async (who: string) => {
+      const board = await as(who).get('/adt/beds').expect(200);
+      return board.body.requests.find((r: { id: string }) => r.id === id) as
+        { note: string | null; isolation: boolean } | undefined;
+    };
+    // Admisi (lingkup all) dan perawat bangsal tujuan (lingkup unit) melihat permintaan + isolasi, tanpa catatan.
+    expect(await seen('daftar')).toMatchObject({ note: null, isolation: true });
+    expect(await seen('perawatMelati')).toMatchObject({ note: null, isolation: true });
+    // Pelaku berelasi dengan pasien (mis. perawat penanggung jawab) melihat catatan.
+    await asOwner(A.id, (tx) =>
+      tx.accessRelationship.create({
+        data: {
+          id: newId(),
+          tenantId: A.id,
+          userId: ids.perawatMelati as string,
+          patientId: e.patientId,
+          kind: 'perawat_penanggung_jawab',
+          validFrom: new Date(Date.now() - 60_000),
+          sourceType: 'uji',
+          sourceId: newId(),
+        },
+      }),
+    );
+    expect(await seen('perawatMelati')).toMatchObject({ note });
+  });
+});
+
 describe('SSE papan IGD dan papan bed', () => {
   it('papan IGD: potret awal unit sendiri lalu ed.status; status IGD RS lain tidak terkirim', async () => {
     const mine = await igd();
@@ -885,5 +951,25 @@ describe('SSE papan IGD dan papan bed', () => {
     const denied = await openStream('privasi', 'triage/board/events');
     denied.close();
     expect(denied.status).toBe(403);
+  });
+
+  it('papan IGD administratif (ADR-0109): loket pendaftaran tanpa aliran klinis; potret tanpa triase', async () => {
+    const mine = await igd();
+    const clinical = await openStream('daftar', 'triage/board/events');
+    clinical.close();
+    expect(clinical.status).toBe(403);
+    const s = await openStream('daftar', 'triage/board/admission/events');
+    try {
+      expect(s.status).toBe(200);
+      await s.waitFor(() => s.events.some((e) => e.event === 'ed.board'));
+      const snapshot = s.events.find((e) => e.event === 'ed.board')?.data as {
+        view: string;
+        items: Array<{ encounterId: string; triage: unknown }>;
+      };
+      expect(snapshot.view).toBe('administratif');
+      expect(snapshot.items.find((i) => i.encounterId === mine.encounterId)).toMatchObject({ triage: null });
+    } finally {
+      s.close();
+    }
   });
 });

@@ -207,7 +207,7 @@ export function DispositionPanel({
             </>
           )}
         </p>
-      ) : !item.triage ? (
+      ) : !item.triaged ? (
         <p className="m-0 text-caption text-ink-500">Triase pasien dulu sebelum keputusan rawat inap.</p>
       ) : canRequest ? (
         <form

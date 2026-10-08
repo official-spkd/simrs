@@ -308,14 +308,19 @@ ATS) dengan saran sistem dari tanda vital.
 - Lama tinggal ≥ 4 jam ditulis "Lewat 4 jam"; triase 1–2 yang menunggu dokter > 10 menit ditulis "Dokter lewat 10
   menit". Batas 4 jam dari pengaturan `bed.boarding_alert_hours`.
 
-**Mode api (layar W3).** Izin layar `clinical.read`, agar petugas pendaftaran IGD ikut membuka papan; papan berisi
-pasien unit IGD penugasan (petugas unit lain melihat "Papan IGD hanya untuk petugas yang ditugaskan di IGD"). Setiap
-aksi memakai izinnya sendiri dan ditegakkan ulang API:
+**Mode api (layar W3).** Izin layar `clinical.read` untuk petugas klinis. Papan berisi pasien unit IGD penugasan;
+petugas unit lain melihat "Papan IGD hanya untuk petugas yang ditugaskan di IGD".
+
+Loket pendaftaran IGD (`encounter.write`, tanpa izin klinis, ADR-0109) membuka **papan administratif**
+(`GET /triage/board/admission`). Isinya identitas, penjamin, status alur, bed, dokter penanggung jawab, permintaan
+bed, dan SEP, tanpa triase atau tanda vital. Lencana triase tertulis "Triase klinis".
+
+Setiap aksi memakai izinnya sendiri dan ditegakkan ulang API:
 
 1. **+ Daftarkan pasien IGD** (`encounter.write`): cari rekam medis (RM, NIK, BPJS, nama) atau **Pasien tanpa
    identitas** (jenis kelamin, perkiraan umur, ciri-ciri; rekam medis sementara "Tn. X"/"Ny. X"), cara datang, penjamin
    umum atau BPJS (diagnosa awal opsional → SEP IGD langsung). Pasien baru tampil di semua jendela IGD tanpa muat ulang.
-2. **Triase ATS** (`triage.write`, juga petugas pendaftaran IGD): isi tanda vital dan keluhan/diskriminator; kotak
+2. **Triase ATS** (`triage.write`: perawat, bidan, dokter, residen IGD): isi tanda vital dan keluhan/diskriminator; kotak
    "Saran sistem (server)" dihitung API (`POST /triage/suggestions`). Level di bawah saran wajib alasan ≥ 10 karakter
    (tombol simpan nonaktif sampai terisi; server menolak 422 bila dilewati). **Triase ulang** = asesmen baru.
 3. **Ambil pasien** (dokter, `clinical.write` + `clinical.sign`): dokter jaga masuk tim perawatan sebagai penanggung
@@ -328,7 +333,8 @@ aksi memakai izinnya sendiri dan ditegakkan ulang API:
 6. **SEP IGD (BPJS)**: status SEP, atau **Buat SEP IGD** dengan diagnosa awal dokter jaga (`coverage.write`).
 7. Region "Bed IGD": status tiap bed IGD; **Tandai siap/dibersihkan/rusak** dengan versi bed (`bed.write`).
 
-Penanda "Langsung · tersambung" di kepala layar menunjukkan aliran SSE (`/klinis/igd/events` → `/triage/board/events`).
+Penanda "Langsung · tersambung" di kepala layar menunjukkan aliran SSE: `/klinis/igd/events` →
+`/triage/board/events`, dan untuk loket `/klinis/igd/events/admisi` → `/triage/board/admission/events`.
 
 ## Tempat tidur
 
@@ -375,11 +381,12 @@ dan perputaran status bed (pulang, kotor, dibersihkan, siap).
 - Setiap perubahan status bed rawat inap ber-kelas memicu outbox Aplicare (`bpjs.aplicare.update`).
 
 **Mode api (layar W3).** Izin layar `bed.read` (manajemen hanya membaca; perawat hanya bangsal penugasannya). Peta
-per bangsal rawat inap (label pasien hanya inisial), real-time lewat SSE (`/klinis/tempat-tidur/events`):
+per bangsal rawat inap (label pasien hanya inisial), real-time lewat SSE (`/klinis/tempat-tidur/events`). Catatan
+bebas permintaan bed hanya tampil bagi peminta dan petugas yang berelasi dengan pasien (ADR-0109):
 
 1. Pilih bed: status + versi; **Tandai …** mengikuti transisi manual (versi berbeda → pesan konflik, papan dimuat
-   ulang). Bed berpasien: **Gelang identitas pasien** (halaman cetak `/cetak/gelang/<kunjungan>`, cetak ulang wajib
-   alasan), **Pindahkan pasien** (transfer ke bed siap), **Pulangkan pasien**.
+   ulang). Bed berpasien: **Gelang identitas pasien** (halaman cetak `/cetak/gelang/<kunjungan>`; kode gelang baru
+   tampil setelah **Cetak gelang** ditekan, tercatat sebagai cetak; cetak ulang wajib alasan), **Pindahkan pasien** (transfer ke bed siap), **Pulangkan pasien**.
 2. **Pulangkan** lewat `DischargeGate` (3.6): bila syarat belum terpenuhi layar menulis "Pasien belum bisa dipulangkan.
    Lengkapi dulu:" beserta daftar syarat dari server (mis. "Resume medis final dengan TTE DPJP belum ada"). Disposisi
    meninggal tidak dari layar ini (dokter berelasi, surat kematian ber-TTE).

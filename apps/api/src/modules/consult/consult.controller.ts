@@ -44,7 +44,8 @@ export class ConsultController {
     return this.consult.respond(id, body);
   }
 
-  @RequirePermission('clinical', 'write')
+  /** Daftar dokter konsultan: hanya pengirim konsul (`consult.request`, dokter/residen; ADR-0109). */
+  @RequirePermission('consult', 'request')
   @Get('consultants')
   consultants(@Query(new ZodValidationPipe(consultantSearchQuerySchema)) q: ConsultantSearchQuery) {
     return this.consult.consultants(q);
@@ -84,5 +85,18 @@ export class EncounterConsultController {
     @Body(new ZodValidationPipe(primaryDpjpChangeInputSchema)) body: PrimaryDpjpChangeInput,
   ) {
     return this.consult.changePrimary(id, body);
+  }
+
+  /**
+   * ADR-0109 · Penetapan DPJP utama oleh manajemen medis (`care_team.assign`, bawaan peran `manajemen` lingkup `all`),
+   * tanpa perlu izin menulis klinis: beralasan, diaudit `by: manajemen_medis`.
+   */
+  @RequirePermission('care_team', 'assign')
+  @Post(':id/care-team/primary/assignment')
+  assignPrimary(
+    @Param('id', uuid) id: string,
+    @Body(new ZodValidationPipe(primaryDpjpChangeInputSchema)) body: PrimaryDpjpChangeInput,
+  ) {
+    return this.consult.changePrimary(id, body, true);
   }
 }

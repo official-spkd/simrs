@@ -70,9 +70,14 @@ export function IgdLive({
   bedHref: string | null;
 }) {
   const router = useRouter();
-  const live = useLiveBoard('/klinis/igd/events', CLINICAL_SSE_EVENTS.edBoard, CHANGE_EVENTS);
+  // Loket IGD (papan administratif, ADR-0109) berlangganan aliran administratif.
+  const live = useLiveBoard(
+    board.view === 'administratif' ? '/klinis/igd/events/admisi' : '/klinis/igd/events',
+    CLINICAL_SSE_EVENTS.edBoard,
+    CHANGE_EVENTS,
+  );
   const sec = useSecondsSince(board.asOf);
-  const rows = useMemo(() => board.items.map(edRowFromApi), [board.items]);
+  const rows = useMemo(() => board.items.map((i) => edRowFromApi(i, board.view)), [board.items, board.view]);
   const [zone, setZone] = useState<EdZone | 'semua'>('semua');
   const [level, setLevel] = useState<TriageLevel | 0>(0);
   const [selected, setSelected] = useState<string | null>(initialSelected);
@@ -179,9 +184,15 @@ export function IgdLive({
             aria-label="Pasien IGD terpilih"
             className="flex flex-[1_1_340px] flex-col gap-3 overflow-hidden rounded-card border border-white/95 bg-white/90 px-4 py-3.5 shadow-card lg:max-w-[460px]"
           >
-            <PatientHead item={current} addSeconds={sec} />
+            <PatientHead item={current} addSeconds={sec} view={board.view} />
             <ClaimPanel item={current} canClaim={perms.claim} userId={userId} />
-            <TriageApiForm item={current} canWrite={perms.triage} />
+            {board.view === 'klinis' ? (
+              <TriageApiForm item={current} canWrite={perms.triage} />
+            ) : (
+              <p className="m-0 text-caption text-ink-500">
+                Triase dan tanda vital hanya tampil untuk petugas klinis IGD.
+              </p>
+            )}
             <div className="border-t border-line-soft pt-2.5">
               <EdStatusForm item={current} beds={board.beds} canWrite={perms.triage} />
             </div>
@@ -195,8 +206,16 @@ export function IgdLive({
   );
 }
 
-function PatientHead({ item, addSeconds }: { item: EdBoardApi['items'][number]; addSeconds: number }) {
-  const row = edRowFromApi(item);
+function PatientHead({
+  item,
+  addSeconds,
+  view,
+}: {
+  item: EdBoardApi['items'][number];
+  addSeconds: number;
+  view: EdBoardApi['view'];
+}) {
+  const row = edRowFromApi(item, view);
   const secs = item.losMinutes * 60 + addSeconds;
   const alert = edLosAlert(row, Math.floor(secs / 60));
   return (
@@ -221,7 +240,7 @@ function PatientHead({ item, addSeconds }: { item: EdBoardApi['items'][number]; 
         </span>
       </div>
       <span className="flex flex-none flex-col items-end gap-1">
-        <TriageBadge level={item.triage?.level ?? null} />
+        <TriageBadge level={item.triage?.level ?? null} hidden={row.triageHidden} />
         <span role="timer" aria-label="Lama di IGD" className="font-mono font-semibold">
           {formatTimer(secs)}
         </span>

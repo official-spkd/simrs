@@ -139,6 +139,7 @@ beforeAll(async () => {
     ['residen', A, 'dokter_residen', 'MELATI'],
     ['perawat', A, 'perawat', 'MELATI'],
     ['rm', A, 'petugas_rm', undefined],
+    ['komite', A, 'manajemen', undefined],
     ['dokterB', B, 'dokter', 'MELATI'],
   ] as const) {
     const unitId = unitCode
@@ -160,7 +161,7 @@ describe('konsultasi (K10)', () => {
     // Sebelum konsul: konsultan (unit lain, tanpa relasi) tidak bisa membuka pasien.
     await as('konsultan').get(`/encounters/${e.encounterId}/consults`).expect(403);
     // Pilihan konsultan: dokter aktif selain pengirim, dengan unitnya; tenant lain tidak terlihat; tanpa
-    // `clinical.write` 403.
+    // `consult.request` (RM, perawat) 403 (ADR-0109).
     const opts = await as('dokter').get('/consults/consultants').expect(200);
     const ids = opts.body.map((o: { userId: string }) => o.userId);
     expect(ids).toContain(users.konsultan);
@@ -171,6 +172,8 @@ describe('konsultasi (K10)', () => {
       'Poli Jantung',
     ]);
     await as('rm').get('/consults/consultants').expect(403);
+    await as('perawat').get('/consults/consultants').expect(403);
+    await as('residen').get('/consults/consultants').expect(200);
     const r = await as('dokter').post('/consults/requests', ask(e.encounterId)).expect(201);
     expect(r.body).toMatchObject({ state: 'menunggu', toUser: { userId: users.konsultan }, responses: [] });
     expect(Date.parse(r.body.dueAt) - Date.parse(r.body.occurredAt)).toBe(24 * 3_600_000);
@@ -217,24 +220,24 @@ describe('konsultasi (K10)', () => {
       .expect(201);
     expect(fixed.body.responses).toHaveLength(1);
     expect(fixed.body.responses[0].version).toBe(2);
-    // Biaya konsultasi sekali per rantai; akses konsultan berakhir 24 jam setelah jawaban.
+    // Biaya konsultasi sekali per rantai; konsul selesai → akses konsultan berakhir saat itu juga (ADR-0109), juga
+    // sesudah koreksi jawaban yang membuka akses sementara.
     expect(
       await run(A.id, (tx) =>
         tx.billableEvent.count({ where: { encounterId: e.encounterId, kind: 'konsultasi' } }),
       ),
     ).toBe(1);
-    const after = await run(A.id, (tx) =>
-      tx.accessRelationship.findUniqueOrThrow({ where: { id: grant.id } }),
-    );
-    expect(after.validUntil!.getTime()).toBeGreaterThan(Date.now() + 23 * 3_600_000);
-    expect(await as('konsultan').get('/consults/inbox').expect(200)).toMatchObject({ body: [] });
-    // Akses kedaluwarsa → konsultan tidak bisa membuka pasien lagi.
-    await owner(A.id, (tx) =>
-      tx.accessRelationship.updateMany({
-        where: { patientId: e.patientId, userId: users.konsultan },
-        data: { validFrom: new Date(Date.now() - 3 * 86_400_000), validUntil: new Date(Date.now() - 60_000) },
+    const open = await run(A.id, (tx) =>
+      tx.accessRelationship.count({
+        where: {
+          userId: users.konsultan,
+          patientId: e.patientId,
+          OR: [{ validUntil: null }, { validUntil: { gt: new Date() } }],
+        },
       }),
     );
+    expect(open).toBe(0);
+    expect(await as('konsultan').get('/consults/inbox').expect(200)).toMatchObject({ body: [] });
     await as('konsultan').get(`/encounters/${e.encounterId}/consults`).expect(403);
   });
 
@@ -387,6 +390,79 @@ describe('konsultasi (K10)', () => {
     await as('dokter')
       .post(`/encounters/${e.encounterId}/care-team/primary`, { ...body, userId: users.konsultan })
       .expect(403);
+  });
+
+  it('ADR-0109: tanpa DPJP utama aktif hanya manajemen medis yang menetapkan; DPJP berganti mencabut akses konsultan', async () => {
+    const e = await visit();
+    // Konsul berjalan (belum dijawab) dan rawat bersama yang diterima.
+    const pending = await as('dokter').post('/consults/requests', ask(e.encounterId)).expect(201);
+    const rb = await as('dokter')
+      .post('/consults/requests', ask(e.encounterId, { kind: 'rawat_bersama', toUserId: users.jantung2 }))
+      .expect(201);
+    await as('jantung2')
+      .post(`/consults/requests/${rb.body.id}/responses`, answer({ accept: true }))
+      .expect(201);
+    await as('konsultan').get(`/encounters/${e.encounterId}/consults`).expect(200);
+
+    // DPJP utama diakhiri di luar alur (mis. cuti): dokter berakses tidak bisa menetapkan dirinya/orang lain.
+    await owner(A.id, (tx) =>
+      tx.encounterParticipant.updateMany({
+        where: { encounterId: e.encounterId, role: 'dpjp_utama', endedAt: null },
+        data: { endedAt: new Date(), endedBy: users.dokter, endReason: 'Cuti' },
+      }),
+    );
+    const body = { userId: users.dokterLain, reason: 'DPJP utama cuti, ditetapkan komite medik' };
+    const denied = await as('jantung2')
+      .post(`/encounters/${e.encounterId}/care-team/primary`, body)
+      .expect(403);
+    expect(denied.body.message).toContain('manajemen medis');
+    // Manajemen medis (peran `manajemen`, `care_team.assign` bawaan) menetapkan lewat rute penetapan, beralasan +
+    // diaudit; rute serah DPJP (`clinical.write`) tetap tertutup baginya, dokter tanpa izin itu 403 di rute penetapan.
+    await as('komite').post(`/encounters/${e.encounterId}/care-team/primary`, body).expect(403);
+    await as('jantung2').post(`/encounters/${e.encounterId}/care-team/primary/assignment`, body).expect(403);
+    await as('komite')
+      .post(`/encounters/${e.encounterId}/care-team/primary/assignment`, { ...body, reason: 'pendek' })
+      .expect(400);
+    const r = await as('komite')
+      .post(`/encounters/${e.encounterId}/care-team/primary/assignment`, body)
+      .expect(201);
+    expect(
+      r.body
+        .filter((m: { endedAt: string | null; role: string }) => !m.endedAt && m.role === 'dpjp_utama')
+        .map((m: { user: { userId: string } }) => m.user.userId),
+    ).toEqual([users.dokterLain]);
+    const audit = await run(A.id, (tx) =>
+      tx.auditEvent.findFirstOrThrow({
+        where: { resourceType: 'care_team', resourceId: e.encounterId, action: 'update' },
+        orderBy: { occurredAt: 'desc' },
+      }),
+    );
+    expect(audit.reason).toBe(body.reason);
+    expect(audit.details).toMatchObject({ by: 'manajemen_medis', to: users.dokterLain });
+
+    // Akses konsultan lama berakhir; konsultan yang aktif rawat bersama tetap berakses lewat tim perawatan.
+    await as('konsultan').get(`/encounters/${e.encounterId}/consults`).expect(403);
+    await as('jantung2').get(`/encounters/${e.encounterId}/consults`).expect(200);
+    // Konsul yang belum dijawab tetap bisa dijawab penerimanya; aksesnya berakhir lagi sesudah menjawab.
+    await as('konsultan').post(`/consults/requests/${pending.body.id}/responses`, answer()).expect(201);
+    await as('konsultan').get(`/encounters/${e.encounterId}/consults`).expect(403);
+  });
+
+  it('ADR-0109: koreksi permintaan ke penerima lain mencabut akses penerima lama', async () => {
+    const e = await visit();
+    const r = await as('dokter').post('/consults/requests', ask(e.encounterId)).expect(201);
+    await as('konsultan').get(`/encounters/${e.encounterId}/consults`).expect(200);
+    await as('dokter')
+      .post(
+        '/consults/requests',
+        ask(e.encounterId, {
+          toUserId: users.jantung2,
+          revision: { kind: 'koreksi', supersedesId: r.body.id, correctionReason: 'Salah pilih konsultan' },
+        }),
+      )
+      .expect(201);
+    await as('konsultan').get(`/encounters/${e.encounterId}/consults`).expect(403);
+    await as('jantung2').get(`/encounters/${e.encounterId}/consults`).expect(200);
   });
 
   it('isolasi tenant: dokter RS lain 404 untuk konsul, tim, kelengkapan, dan jawaban', async () => {

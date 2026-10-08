@@ -4,6 +4,7 @@ import {
   type BedStatus,
   type EdBoardApi,
   type EdBoardItem,
+  type EdBoardView,
   type EdZone,
   manualBedTransitionAllowed,
   TRIAGE_DISCRIMINATORS,
@@ -25,14 +26,16 @@ export function ageLabel(ageYears: number | null): string {
 }
 
 /** Keluhan papan = diskriminator triase terkini (bukan teks bebas); belum ditriase ditulis apa adanya. */
-export function complaintOf(item: Pick<EdBoardItem, 'triage'>): string {
+export function complaintOf(item: Pick<EdBoardItem, 'triage'>, view: EdBoardView = 'klinis'): string {
   const t = item.triage;
+  // Papan administratif (loket IGD, ADR-0109): isi triase tidak dikirim API.
+  if (view === 'administratif') return 'Triase oleh petugas klinis IGD';
   if (!t) return 'Belum ditriase';
   if (t.discriminators.length === 0) return 'Tanpa diskriminator (tanda vital)';
   return t.discriminators.map((d) => TRIAGE_DISCRIMINATORS[d].label).join(' · ');
 }
 
-export function edRowFromApi(item: EdBoardItem): EdBoardRow {
+export function edRowFromApi(item: EdBoardItem, view: EdBoardView = 'klinis'): EdBoardRow {
   return {
     encounterId: item.encounterId,
     bed: item.bedCode,
@@ -43,7 +46,8 @@ export function edRowFromApi(item: EdBoardItem): EdBoardRow {
     ageLabel: ageLabel(item.ageYears),
     guarantor: item.payer?.name ?? 'Belum ada penjamin',
     triageLevel: item.triage?.level ?? null,
-    chiefComplaint: complaintOf(item),
+    ...(view === 'administratif' ? { triageHidden: true } : {}),
+    chiefComplaint: complaintOf(item, view),
     doctor: item.doctor,
     losMinutes: item.losMinutes,
     status: item.status ?? 'registrasi',

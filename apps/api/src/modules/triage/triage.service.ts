@@ -6,6 +6,7 @@ import {
   type CareTeamClaimResult,
   clinicalError,
   type EdBoardApi,
+  type EdBoardView,
   type EdStatus,
   type EdStatusInput,
   type EdZone,
@@ -36,7 +37,7 @@ import { TenantDb } from '../../infra/tenant-db';
 import { minutesSince } from '../adt/adt-helpers';
 import { AdtService } from '../adt/adt.service';
 import { BedOpsService } from '../adt/bed-ops.service';
-import { PatientAccessService } from '../authz/patient-access.service';
+import { PatientAccessService, patientAccessSql } from '../authz/patient-access.service';
 
 const ACTIVE = ['arrived', 'in_progress'] as const;
 
@@ -319,7 +320,7 @@ export class TriageService {
    * pasien mengikuti kebutuhan layar W3 (bentuk toko demo, ADR-0023 keputusan 4): identitas ringkas, penjamin, dokter,
    * triase terkini (tanda vital + alasan saran), penempatan bed IGD, permintaan bed, SEP IGD; plus bed unit IGD.
    */
-  async board(unitId?: string, now: Date = new Date()): Promise<EdBoardApi> {
+  async board(unitId?: string, now: Date = new Date(), view: EdBoardView = 'klinis'): Promise<EdBoardApi> {
     const tx = this.db.tx();
     const scope = this.db.permissionScope();
     let target = unitId;
@@ -330,6 +331,8 @@ export class TriageService {
       }
       target = own;
     }
+    // Lingkup `relationship` (matriks RS yang disesuaikan): hanya pasien berelasi/akses darurat (ADR-0109).
+    const related = scope === 'relationship' ? this.access.scopedActor() : null;
     const unit = await tx.unit.findFirst({
       where: { kind: 'igd', active: true, ...(target ? { id: target } : {}) },
       orderBy: { code: 'asc' },
@@ -337,8 +340,22 @@ export class TriageService {
     });
     if (!unit) throw new AppError('NOT_FOUND', 'Unit IGD tidak ditemukan', 404);
     const boardingHours = await readTenantSetting(tx, 'bed.boarding_alert_hours');
+    const allowed = related
+      ? (
+          await tx.$queryRaw<Array<{ id: string }>>`
+            SELECT p.id::text FROM patients p
+            WHERE p.id IN (SELECT patient_id FROM encounters
+                           WHERE unit_id = ${unit.id}::uuid AND encounter_class = 'EMER')
+              AND ${patientAccessSql({ ...related, unitId: null }, now)}`
+        ).map((r) => r.id)
+      : null;
     const encounters = await tx.encounter.findMany({
-      where: { unitId: unit.id, encounterClass: 'EMER', status: { in: [...ACTIVE] } },
+      where: {
+        unitId: unit.id,
+        encounterClass: 'EMER',
+        status: { in: [...ACTIVE] },
+        ...(allowed ? { patientId: { in: allowed } } : {}),
+      },
       orderBy: { arrivedAt: 'asc' },
       select: {
         id: true,
@@ -435,19 +452,21 @@ export class TriageService {
         zone: (st?.zone as EdZone | null | undefined) ?? null,
         bedId: a?.locationId ?? null,
         bedCode: a?.location.code ?? null,
-        triage: t
-          ? {
-              id: t.id,
-              level: t.chosen_level as AtsLevel,
-              suggestedLevel: t.suggested_level as AtsLevel,
-              maxLevel: t.max_level as AtsLevel,
-              at: t.occurred_at.toISOString(),
-              vitals: t.vitals,
-              discriminators: t.discriminators as TriageDiscriminator[],
-              reasons: t.reasons,
-              overrideReason: t.override_reason,
-            }
-          : null,
+        triaged: !!t,
+        triage:
+          t && view === 'klinis'
+            ? {
+                id: t.id,
+                level: t.chosen_level as AtsLevel,
+                suggestedLevel: t.suggested_level as AtsLevel,
+                maxLevel: t.max_level as AtsLevel,
+                at: t.occurred_at.toISOString(),
+                vitals: t.vitals,
+                discriminators: t.discriminators as TriageDiscriminator[],
+                reasons: t.reasons,
+                overrideReason: t.override_reason,
+              }
+            : null,
         bedRequest: r
           ? {
               id: r.id,
@@ -461,9 +480,16 @@ export class TriageService {
       };
     });
     for (const i of items) {
-      this.db.audit({ action: 'search', resourceType: 'ed_board', patientId: i.patientId });
+      this.db.audit({
+        action: 'search',
+        resourceType: 'ed_board',
+        patientId: i.patientId,
+        ...(view === 'administratif' ? { details: { view } } : {}),
+      });
     }
+    const visible = new Set(items.map((i) => i.encounterId));
     return {
+      view,
       asOf: now.toISOString(),
       unitId: unit.id,
       unitName: unit.name,
@@ -477,7 +503,11 @@ export class TriageService {
                 room: l.parent?.name ?? '',
                 status: l.bedStatus.status as EdBoardApi['beds'][number]['status'],
                 version: l.bedStatus.version,
-                encounterId: l.bedStatus.encounterId,
+                // Bed yang ditempati pasien di luar relasi: status tetap tampil, kunjungan tidak.
+                encounterId:
+                  allowed && l.bedStatus.encounterId && !visible.has(l.bedStatus.encounterId)
+                    ? null
+                    : l.bedStatus.encounterId,
               },
             ]
           : [],

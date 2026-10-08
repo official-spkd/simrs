@@ -11,7 +11,7 @@ type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 /**
  * K03 · IGD: papan pelacakan + triase 5 level (mockup `IGD.dc.html`). Layar hibrida (`requireScreen`): mode presentasi
  * memakai data fiktif (`demo-igd.tsx`, dibekukan); mode api (layar W3, `api-igd.tsx`) untuk peran ber-izin
- * `clinical.read` (termasuk petugas pendaftaran IGD). `?pilih=<id>` = pasien yang dibuka di panel triase.
+ * `clinical.read`, atau `encounter.write` (loket pendaftaran IGD, papan administratif tanpa triase, ADR-0109). `?pilih=<id>` = pasien yang dibuka di panel triase.
  */
 export default async function IgdPage({ searchParams }: { searchParams: SearchParams }) {
   const access = await requireScreen('igd');

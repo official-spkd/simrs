@@ -127,8 +127,15 @@ export function documentsSuite(c: DocumentStorageCase): void {
       expect((await upload('dokter', big).expect(413)).body.code).toBe('PAYLOAD_TOO_LARGE');
       await upload('dokter', PDF, { kind: 'rahasia' }).expect(400);
       await upload('dokter', PDF, { title: 'x' }).expect(400);
-      // Tanpa token: ditolak sebelum berkas dibaca.
+      // Tanpa token, atau token palsu/kedaluwarsa (ADR-0109: sesi diperiksa sebelum body dibaca): 401, tanpa audit.
       expect((await upload(null, PDF).expect(401)).body.code).toBe('UNAUTHENTICATED');
+      const forged = await http()
+        .post(`/api/v1/patients/${patientId}/documents`)
+        .set('Content-Type', 'application/octet-stream')
+        .set('Authorization', `Bearer sa1.${T.id}.${newId()}.rahasia-palsu`)
+        .send(big)
+        .expect(401);
+      expect(forged.body.code).toBe('UNAUTHENTICATED');
       // PNG dikenali dari isinya walau nama berkasnya .pdf.
       const png = await upload('dokter', PNG, {
         file: 'foto.pdf',

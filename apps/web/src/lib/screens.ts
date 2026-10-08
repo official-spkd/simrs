@@ -18,8 +18,9 @@ export const FRONT_OFFICE_PERMISSIONS = [
 /**
  * Izin layar hibrida klinis fase 3 (rencana fase 3 potongan 3.0d), dipilih agar cocok dengan posisi pemakai layar
  * (`demoRoles`) menurut matriks bawaan potongan 3.0a: Pemeriksaan poli, Rawat inap, dan Resume `clinical.write` (TTE
- * resume tetap `clinical.sign` di API), IGD `clinical.read` (petugas pendaftaran membuka papan; triase `triage.write`
- * dan aksi klinis lain diperiksa API), CPOE `order.write`, Tempat tidur `bed.read` (manajemen hanya membaca),
+ * resume tetap `clinical.sign` di API), IGD `clinical.read` (loket pendaftaran lewat `alsoPermissions`
+ * `encounter.write`, papan administratif tanpa triase, ADR-0109; triase `triage.write` dan aksi klinis lain diperiksa
+ * API), CPOE `order.write`, Tempat tidur `bed.read` (manajemen hanya membaca),
  * Persetujuan tindakan `consent.write` (perawat/bidan dan dokter; TTE tetap `consent.sign`). Kunci katalog bersama
  * (potongan 3.0a), sehingga salah ketik tertangkap typecheck.
  */
@@ -88,6 +89,12 @@ export interface ScreenDef {
    * presentasi sampai domainnya punya izin di katalog.
    */
   permission?: ScreenPermission;
+  /**
+   * Izin lain yang juga membuka layar hibrida di mode api (salah satu cukup), mis. IGD: `clinical.read` untuk petugas
+   * klinis, `encounter.write` untuk loket pendaftaran IGD yang menerima papan administratif (ADR-0109). API tetap
+   * menegakkan izin per endpoint.
+   */
+  alsoPermissions?: readonly ScreenPermission[];
   /**
    * Layar hanya ada di mode api (tanpa mockup dan tanpa jalur data dummy, mis. Kendali antrean): di mode presentasi
    * tertutup (menu tersembunyi, rute 404).
@@ -216,7 +223,9 @@ export const SCREENS: readonly ScreenDef[] = [
     status: 'demo',
     plannedPermission: 'clinical.read',
     permission: 'clinical.read',
-    // Admisi IGD (petugas pendaftaran) membuka kunjungan gawat darurat dari papan IGD.
+    // Admisi IGD (petugas pendaftaran, tanpa `clinical.read`) membuka kunjungan gawat darurat dari papan IGD
+    // administratif (ADR-0109).
+    alsoPermissions: ['encounter.write'],
     demoRoles: ['dokter', 'dokter_residen', 'perawat', 'petugas_pendaftaran'],
     layout: 'staf',
   },
@@ -1142,7 +1151,10 @@ export function screenOpen(
     if (opts.allAccess === true) return true;
     return screen.demoRoles === 'semua' || (!!opts.role && screen.demoRoles.some((r) => r === opts.role));
   }
-  if (screen.permission) return opts.permissions?.includes(screen.permission) ?? false;
+  if (screen.permission) {
+    const keys = [screen.permission, ...(screen.alsoPermissions ?? [])];
+    return keys.some((k) => opts.permissions?.includes(k) ?? false);
+  }
   return screen.status === 'api';
 }
 

@@ -17,6 +17,7 @@ import { testDbUrls } from '@simrs/db/testing';
 import {
   CONSENT_INFORMATION_KEYS,
   CONSENT_SIGNATURE_MAX_BYTES,
+  CONSENT_SIGNATURE_MAX_IMAGES,
   CONSENT_TEMPLATE_SAMPLE,
   EDUCATION_FORM_SAMPLE,
   newId,
@@ -336,6 +337,26 @@ describe('persetujuan tindakan (K11)', () => {
     const parsed = patientDocumentSchema.array().parse(docs.body);
     expect(parsed.map((x) => x.kind).sort()).toEqual(['consent', 'consent']);
     expect(parsed.find((x) => x.id === doc.id)?.signatures[0]?.status).toBe('pending');
+  });
+
+  it('ADR-0109: maksimal 5 gambar tanda tangan per draf; unggahan ke-6 409 tanpa dokumen baru', async () => {
+    const e = await inpatient();
+    const d = await as('perawat')
+      .post(`/encounters/${e.encounterId}/consent-drafts`, draftBody())
+      .expect(201);
+    for (let i = 0; i < CONSENT_SIGNATURE_MAX_IMAGES; i += 1) {
+      const slot = i % 2 === 0 ? 'signer' : 'familyWitness';
+      await as('perawat')
+        .binary(`/consents/drafts/${d.body.id}/signature-image?slot=${slot}`, PNG)
+        .expect(201);
+    }
+    const over = await as('perawat')
+      .binary(`/consents/drafts/${d.body.id}/signature-image?slot=signer`, PNG)
+      .expect(409);
+    expect(over.body.message).toContain('Batas 5 gambar');
+    expect(await run(A.id, (tx) => tx.document.count({ where: { patientId: e.patientId } }))).toBe(
+      CONSENT_SIGNATURE_MAX_IMAGES,
+    );
   });
 
   it('gambar tanda tangan hanya PNG ≤ 512 KB (SVG 415, besar 413); finalisasi serentak hanya sekali', async () => {

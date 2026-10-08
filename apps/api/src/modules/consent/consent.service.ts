@@ -9,6 +9,8 @@ import {
   CONSENT_EDUCATION_FORM,
   CONSENT_EDUCATION_TOPIC,
   CONSENT_INFORMATION_KEYS,
+  CONSENT_SIGNATURE_MAX_BYTES,
+  CONSENT_SIGNATURE_MAX_IMAGES,
   CONSENT_WITNESS_VALID_MINUTES,
   type ConsentDecision,
   consentEducationReady,
@@ -122,6 +124,7 @@ const DRAFT_SELECT = {
   updatedAt: true,
   closedAt: true,
   closedBy: true,
+  signatureUploads: true,
   formDefinition: { select: { code: true, title: true } },
 } as const;
 type DraftRow = Prisma.ConsentDraftGetPayload<{ select: typeof DRAFT_SELECT }>;
@@ -332,10 +335,26 @@ export class ConsentService {
     slot: 'signer' | 'familyWitness',
     bytes: Buffer,
   ): Promise<{ imageDocumentId: string }> {
-    const { row } = await this.loadDraft(id, 'write', { open: true });
+    const { row } = await this.loadDraft(id, 'write', { open: true, lock: true });
+    if (bytes.length > CONSENT_SIGNATURE_MAX_BYTES) {
+      throw new AppError(
+        'PAYLOAD_TOO_LARGE',
+        `Berkas maksimal ${CONSENT_SIGNATURE_MAX_BYTES / 1024} KB`,
+        413,
+      );
+    }
     if (!bytes.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]))) {
       throw new AppError('UNSUPPORTED_MEDIA_TYPE', 'Tanda tangan harus gambar PNG', 415);
     }
+    // ADR-0109: maksimal CONSENT_SIGNATURE_MAX_IMAGES gambar per draf (baris draf terkunci; CHECK di database).
+    if (row.signatureUploads >= CONSENT_SIGNATURE_MAX_IMAGES) {
+      throw new AppError(
+        'CONFLICT',
+        `Batas ${CONSENT_SIGNATURE_MAX_IMAGES} gambar tanda tangan per draf tercapai; batalkan draf ini dan buat draf baru`,
+        409,
+      );
+    }
+    await this.writeDraft(id, { signatureUploads: { increment: 1 } });
     const doc = await this.documents.upload(
       row.patientId,
       {

@@ -52,3 +52,11 @@ belum diatur rencana fase 3:
   ulang-masuk di perangkat yang sama (step-up) belum dibuat.
 - Daftar rawat inap menghitung alergi per pasien (satu kueri per baris, maks. 300 baris); perlu dioptimalkan bila
   bangsal sangat besar.
+
+## Pembaruan 7 Oktober 2026 · Kode gelang hanya lewat aksi cetak (ADR-0109)
+
+- `GET /encounters/:id/wristband` tidak lagi memuat kode.
+- Kode keluar lewat `POST .../wristband/print` (audit `print`) atau `POST .../wristband/reprint`; ganti gelang di
+  eMAR tetap memakai jalur kedua.
+- Respons admisi tanpa kode.
+- Pindai eMAR dicocokkan di server.

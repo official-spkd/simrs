@@ -36,6 +36,7 @@ const item = (over: Partial<EdBoardItem> = {}): EdBoardItem => ({
   zone: null,
   bedId: null,
   bedCode: null,
+  triaged: false,
   triage: null,
   bedRequest: null,
   sep: null,
@@ -43,6 +44,13 @@ const item = (over: Partial<EdBoardItem> = {}): EdBoardItem => ({
 });
 
 describe('pemetaan papan IGD API ke baris papan', () => {
+  it('papan administratif (ADR-0109): tanpa isi triase, lencana dan keluhan tidak berbunyi "belum ditriase"', () => {
+    const row = edRowFromApi(item({ triaged: true }), 'administratif');
+    expect(row).toMatchObject({ triageLevel: null, triageHidden: true });
+    expect(row.chiefComplaint).toBe('Triase oleh petugas klinis IGD');
+    expect(edRowFromApi(item()).triageHidden).toBeUndefined();
+  });
+
   it('belum ditriase: zona area triase, status identifikasi, keluhan apa adanya', () => {
     const row = edRowFromApi(item());
     expect(row).toMatchObject({

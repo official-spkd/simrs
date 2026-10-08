@@ -58,3 +58,11 @@ Job berkala `board.signals-cleanup` (P11, tiap 15 menit per tenant) menghapus si
 1.000 baris (maks. 20 batch per putaran) lewat fungsi sempit `app_purge_board_signals(before, limit)` (SECURITY
 DEFINER, `search_path = public, pg_temp`, hanya tenant aktif, batch 1–5000, tidak pernah menghapus sinyal < 10
 menit). Role aplikasi tetap tanpa DELETE pada `board_signals`.
+
+## Pembaruan 7 Oktober 2026 · Papan IGD administratif dan lingkup relasi (ADR-0109)
+
+- Loket pendaftaran IGD tidak lagi memegang `clinical.read`/`triage.write`. Papan IGD untuk loket:
+  - `GET /triage/board/admission` (+ `/events`, `encounter.read`);
+  - `view: 'administratif'`, `triage` null.
+- Lingkup `relationship` di papan IGD dan papan bed menampilkan pasien berelasi saja.
+- Catatan bebas permintaan bed hanya untuk peminta dan pelaku berelasi.

@@ -281,8 +281,7 @@ export function RequestsPanel({
           <span className="font-semibold text-success">
             Admisi selesai{admitted.bed ? ` di ${admitted.bed}` : ''}.
           </span>{' '}
-          Gelang terbit: <span className="font-mono">{admitted.code}</span> ·{' '}
-          <Link href={`${GELANG_ROUTE}/${admitted.encounterId}`}>Cetak gelang</Link>
+          Gelang terbit · <Link href={`${GELANG_ROUTE}/${admitted.encounterId}`}>Cetak gelang</Link>
         </p>
       )}
       {board.requests.length === 0 && (
@@ -306,9 +305,9 @@ export function RequestsPanel({
   );
 }
 
+/** Hasil admisi di layar (tanpa kode gelang, ADR-0109: kode hanya lewat aksi cetak). */
 interface Admitted {
   encounterId: string;
-  code: string;
   bed?: string;
 }
 
@@ -517,7 +516,7 @@ function AdmitForm({
         );
         if (r.ok) {
           key.current = crypto.randomUUID();
-          onAdmitted({ encounterId: r.data.encounterId, code: r.data.wristbandCode, bed: r.data.bedCode });
+          onAdmitted({ encounterId: r.data.encounterId, bed: r.data.bedCode });
           router.refresh();
         } else setMsg({ ok: false, text: r.message });
         return;
@@ -529,7 +528,7 @@ function AdmitForm({
         initialDiagnosis: dxParsed,
       });
       if (r.ok) {
-        onAdmitted({ encounterId: r.data.encounterId, code: r.data.wristbandCode });
+        onAdmitted({ encounterId: r.data.encounterId });
         router.refresh();
       } else setMsg({ ok: false, text: r.message });
     });

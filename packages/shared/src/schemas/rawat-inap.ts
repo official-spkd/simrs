@@ -1099,7 +1099,15 @@ export const edBoardItemSchema = z.strictObject({
   zone: z.enum(ED_ZONES).nullable(),
   bedId: uuid.nullable(),
   bedCode: z.string().nullable(),
-  /** Triase final terkini (versi terbaru rantai); `id` = dasar koreksi (`revision.kind = koreksi`). */
+  /**
+   * Sudah ada triase final (penanda nonklinis, ADR-0109): syarat keputusan rawat inap, juga di papan administratif yang
+   * tidak memuat isi triase.
+   */
+  triaged: z.boolean(),
+  /**
+   * Triase final terkini (versi terbaru rantai); `id` = dasar koreksi (`revision.kind = koreksi`). Null di papan
+   * administratif.
+   */
   triage: z
     .strictObject({
       id: uuid,
@@ -1138,7 +1146,16 @@ export const edBoardBedSchema = z.strictObject({
 });
 export type EdBoardBed = z.infer<typeof edBoardBedSchema>;
 
+/**
+ * Tampilan papan IGD (ADR-0109): `klinis` (`GET /triage/board`, `clinical.read`) memuat triase; `administratif`
+ * (`GET /triage/board/admission`, `encounter.read`, loket pendaftaran IGD) hanya identitas, penjamin, status alur,
+ * penempatan, permintaan bed, dan SEP: `triage` selalu null.
+ */
+export const ED_BOARD_VIEWS = ['klinis', 'administratif'] as const;
+export type EdBoardView = (typeof ED_BOARD_VIEWS)[number];
+
 export const edBoardApiSchema = z.strictObject({
+  view: z.enum(ED_BOARD_VIEWS),
   asOf: instant,
   unitId: uuid,
   unitName: z.string(),
@@ -1147,10 +1164,13 @@ export const edBoardApiSchema = z.strictObject({
 });
 export type EdBoardApi = z.infer<typeof edBoardApiSchema>;
 
+/**
+ * Hasil admisi. Tanpa kode gelang (ADR-0109): kode hanya keluar lewat `POST /encounters/:id/wristband/print` atau
+ * `/reprint` yang diaudit.
+ */
 export const admissionResultApiSchema = z.strictObject({
   encounterId: uuid,
   bedId: uuid,
-  wristbandCode: z.string(),
   /** SEP rawat inap `pending` yang dibuat saat admisi (BPJS), null bila bukan BPJS atau sudah ada. */
   sepId: uuid.nullable(),
 });
@@ -1165,6 +1185,10 @@ export const emergencyAdmissionResultSchema = admissionResultApiSchema.extend({
 });
 export type EmergencyAdmissionResult = z.infer<typeof emergencyAdmissionResultSchema>;
 
+/**
+ * Data cetak gelang dengan kode (ADR-0109): hanya respons aksi cetak/cetak ulang (`POST`, diaudit `print`), tidak
+ * pernah respons baca.
+ */
 export const wristbandPrintSchema = z.strictObject({
   encounterId: uuid,
   code: z.string(),
@@ -1175,3 +1199,7 @@ export const wristbandPrintSchema = z.strictObject({
   issuedAt: instant,
 });
 export type WristbandPrint = z.infer<typeof wristbandPrintSchema>;
+
+/** `GET /encounters/:id/wristband`: gelang aktif tanpa kode (identitas pada gelang + waktu terbit). */
+export const wristbandStatusSchema = wristbandPrintSchema.omit({ code: true });
+export type WristbandStatus = z.infer<typeof wristbandStatusSchema>;
