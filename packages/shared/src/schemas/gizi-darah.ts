@@ -73,6 +73,71 @@ export const LEFTOVER_LABEL: Record<(typeof MEAL_LEFTOVERS)[number], string> = {
 export const dietTypeOptionSchema = z.strictObject({ id: uuid, code: z.string(), name: z.string() });
 export type DietTypeOption = z.infer<typeof dietTypeOptionSchema>;
 
+/** MST (Malnutrition Screening Tool): penurunan BB 6 bulan terakhir + nafsu makan turun. */
+export const MST_WEIGHT_LOSS = ['tidak', 'tidak_yakin', '1_5', '6_10', '11_15', 'lebih_15'] as const;
+export const MST_WEIGHT_LOSS_LABEL: Record<(typeof MST_WEIGHT_LOSS)[number], string> = {
+  tidak: 'Tidak ada penurunan berat badan',
+  tidak_yakin: 'Tidak yakin',
+  '1_5': 'Turun 1–5 kg',
+  '6_10': 'Turun 6–10 kg',
+  '11_15': 'Turun 11–15 kg',
+  lebih_15: 'Turun > 15 kg',
+};
+const MST_SCORE: Record<(typeof MST_WEIGHT_LOSS)[number], number> = {
+  tidak: 0,
+  tidak_yakin: 2,
+  '1_5': 1,
+  '6_10': 2,
+  '11_15': 3,
+  lebih_15: 4,
+};
+/** Skor MST = skor penurunan BB + 1 bila nafsu makan turun; ≥ 2 berisiko malnutrisi (asuhan ahli gizi ≤ 24 jam). */
+export function mstScore(
+  weightLoss: (typeof MST_WEIGHT_LOSS)[number],
+  poorAppetite: boolean,
+): { score: number; atRisk: boolean } {
+  const score = MST_SCORE[weightLoss] + (poorAppetite ? 1 : 0);
+  return { score, atRisk: score >= 2 };
+}
+
+export const nutritionScreeningInputSchema = z.strictObject({
+  encounterId: uuid,
+  weightLoss: z.enum(MST_WEIGHT_LOSS),
+  poorAppetite: z.boolean(),
+});
+export type NutritionScreeningInput = z.infer<typeof nutritionScreeningInputSchema>;
+
+export const nutritionScreeningRecordSchema = z.strictObject({
+  id: uuid,
+  encounterId: uuid,
+  weightLoss: z.enum(MST_WEIGHT_LOSS),
+  poorAppetite: z.boolean(),
+  score: z.int().min(0).max(5),
+  atRisk: z.boolean(),
+  screenedBy: person,
+  screenedAt: instant,
+});
+export type NutritionScreeningRecord = z.infer<typeof nutritionScreeningRecordSchema>;
+
+export const npoInputSchema = z.strictObject({
+  encounterId: uuid,
+  reason: reason,
+  plannedUntil: instant.nullable(),
+});
+export type NpoInput = z.infer<typeof npoInputSchema>;
+
+export const npoRecordSchema = z.strictObject({
+  id: uuid,
+  encounterId: uuid,
+  reason: z.string(),
+  plannedUntil: instant.nullable(),
+  orderedBy: person,
+  orderedAt: instant,
+  liftedBy: person.nullable(),
+  liftedAt: instant.nullable(),
+});
+export type NpoRecord = z.infer<typeof npoRecordSchema>;
+
 export const dietOrderRecordSchema = z.strictObject({
   id: uuid,
   encounterId: uuid,
@@ -85,6 +150,8 @@ export const dietOrderRecordSchema = z.strictObject({
   endedAt: instant.nullable(),
   orderedBy: person,
   orderedAt: instant,
+  verifiedBy: person.nullable(),
+  verifiedAt: instant.nullable(),
 });
 export type DietOrderRecord = z.infer<typeof dietOrderRecordSchema>;
 
@@ -119,6 +186,11 @@ export const mealListRowSchema = z.strictObject({
   allergies: z.array(z.string()),
   /** Layanan makan terakhir untuk jam makan + tanggal ini (null = belum diantar). */
   service: mealServiceRecordSchema.nullable(),
+  /** Gerbang antar (4.9b): order terverifikasi ahli gizi, tanpa puasa aktif. */
+  verified: z.boolean(),
+  npo: z.strictObject({ reason: z.string(), plannedUntil: instant.nullable() }).nullable(),
+  /** Skrining MST terakhir kunjungan (null = belum diskrining). */
+  screening: z.strictObject({ score: z.int(), atRisk: z.boolean(), screenedAt: instant }).nullable(),
 });
 export type MealListRow = z.infer<typeof mealListRowSchema>;
 
@@ -166,6 +238,16 @@ export const bloodUnitRecordSchema = z.strictObject({
   status: z.enum(BLOOD_UNIT_STATUSES),
   /** Lewat ED menurut jam server (status `tersedia` bisa saja sudah kedaluwarsa). */
   expired: z.boolean(),
+  /** Pengajuan pemusnahan (4.9b) yang menunggu konfirmasi petugas kedua. */
+  disposal: z
+    .strictObject({
+      id: uuid,
+      category: z.enum(['kedaluwarsa', 'rusak']),
+      reason: z.string(),
+      requestedBy: person,
+      requestedAt: instant,
+    })
+    .nullable(),
 });
 export type BloodUnitRecord = z.infer<typeof bloodUnitRecordSchema>;
 
@@ -325,6 +407,9 @@ export const bloodRequestRecordSchema = z.strictObject({
   status: z.enum(['diminta', 'diproses', 'selesai', 'batal']),
   requestedBy: person,
   requestedAt: instant,
+  cancelReason: z.string().nullable(),
+  cancelledBy: person.nullable(),
+  cancelledAt: instant.nullable(),
   crossmatches: z.array(crossmatchRecordSchema),
   issueChecks: z.array(bloodIssueCheckRecordSchema),
   issues: z.array(bloodIssueRecordSchema),
@@ -349,3 +434,24 @@ export type BloodBoardQuery = z.infer<typeof bloodBoardQuerySchema>;
 
 export const transfusionStopInputSchema = z.strictObject({ reason: reason });
 export type TransfusionStopInput = z.infer<typeof transfusionStopInputSchema>;
+
+// ═════════════════════════════ 4.9b · pembatalan + pemusnahan ═════════════════════════════
+
+export const bloodRequestCancelInputSchema = z.strictObject({ reason: reason });
+export type BloodRequestCancelInput = z.infer<typeof bloodRequestCancelInputSchema>;
+
+export const BLOOD_DISPOSAL_CATEGORIES = ['kedaluwarsa', 'rusak'] as const;
+export const bloodDisposalInputSchema = z.strictObject({
+  bloodUnitId: uuid,
+  category: z.enum(BLOOD_DISPOSAL_CATEGORIES),
+  reason: reason,
+});
+export type BloodDisposalInput = z.infer<typeof bloodDisposalInputSchema>;
+
+/** `GET /encounters/:id/nutrition`: order diet, puasa, dan skrining MST satu kunjungan (terbaru dulu). */
+export const encounterNutritionSchema = z.strictObject({
+  orders: z.array(dietOrderRecordSchema),
+  npo: z.array(npoRecordSchema),
+  screenings: z.array(nutritionScreeningRecordSchema),
+});
+export type EncounterNutrition = z.infer<typeof encounterNutritionSchema>;

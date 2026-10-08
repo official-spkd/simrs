@@ -20,6 +20,8 @@ import { type ReactNode, useId, useState, useTransition } from 'react';
 import { Feedback, type FeedbackMsg } from '@/components/rme/feedback';
 import { formatTglJam } from '@/lib/rawat-inap';
 import {
+  cancelBloodRequestAction,
+  confirmDisposalAction,
   confirmIssueAction,
   crossmatchAction,
   finishTransfusionAction,
@@ -28,6 +30,7 @@ import {
   receiveBloodRequestAction,
   registerBloodUnitAction,
   reportReactionAction,
+  requestDisposalAction,
   requestBloodAction,
   setBloodGroupAction,
   startTransfusionAction,
@@ -85,6 +88,8 @@ function Field({ label, children, id }: { label: string; children: ReactNode; id
 
 export interface BloodPerms {
   me: string;
+  /** Batal: DPJP peminta (`request`) atau bank darah (`crossmatch`). */
+  cancel: boolean;
   crossmatch: boolean;
   issue: boolean;
   transfuse: boolean;
@@ -136,6 +141,12 @@ export function BloodRequestCard({
         </span>
       </header>
 
+      {r.status === 'batal' && r.cancelReason && (
+        <p className="m-0 text-small">
+          Dibatalkan {r.cancelledBy?.name ?? '–'}: {r.cancelReason}
+        </p>
+      )}
+
       {perms.crossmatch && active && <BankSteps r={r} candidates={candidates} />}
 
       {(r.crossmatches.length > 0 || r.issueChecks.length > 0) && (
@@ -173,6 +184,8 @@ export function BloodRequestCard({
       {r.issues.map((i) => (
         <IssuedBag key={i.id} issue={i} perms={perms} />
       ))}
+
+      {perms.cancel && active && <CancelRequest requestId={r.id} requestNo={r.requestNo} />}
     </article>
   );
 }
@@ -820,5 +833,114 @@ export function BloodUnitForm({ components }: { components: readonly BloodCompon
         Simpan kantong masuk
       </Button>
     </form>
+  );
+}
+
+function CancelRequest({ requestId, requestNo }: { requestId: string; requestNo: string }) {
+  const id = useId();
+  const { busy, msg, run } = useAction();
+  const [reason, setReason] = useState('');
+  return (
+    <details>
+      <summary className="cursor-pointer text-small font-semibold">Batalkan permintaan {requestNo}</summary>
+      <div role="group" aria-label={`Batalkan ${requestNo}`} className="mt-2 flex flex-col gap-2">
+        <Feedback msg={msg} />
+        <Field label="Alasan pembatalan" id={`${id}-r`}>
+          <input
+            id={`${id}-r`}
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+            className={FIELD}
+          />
+        </Field>
+        <Button
+          variant="danger"
+          className="self-start"
+          disabled={busy}
+          onClick={() => run(() => cancelBloodRequestAction({ requestId, reason }))}
+        >
+          Batalkan permintaan
+        </Button>
+      </div>
+    </details>
+  );
+}
+
+/** S08 · Satu kantong di stok: ajukan pemusnahan (petugas pertama) atau konfirmasi (petugas KEDUA). */
+export function StockUnitRow({
+  unit: u,
+  me,
+  canDispose,
+}: {
+  unit: BloodUnitRecord;
+  me: string;
+  canDispose: boolean;
+}) {
+  const id = useId();
+  const { busy, msg, run } = useAction();
+  const [open, setOpen] = useState(false);
+  const [category, setCategory] = useState<'kedaluwarsa' | 'rusak'>(u.expired ? 'kedaluwarsa' : 'rusak');
+  const [reason, setReason] = useState('');
+  return (
+    <li aria-label={`Kantong stok ${u.bagNo}`} className="flex flex-col gap-1">
+      <span className="flex flex-wrap items-center gap-2">
+        <span>
+          <span className="font-mono">{u.bagNo}</span> · {u.component.code} · {ABO_RH_LABEL(u.abo, u.rh)} · ED{' '}
+          {u.expiresAt.slice(0, 10)} · {u.status}
+        </span>
+        {u.expired && <Chip tone="danger">kedaluwarsa</Chip>}
+        {u.disposal && <Chip tone="warning">diajukan musnah · {u.disposal.requestedBy.name}</Chip>}
+        {canDispose && u.disposal && u.disposal.requestedBy.id !== me && (
+          <Button
+            size="sm"
+            variant="danger"
+            disabled={busy}
+            onClick={() => run(() => confirmDisposalAction(u.disposal?.id))}
+          >
+            Konfirmasi musnah (petugas kedua)
+          </Button>
+        )}
+        {canDispose && !u.disposal && (
+          <Button size="sm" variant="ghost" onClick={() => setOpen((v) => !v)}>
+            Musnahkan…
+          </Button>
+        )}
+      </span>
+      <Feedback msg={msg} />
+      {open && !u.disposal && (
+        <div role="group" aria-label={`Musnahkan ${u.bagNo}`} className="flex flex-wrap items-end gap-2">
+          <Field label="Kategori" id={`${id}-c`}>
+            <select
+              id={`${id}-c`}
+              value={category}
+              onChange={(e) => setCategory(e.target.value as 'kedaluwarsa' | 'rusak')}
+              className={SELECT}
+            >
+              <option value="kedaluwarsa">Kedaluwarsa</option>
+              <option value="rusak">Rusak / hemolisis / bocor</option>
+            </select>
+          </Field>
+          <Field label="Alasan" id={`${id}-r`}>
+            <input
+              id={`${id}-r`}
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              className={FIELD}
+            />
+          </Field>
+          <Button
+            disabled={busy}
+            onClick={() =>
+              run(
+                () => requestDisposalAction({ bloodUnitId: u.id, category, reason }),
+                () => setOpen(false),
+              )
+            }
+          >
+            Ajukan pemusnahan
+          </Button>
+        </div>
+      )}
+    </li>
   );
 }

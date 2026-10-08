@@ -249,32 +249,35 @@ model LabQcRun {
 /// S09 · Nilai kritis dari hasil lab atau ekspertise radiologi. `status` HANYA berubah lewat trigger saat laporan
 /// ber-read-back masuk (role aplikasi tanpa hak UPDATE). Batas menit disalin saat muncul.
 model CriticalResult {
-  id              String   @id @db.Uuid
-  tenantId        String   @map("tenant_id") @db.Uuid
+  id                    String   @id @db.Uuid
+  tenantId              String   @map("tenant_id") @db.Uuid
   /// lab | radiology
-  source          String
-  labResultId     String?  @map("lab_result_id") @db.Uuid
-  imagingReportId String?  @map("imaging_report_id") @db.Uuid
-  encounterId     String   @map("encounter_id") @db.Uuid
-  patientId       String   @map("patient_id") @db.Uuid
+  source                String
+  labResultId           String?  @map("lab_result_id") @db.Uuid
+  imagingReportId       String?  @map("imaging_report_id") @db.Uuid
+  /// S08 · Reaksi transfusi berat (migrasi 20261008800000, ADR-0106).
+  transfusionReactionId String?  @map("transfusion_reaction_id") @db.Uuid
+  encounterId           String   @map("encounter_id") @db.Uuid
+  patientId             String   @map("patient_id") @db.Uuid
   /// Unit pelapor (lab/radiologi).
-  unitId          String   @map("unit_id") @db.Uuid
-  analyte         String
-  valueText       String   @map("value_text")
-  limitMinutes    Int      @map("limit_minutes")
+  unitId                String   @map("unit_id") @db.Uuid
+  analyte               String
+  valueText             String   @map("value_text")
+  limitMinutes          Int      @map("limit_minutes")
   /// terbuka | dilaporkan
-  status          String   @default("terbuka")
-  raisedAt        DateTime @default(now()) @map("raised_at") @db.Timestamptz(3)
-  raisedBy        String?  @map("raised_by") @db.Uuid
+  status                String   @default("terbuka")
+  raisedAt              DateTime @default(now()) @map("raised_at") @db.Timestamptz(3)
+  raisedBy              String?  @map("raised_by") @db.Uuid
 
-  tenant        Tenant                     @relation(fields: [tenantId], references: [id])
-  labResult     LabResult?                 @relation(fields: [tenantId, labResultId], references: [tenantId, id])
-  imagingReport ImagingReport?             @relation(fields: [tenantId, imagingReportId], references: [tenantId, id])
-  encounter     Encounter                  @relation(fields: [tenantId, encounterId], references: [tenantId, id])
-  patient       Patient                    @relation(fields: [tenantId, patientId], references: [tenantId, id])
-  unit          Unit                       @relation(fields: [tenantId, unitId], references: [tenantId, id])
-  report        CriticalResultReport?
-  escalations   CriticalResultEscalation[]
+  tenant              Tenant                     @relation(fields: [tenantId], references: [id])
+  labResult           LabResult?                 @relation(fields: [tenantId, labResultId], references: [tenantId, id])
+  imagingReport       ImagingReport?             @relation(fields: [tenantId, imagingReportId], references: [tenantId, id])
+  transfusionReaction TransfusionReaction?       @relation(fields: [tenantId, transfusionReactionId], references: [tenantId, id])
+  encounter           Encounter                  @relation(fields: [tenantId, encounterId], references: [tenantId, id])
+  patient             Patient                    @relation(fields: [tenantId, patientId], references: [tenantId, id])
+  unit                Unit                       @relation(fields: [tenantId, unitId], references: [tenantId, id])
+  report              CriticalResultReport?
+  escalations         CriticalResultEscalation[]
 
   @@unique([tenantId, id])
   @@index([tenantId, status, raisedAt])

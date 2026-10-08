@@ -10,7 +10,12 @@ export type RaiseCriticalInput = {
   analyte: string;
   /** Nilai/teks temuan untuk layar berizin (bukan untuk notifikasi). */
   valueText: string;
-} & ({ source: 'lab'; labResultId: string } | { source: 'radiology'; imagingReportId: string });
+} & (
+  | { source: 'lab'; labResultId: string }
+  | { source: 'radiology'; imagingReportId: string }
+  /** 4.9b (ADR-0108): reaksi transfusi berat (satu per laporan reaksi). */
+  | { source: 'transfusion'; transfusionReactionId: string }
+);
 
 export interface RaisedCritical {
   id: string;
@@ -40,13 +45,16 @@ export class CriticalResultsService {
     const found =
       input.source === 'lab'
         ? await tx.labResult.count({ where: { id: input.labResultId } })
-        : await tx.imagingReport.count({ where: { id: input.imagingReportId } });
+        : input.source === 'radiology'
+          ? await tx.imagingReport.count({ where: { id: input.imagingReportId } })
+          : await tx.transfusionReaction.count({ where: { id: input.transfusionReactionId } });
     if (found === 0) {
-      throw new AppError(
-        'NOT_FOUND',
-        input.source === 'lab' ? 'Hasil lab tidak ditemukan' : 'Ekspertise radiologi tidak ditemukan',
-        404,
-      );
+      const what = {
+        lab: 'Hasil lab',
+        radiology: 'Ekspertise radiologi',
+        transfusion: 'Reaksi transfusi',
+      }[input.source];
+      throw new AppError('NOT_FOUND', `${what} tidak ditemukan`, 404);
     }
     const row = await raiseCriticalResult(tx, this.db.tenantId(), {
       ...input,
@@ -56,7 +64,12 @@ export class CriticalResultsService {
       await this.events.publish('critical_result.raised', {
         criticalResultId: row.id,
         source: input.source,
-        sourceId: input.source === 'lab' ? input.labResultId : input.imagingReportId,
+        sourceId:
+          input.source === 'lab'
+            ? input.labResultId
+            : input.source === 'radiology'
+              ? input.imagingReportId
+              : input.transfusionReactionId,
         encounterId: row.encounterId,
         patientId: row.patientId,
         unitId: row.unitId,

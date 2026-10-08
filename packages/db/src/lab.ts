@@ -299,6 +299,18 @@ export async function raiseCriticalResult(
       select: { encounterId: true, patientId: true, labOrder: { select: { unitId: true } } },
     });
     if (r) src = { encounterId: r.encounterId, patientId: r.patientId, unitId: r.labOrder.unitId };
+  } else if (input.source === 'transfusion') {
+    const x = await tx.transfusionReaction.findUnique({
+      where: { id: input.transfusionReactionId },
+      select: { bloodIssue: { select: { encounterId: true, patientId: true, encounter: { select: { unitId: true } } } } },
+    });
+    if (x) {
+      src = {
+        encounterId: x.bloodIssue.encounterId,
+        patientId: x.bloodIssue.patientId,
+        unitId: x.bloodIssue.encounter.unitId,
+      };
+    }
   } else {
     const r = await tx.imagingReport.findUnique({
       where: { id: input.imagingReportId },
@@ -316,6 +328,7 @@ export async function raiseCriticalResult(
       source: input.source,
       labResultId: input.source === 'lab' ? input.labResultId : null,
       imagingReportId: input.source === 'radiology' ? input.imagingReportId : null,
+      transfusionReactionId: input.source === 'transfusion' ? input.transfusionReactionId : null,
       ...src,
       analyte: input.analyte.slice(0, 120),
       valueText: input.valueText.slice(0, 200),
