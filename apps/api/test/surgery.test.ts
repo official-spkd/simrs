@@ -687,6 +687,8 @@ describe('BHP depo OK, lingkup, isolasi', () => {
           stockBatchId: batchId,
           kind: 'receipt',
           quantity: 5,
+          // 4.6a-2: baris penerimaan wajib harga pokok baris (CHECK `stock_movements`).
+          unitCost: 18_500n,
           refType: 'stock_receipts',
           refId: receiptId,
           createdBy: users.perawatOk as string,
