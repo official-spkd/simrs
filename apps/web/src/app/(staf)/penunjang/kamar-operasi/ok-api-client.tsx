@@ -254,7 +254,10 @@ export function OkApiClient({
               c={sel.c}
               forms={anesthesiaForms}
               role={role}
-              canWrite={canWriteForms}
+              userId={userId}
+              canWritePre={canWriteForms}
+              canWriteRecord={perms.checklist}
+              onDone={done}
             />
           </section>
           <div className="flex min-w-0 flex-col gap-4">

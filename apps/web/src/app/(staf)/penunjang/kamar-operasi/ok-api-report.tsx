@@ -1,6 +1,7 @@
 'use client';
 
 import {
+  type FormAnswers,
   type FormSchema,
   formatJam,
   type OperativeReportView,
@@ -12,12 +13,14 @@ import {
   type SurgeryCaseView,
   type SurgerySpecimenExam,
   type SurgerySpecimenFixative,
+  validateAnswers,
 } from '@simrs/shared';
 import { Alert, Button, Chip } from '@simrs/ui';
 import { useId, useState, useTransition } from 'react';
+import { FormRenderer } from '@/components/forms/form-renderer';
 import { AssessmentForm } from '@/components/klinis/assessment-api';
 import { parseDiagnosis } from '@/lib/registration-api';
-import { reportAction, specimensAction } from './actions-api';
+import { anesthesiaRecordAction, reportAction, specimensAction } from './actions-api';
 import type { Msg } from './ok-api-panels';
 
 type Done = (m: Msg) => void;
@@ -508,25 +511,41 @@ export interface AnesthesiaFormDef {
 }
 
 /**
- * Anestesi (4.7b): asesmen pra-anestesi final = syarat sign in; catatan anestesi intraoperatif. Keduanya formulir P07
- * (isian final append-only, koreksi lewat layar Asesmen). Hak tulis per profesi dari definisi formulir.
+ * Anestesi (4.7b/4.7c): asesmen pra-anestesi final = syarat sign in (formulir P07 lewat API formulir; hak tulis profesi
+ * dokter). Catatan anestesi intraoperatif lewat `POST surgery/cases/:id/anesthesia-records`: hak tulis mengikuti tim
+ * kasus (dokter anestesi atau penata anestesi), bukan lingkup unit bangsal. Koreksi isian lewat layar Asesmen.
  */
 export function AnesthesiaPanel({
   c,
   forms,
   role,
-  canWrite,
+  userId,
+  canWritePre,
+  canWriteRecord,
+  onDone,
 }: {
   c: SurgeryCaseView;
   forms: { pre: AnesthesiaFormDef | null; record: AnesthesiaFormDef | null };
   role: string | null;
-  canWrite: boolean;
+  userId: string;
+  /** Izin `forms.response.write` sesi. */
+  canWritePre: boolean;
+  /** Izin `surgery.checklist` sesi. */
+  canWriteRecord: boolean;
+  onDone: Done;
 }) {
   const [open, setOpen] = useState<'pre' | 'record' | null>(null);
   const pre = c.anesthesia.preAssessment;
-  const def = open === 'pre' ? forms.pre : open === 'record' ? forms.record : null;
-  const allowed = (d: AnesthesiaFormDef | null) => !!d && !!role && d.writeRoles.includes(role);
   const off = c.status === 'batal';
+  const preAllowed = canWritePre && !!forms.pre && !!role && forms.pre.writeRoles.includes(role);
+  const anesthesiaTeam = c.team.some(
+    (t) => t.userId === userId && (t.role === 'anestesi' || t.role === 'penata_anestesi'),
+  );
+  const recordAllowed =
+    canWriteRecord &&
+    !!forms.record &&
+    (anesthesiaTeam ||
+      (!!role && forms.record.writeRoles.includes(role) && c.team.some((t) => t.userId === userId)));
   return (
     <section aria-label="Anestesi" className={CARD}>
       <h2 className="m-0 text-body font-semibold">Anestesi</h2>
@@ -550,37 +569,89 @@ export function AnesthesiaPanel({
           ))}
         </ul>
       )}
-      {canWrite && !off && (
+      {!off && (preAllowed || recordAllowed) && (
         <div className="flex flex-wrap gap-2">
-          {!pre && (
-            <Button size="sm" onClick={() => setOpen(open === 'pre' ? null : 'pre')} disabled={!forms.pre}>
+          {!pre && preAllowed && (
+            <Button size="sm" onClick={() => setOpen(open === 'pre' ? null : 'pre')}>
               Isi asesmen pra-anestesi
             </Button>
           )}
-          <Button
-            size="sm"
-            onClick={() => setOpen(open === 'record' ? null : 'record')}
-            disabled={!forms.record}
-          >
-            Isi catatan anestesi
-          </Button>
+          {recordAllowed && (
+            <Button size="sm" onClick={() => setOpen(open === 'record' ? null : 'record')}>
+              Isi catatan anestesi
+            </Button>
+          )}
         </div>
       )}
-      {canWrite && (!forms.pre || !forms.record) && (
+      {!off && !pre && !preAllowed && canWritePre && (
+        <p className="m-0 text-caption text-ink-500">
+          Asesmen pra-anestesi diisi dokter (hak tulis profesi).
+        </p>
+      )}
+      {(canWritePre || canWriteRecord) && (!forms.pre || !forms.record) && (
         <p className="m-0 text-caption text-ink-500">
           Formulir {!forms.pre ? 'asesmen pra-anestesi' : 'catatan anestesi'} belum terbit di RS ini (Formulir
           klinis).
         </p>
       )}
-      {def && (
+      {open === 'pre' && forms.pre && (
         <AssessmentForm
-          key={def.code}
+          key={forms.pre.code}
           patientId={c.patient.id}
           encounterId={c.encounterId}
-          form={def}
-          allowed={allowed(def)}
+          form={forms.pre}
+          allowed={preAllowed}
         />
       )}
+      {open === 'record' && forms.record && (
+        <AnesthesiaRecordForm c={c} form={forms.record} onDone={onDone} onClose={() => setOpen(null)} />
+      )}
     </section>
+  );
+}
+
+/** Catatan anestesi lewat API kamar operasi (otorisasi tim kasus); validasi isian sama dengan formulir P07. */
+function AnesthesiaRecordForm({
+  c,
+  form,
+  onDone,
+  onClose,
+}: {
+  c: SurgeryCaseView;
+  form: AnesthesiaFormDef;
+  onDone: Done;
+  onClose: () => void;
+}) {
+  const { pending, run } = useAct(onDone);
+  const [answers, setAnswers] = useState<FormAnswers>({});
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  return (
+    <form
+      aria-label={`Isi ${form.title}`}
+      className="flex flex-col gap-2"
+      onSubmit={(e) => {
+        e.preventDefault();
+        const errs = validateAnswers(form.schema, answers);
+        setErrors(errs);
+        if (Object.keys(errs).length > 0) return;
+        run(() => anesthesiaRecordAction(c.id, { answers }), 'Catatan anestesi tersimpan final.', onClose);
+      }}
+    >
+      <FormRenderer
+        schema={form.schema}
+        answers={answers}
+        onChange={setAnswers}
+        errors={errors}
+        disabled={pending}
+      />
+      {Object.keys(errors).length > 0 && (
+        <p role="alert" className="m-0 text-caption text-danger">
+          Lengkapi isian bertanda bintang.
+        </p>
+      )}
+      <Button type="submit" variant="primary" className="self-start" disabled={pending}>
+        Simpan catatan anestesi (final)
+      </Button>
+    </form>
   );
 }

@@ -1,6 +1,6 @@
 # ADR-0106 · Kamar operasi API: persetujuan di sign in dan time out, butir sistem, tim operasi sebagai rawat bersama
 
-Status: diusulkan · 7 Okt 2026 (fase 4 potongan 4.7, agen A4) · diperbarui 8 Okt 2026
+Status: diusulkan · 7 Okt 2026 (fase 4 potongan 4.7, agen A4) · diperbarui 8 Okt 2026 (4.7b, 4.7c)
 
 ## Konteks
 
@@ -79,3 +79,18 @@ Konsekuensi tambahan: catatan "belum di 4.7" untuk formulir anestesi, order PA, 
 pembuatan order PA itu sendiri (penangan event di 4.8). Penata anestesi (perawat) belum bisa mengisi catatan anestesi
 karena hak tulis pustaka hanya `dokter` dan lingkup tulis formulir perawat = unit bangsal pasien; RS bisa menerbitkan
 versi formulir dengan hak tulis lain bila lingkupnya disesuaikan.
+
+## Pembaruan 8 Okt 2026 · 4.7c (penata anestesi)
+
+1. **Catatan anestesi mengikuti tim kasus.** `POST /surgery/cases/:id/anesthesia-records` (izin `surgery.checklist`)
+   menulis formulir `catatan_anestesi` bila pelaku anggota aktif tim kasus berperan `anestesi` atau `penata_anestesi`,
+   atau anggota tim lain yang profesinya tercantum di hak tulis formulir. Lingkup unit bangsal formulir P07 tidak
+   dipakai. `FormResponsesService.createAuthorized` memakai validasi isian yang sama tetapi menyerahkan otorisasi ke
+   pemanggil; koreksi dan salah entri tetap lewat API formulir (hak tulis profesi).
+2. **Asesmen pra-anestesi tetap dokter** (API formulir, hak tulis `dokter`).
+3. **Profesi harus cocok dengan peran tim** saat dijadwalkan: operator/asisten/anestesi = dokter atau dokter residen;
+   penata anestesi/perawat instrumen/perawat sirkuler = perawat atau bidan (selain itu 422).
+4. **Anggota tim aktif boleh membuka kasusnya** walau lingkup unitnya bukan unit OK (mis. penata anestesi dari unit
+   lain). Papan OK tetap hanya untuk unit OK.
+
+Butir penutup 4.7b tentang penata anestesi tertutup oleh pembaruan ini.

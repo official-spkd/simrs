@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { AuthzModule } from '../authz/authz.module';
+import { FormsModule } from '../forms/forms.module';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { SurgeryAccess } from './surgery-access';
 import { SurgeryBoardService } from './surgery-board.service';
@@ -12,7 +13,7 @@ import { SurgeryService } from './surgery.service';
  * laporan operasi ber-TTE. Pola entri berversi, TTE, dan event domain dari `infra/clinical` dan `infra/events` (global).
  */
 @Module({
-  imports: [AuthzModule, NotificationsModule],
+  imports: [AuthzModule, NotificationsModule, FormsModule],
   controllers: [SurgeryController, SurgeryStreamController],
   providers: [SurgeryService, SurgeryBoardService, SurgeryAccess],
 })

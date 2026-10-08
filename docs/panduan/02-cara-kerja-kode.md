@@ -722,6 +722,7 @@ di `surgery-access.ts`: `unit` = unit berjenis `kamar_operasi`; `relationship` =
 | `POST cases/:id/counts`, `…/count-discrepancies` | `surgery.count`     | Hitung awal/tambahan/akhir; tindak lanjut selisih; terkunci setelah sign out                                                    |
 | `POST cases/:id/supplies`                        | `surgery.checklist` | BHP/implan: ledger `usage` DEPO-OK + `surgery_supply_usages`                                                                    |
 | `POST cases/:id/reports`                         | `surgery.report`    | Laporan berversi + koreksi (TTE gagal) / adendum laporan kasus ini; TTE operator `issueSigned`; operator                        |
+| `POST cases/:id/anesthesia-records`              | `surgery.checklist` | 4.7c · catatan anestesi P07 oleh dokter anestesi/penata anestesi tim kasus (`createAuthorized`)                                 |
 | `POST cases/:id/specimens`                       | `surgery.report`    | 4.7b · spesimen PA dari laporan terkini (`surgery_specimens`) → event `surgery.specimen_sent`; operator                         |
 | `GET board/events?date=`                         | `surgery.read`      | 4.7b · SSE aktivitas kasus (kanal `support_surgery_activity`, sinyal tanpa PHI, lingkup sama dengan papan)                      |
 
