@@ -31,8 +31,8 @@ skenario Simulasi ada di [Simulasi dan operasional](./18-simulasi-dan-operasiona
 | Depo & stok farmasi | `/penunjang/depo`          | apoteker                                 | S05      | 🟨 demo tanpa mockup; API belum (fase 4) |
 | Bank darah          | `/penunjang/bank-darah`    | analis lab, perawat, bidan, dokter       | S08      | ✅ demo + api (4.9)                      |
 | Gizi                | `/penunjang/gizi`          | ahli gizi, perawat, dokter               | S07      | ✅ demo + api (4.9)                      |
-| Mikrobiologi & PA   | `/penunjang/mikrobiologi`  | analis lab, dokter                       | S02      | 🟨 demo tanpa mockup; API belum (fase 4) |
-| Diagnostik lain     | `/penunjang/diagnostik`    | dokter, perawat                          | S10      | 🟨 demo tanpa mockup; API belum (fase 4) |
+| Mikrobiologi & PA   | `/penunjang/mikrobiologi`  | analis lab, dokter                       | S02      | ✅ demo + api (4.8)                      |
+| Diagnostik lain     | `/penunjang/diagnostik`    | dokter, perawat                          | S10      | ✅ demo + api (4.8)                      |
 
 Legenda: 🟨 berjalan di mode presentasi, belum tersambung ke API · ✅ tersambung · ⬜ belum dibangun.
 
@@ -706,9 +706,22 @@ patologi anatomi yang terkunci setelah ditandatangani. Kultur darah positif dite
 - Di mode presentasi analis lab menjalankan TTE atas nama dokter Sp.PK dan Sp.PA fiktif. Pemisahan peran dibangun di
   fase 4.
 
-**Rencana backend.** Izin rencana `lab.write`. Fase 4 potongan 4.8 membangun modul `micro-pa`: kultur bertahap, isolat,
-S/I/R + MIC, PA dengan gambar (P08) + TTE, dan `GET micro/antibiogram` untuk PPRA. Rencana menaruh mikrobiologi sebagai
-tab di layar Laboratorium (keputusan fase 4 #1); di demo ia layar sendiri. Di mode api layar hibrida (4.0c): peran berizin melihat "Belum tersambung" sampai potongan fase 4 layar ini tergabung.
+**Mode api (fase 4 · 4.8, ADR-0120).** Modul `micro-pa`: `/api/v1/micro/*` dan `/api/v1/pa/*`. Layar
+`api-mikrobiologi.tsx`; tab di layar Lab menyusul pemilik layar Lab.
+
+1. "Kultur" memuat order lab berisi uji panel `MIKRO` (kultur darah, urin, sputum, pus). Analis lab melihat semua
+   order (tampilan layanan); dokter ruangan hanya melihat pasiennya.
+2. Analis mengisi **Tambah isolat**: tahap, organisme (saran dari daftar lokal), dan pertumbuhan. Untuk tahap akhir,
+   isi juga uji kepekaan per antibiotik (S/I/R + MIC).
+3. **Validasi teknis** (analis, `lab.result.verify`) mencatat kesimpulan tahap. Setelah itu isolat tahap itu
+   terkunci.
+4. **Rilis klinis … (TTE)** (dokter Lab, `lab.result.release`) harus oleh orang lain dari validator teknis. Rilis
+   menerbitkan PDF ber-TTE dan event `micro.report_released`. Laporan akhir hanya setelah laporan awal dirilis.
+5. "Antibiogram kumulatif" menampilkan %S per organisme × antibiotik, dihitung dari isolat pertama per pasien pada
+   laporan akhir yang dirilis di periode itu (sumber PPRA).
+6. "Patologi anatomi" (dokter pemegang `lab.result.release`) memuat spesimen kamar operasi yang dikirim (4.7b).
+   Langkahnya: isi makroskopik, mikroskopik, diagnosis, dan ICD-10, lalu **Simpan laporan PA**, lalu
+   **Tandatangani laporan PA (TTE)**. Versi ber-TTE terkunci; perubahan lewat addendum.
 
 ## Diagnostik lain
 
@@ -755,9 +768,14 @@ ekspertise terstruktur per templat yang ditandatangani dokter pembaca. Temuan kr
 - Di mode presentasi dokter dan perawat sama-sama bisa menekan TTE atas nama dokter pembaca fiktif. Temuan kritis yang
   dicentang belum muncul di Pusat hasil kritis karena keadaan antarlayar tidak disimpan.
 
-**Rencana backend.** Izin rencana `diagnostic.write`. Fase 4 potongan 4.8 membangun modul `diagnostics`: order F3-1 +
-isian formulir P07 (lima formulir diseed) + lampiran P08 + TTE, event `diagnostic.report_signed`. Rencana menampilkan
-hasil S10 di panel hasil fase 3 (keputusan fase 4 #1), bukan layar sendiri. Di mode api layar hibrida (4.0c): peran berizin melihat "Belum tersambung" sampai potongan fase 4 layar ini tergabung.
+**Mode api (fase 4 · 4.8, ADR-0120).** Modul `diagnostics` (`/api/v1/diagnostics/*`). Layar `api-diagnostik.tsx`.
+
+1. "Order" memuat order ber-kode ICD-9-CM EKG (89.52), ekokardiografi (88.72), USG (88.7x), endoskopi (45.1x/45.2x),
+   dan treadmill (89.41–89.44).
+2. Dokter pelaksana (`diagnostics.write`) mengisi formulir P07 `diag_<jenis>` dan kesimpulan, lalu
+   **Simpan laporan**.
+3. **Tandatangani laporan (TTE)** (`diagnostics.sign`) menerbitkan event `diagnostic.report_signed`. Laporan muncul
+   di panel hasil fase 3.
 
 ## Tes yang menjaga layar ini
 

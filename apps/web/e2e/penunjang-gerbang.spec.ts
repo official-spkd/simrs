@@ -10,7 +10,7 @@ import { createAccount, loginAs } from './support/accounts';
  */
 
 /** Layar penunjang yang jalur api-nya sudah diisi (4.6a: Depo; 4.7: Kamar operasi; 4.9: Bank darah + Gizi, `gizi-bank-darah-api.spec.ts`). */
-const CONNECTED = new Set(['depo', 'ok', 'bank-darah', 'gizi']);
+const CONNECTED = new Set(['mikro', 'diagnostik', 'depo', 'ok', 'bank-darah', 'gizi']);
 
 const PERFORMERS: ReadonlyArray<{ role: string; screens: readonly string[] }> = [
   { role: 'analis_lab', screens: ['lab', 'mikro', 'bank-darah', 'kritis'] },
