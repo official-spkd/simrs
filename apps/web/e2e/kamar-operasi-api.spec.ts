@@ -37,9 +37,12 @@ test.afterEach(async () => {
   expect(errors).toEqual([]);
 });
 
-/** Tanggal acak 2033 (jadwal kamar tidak bertumpang tindih antar-run). */
+/**
+ * Tanggal acak 2033–2052 (jadwal kamar tidak bertumpang tindih antar-run; kasus tes tidak dibatalkan, jadi rentang 1
+ * tahun sempat bentrok setelah puluhan run di DB slot yang sama).
+ */
 function randomDate(): string {
-  const d = new Date(Date.UTC(2033, 0, 1) + Math.floor(Math.random() * 360) * 86_400_000);
+  const d = new Date(Date.UTC(2033, 0, 1) + Math.floor(Math.random() * 7300) * 86_400_000);
   return d.toISOString().slice(0, 10);
 }
 
